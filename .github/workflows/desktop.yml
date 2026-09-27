@@ -1,0 +1,52 @@
+name: Desktop (Electron)
+
+on:
+  push:
+    tags: ['v*']
+  pull_request:
+    paths:
+      - 'apps/desktop/**'
+      - 'apps/backend/**'
+      - 'apps/mobile/**'
+      - 'packages/**'
+      - '.github/workflows/desktop.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  HUSKY: 0
+  TURBO_TELEMETRY_DISABLED: 1
+
+jobs:
+  windows:
+    name: Instalador Windows (NSIS)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # El instalador lleva el backend, la PWA de meseros y el KDS: se compila todo.
+      - run: npm run build
+      - name: PostgreSQL 18 (pg_dump y pg_restore para los respaldos del instalador)
+        run: choco install postgresql18 --no-progress -y --params "/Password:solo-para-el-build"
+      - name: Empaquetar instalador
+        run: npm run release --workspace=@karbon/desktop
+        env:
+          PG_TOOLS_DIR: 'C:\Program Files\PostgreSQL\18\bin'
+          # La firma de código se configura en la fase de lanzamiento comercial.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+      - uses: actions/upload-artifact@v4
+        with:
+          name: karbon-pos-windows-${{ github.sha }}
+          path: apps/desktop/release/*.exe
+          if-no-files-found: error
+          retention-days: 14

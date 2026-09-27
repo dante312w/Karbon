@@ -1,0 +1,53 @@
+# Entorno de desarrollo / demostración: PostgreSQL + backend.
+#   docker compose up            → base de datos y API (http://localhost:3000/api/docs)
+#   docker compose up -d postgres → solo la base de datos (para `npm run dev`)
+# En producción el servidor se distribuye como instalador único (ver docs/DEPLOYMENT.md).
+
+name: karbon
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-karbon}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-karbon}
+      POSTGRES_DB: ${POSTGRES_DB:-karbon}
+      TZ: UTC
+    ports:
+      - '${POSTGRES_PORT:-55432}:5432'
+    # PostgreSQL 18 guarda los datos en un subdirectorio versionado de /var/lib/postgresql.
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      LOG_LEVEL: ${LOG_LEVEL:-log}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-karbon}:${POSTGRES_PASSWORD:-karbon}@postgres:5432/${POSTGRES_DB:-karbon}?schema=public
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
+      # Solo para este entorno: cámbialos antes de exponer el servidor a otros equipos.
+      JWT_SECRET: ${JWT_SECRET:-solo-para-docker-compose-cambiar-en-produccion}
+      SEED_ADMIN_USERNAME: ${SEED_ADMIN_USERNAME:-admin}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-KarbonDemo2026!}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
+    ports:
+      - '${BACKEND_PORT:-3000}:3000'
+
+volumes:
+  postgres-data:
