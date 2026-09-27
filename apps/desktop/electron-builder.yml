@@ -1,0 +1,55 @@
+# Empaquetado del instalador. `npm run release` arma primero `staging/` (backend, clientes web
+# y PostgreSQL embebido, ver scripts/stage-resources.ts) y electron-builder lo copia como
+# extraResources junto al ejecutable. Detalles en docs/DEPLOYMENT.md.
+appId: co.karbon.pos
+productName: Karbon POS
+copyright: Copyright © 2026 Karbon
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**
+  - dist-electron/**
+  - package.json
+  # El proceso principal va empaquetado sin dependencias en tiempo de ejecución; los binarios
+  # de PostgreSQL (dependencias opcionales) viajan en extraResources, no dentro del asar.
+  - '!node_modules/**'
+extraResources:
+  - from: staging/server
+    to: server
+  # electron-builder descarta el node_modules raíz de cada origen: se copia en una entrada aparte.
+  - from: staging/server/node_modules
+    to: server/node_modules
+  - from: staging/clients
+    to: clients
+  - from: staging/postgres
+    to: postgres
+  - from: staging/postgres-tools
+    to: postgres-tools
+  - from: build/icon.png
+    to: icon.png
+asar: true
+npmRebuild: false
+# Reutiliza el binario de Electron instalado (el mismo con el que se prueba) en lugar de
+# descargarlo y extraerlo de nuevo; la extracción falla en Windows con antivirus activo.
+electronDist: ../../node_modules/electron/dist
+win:
+  target:
+    - nsis
+  artifactName: Karbon-POS-Setup-${version}.${ext}
+nsis:
+  oneClick: false
+  perMachine: true
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  shortcutName: Karbon POS
+  # Regla de firewall para que celulares y tablets de la red privada lleguen al servidor.
+  include: build/installer.nsh
+linux:
+  target:
+    - AppImage
+  category: Office
+mac:
+  target:
+    - dmg
+  category: public.app-category.business
