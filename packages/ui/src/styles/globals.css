@@ -1,0 +1,171 @@
+@import 'tailwindcss';
+
+/* Las apps consumen este paquete desde node_modules, que Tailwind no escanea por defecto. */
+@source '..';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Tokens semánticos (convención shadcn/ui). Marca: violeta sobre neutros con un leve tinte morado
+ * (tono 295) y una superficie de marca morada oscura (barra lateral, pantallas de ingreso).
+ * Contrastes AA verificados: texto sobre fondo ≥ 17:1, texto secundario ≥ 5.4:1 y el texto de los
+ * botones primarios ≥ 5.7:1 en ambos temas. El verde queda solo para estados ("libre", "a tiempo").
+ */
+:root {
+  --radius: 0.75rem;
+
+  --background: oklch(0.99 0.005 300);
+  --foreground: oklch(0.2 0.035 295);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.2 0.035 295);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.2 0.035 295);
+  --primary: #7c3aed;
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.965 0.012 300);
+  --secondary-foreground: oklch(0.3 0.08 295);
+  --muted: oklch(0.965 0.012 300);
+  --muted-foreground: oklch(0.5 0.035 295);
+  --accent: oklch(0.95 0.03 300);
+  --accent-foreground: oklch(0.3 0.08 295);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.915 0.017 300);
+  --input: oklch(0.915 0.017 300);
+  --ring: #8b5cf6;
+
+  --brand: oklch(0.22 0.07 293);
+  --brand-foreground: oklch(0.97 0.01 300);
+
+  /* Estados de mesa: tono distinto por estado; la UI siempre acompaña el color con texto o ícono. */
+  --status-free: #22c55e;
+  --status-occupied: #3b82f6;
+  --status-waiting-food: #f59e0b;
+  --status-waiting-bill: #f43f5e;
+  --status-paid: #a1a1aa;
+  --status-reserved: #06b6d4;
+
+  /*
+   * Series de gráficos, en orden fijo (nunca cíclico). Validadas para daltonismo y contraste en
+   * cada tema: sin pares adyacentes confundibles, incluida la unión del último con el primero en
+   * los donuts.
+   */
+  --chart-1: #7c3aed;
+  --chart-2: #eb6834;
+  --chart-3: #1baf7a;
+  --chart-4: #eda100;
+  --chart-5: #e87ba4;
+  --chart-6: #008300;
+  --chart-7: #2a78d6;
+  --chart-8: #e34948;
+
+  /* Urgencia de comandas en el KDS. */
+  --urgency-normal: #22c55e;
+  --urgency-warning: #facc15;
+  --urgency-critical: #ef4444;
+
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 12px rgb(0 0 0 / 0.06);
+  --shadow-elevated: 0 2px 4px rgb(0 0 0 / 0.05), 0 12px 32px rgb(0 0 0 / 0.1);
+}
+
+.dark {
+  --background: oklch(0.16 0.025 295);
+  --foreground: oklch(0.97 0.008 300);
+  --card: oklch(0.205 0.03 295);
+  --card-foreground: oklch(0.97 0.008 300);
+  --popover: oklch(0.205 0.03 295);
+  --popover-foreground: oklch(0.97 0.008 300);
+  --primary: #a78bfa;
+  --primary-foreground: oklch(0.2 0.06 295);
+  --secondary: oklch(0.27 0.035 295);
+  --secondary-foreground: oklch(0.97 0.008 300);
+  --muted: oklch(0.27 0.035 295);
+  --muted-foreground: oklch(0.73 0.03 295);
+  --accent: oklch(0.3 0.05 295);
+  --accent-foreground: oklch(0.97 0.008 300);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: #a78bfa;
+
+  --brand: oklch(0.19 0.05 293);
+  --brand-foreground: oklch(0.97 0.01 300);
+
+  --chart-1: #9b7bf3;
+  --chart-2: #d95926;
+  --chart-3: #199e70;
+  --chart-4: #c98500;
+  --chart-5: #d55181;
+  --chart-6: #008300;
+  --chart-7: #3987e5;
+  --chart-8: #e66767;
+
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 12px rgb(0 0 0 / 0.35);
+  --shadow-elevated: 0 2px 4px rgb(0 0 0 / 0.35), 0 12px 32px rgb(0 0 0 / 0.5);
+}
+
+@theme inline {
+  /* Sin fuentes remotas: el sistema funciona sin internet. */
+  --font-sans:
+    ui-sans-serif, system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+
+  --color-status-free: var(--status-free);
+  --color-status-occupied: var(--status-occupied);
+  --color-status-waiting-food: var(--status-waiting-food);
+  --color-status-waiting-bill: var(--status-waiting-bill);
+  --color-status-paid: var(--status-paid);
+  --color-status-reserved: var(--status-reserved);
+
+  --color-urgency-normal: var(--urgency-normal);
+  --color-urgency-warning: var(--urgency-warning);
+  --color-urgency-critical: var(--urgency-critical);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --shadow-soft: var(--shadow-soft);
+  --shadow-elevated: var(--shadow-elevated);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+  }
+}
