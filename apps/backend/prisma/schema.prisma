@@ -1,0 +1,1042 @@
+// Karbon POS — modelo de datos.
+// Convenciones (ver docs/DATABASE.md):
+//   · Tablas y columnas en snake_case; modelos Prisma en PascalCase.
+//   · IDs UUID v7 (ordenables por tiempo, únicos entre sucursales para la futura sincronización).
+//   · Dinero en DECIMAL(14,2); la API lo expone en unidades menores (enteros).
+//   · Cantidades de inventario en DECIMAL(14,3) en la unidad de medida del insumo.
+//   · Fechas TIMESTAMPTZ(3) en UTC. Datos maestros con borrado lógico (deleted_at).
+//   · Los CHECK constraints viven en SQL dentro de las migraciones.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+  previewFeatures     = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Enums
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Modo de operación: en BAR la "cocina" es la barra y todas las comandas van a esa estación.
+enum BusinessMode {
+  RESTAURANT
+  BAR
+
+  @@map("business_mode")
+}
+
+enum TableStatus {
+  FREE
+  OCCUPIED
+  WAITING_FOOD
+  WAITING_BILL
+  PAID
+  RESERVED
+
+  @@map("table_status")
+}
+
+enum TableShape {
+  SQUARE
+  ROUND
+  RECTANGLE
+
+  @@map("table_shape")
+}
+
+/// Elementos fijos del plano del salón (no son mesas).
+enum FloorElementKind {
+  BAR
+  KITCHEN
+  RESTROOM
+  ENTRANCE
+  CASHIER
+  WALL
+
+  @@map("floor_element_kind")
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  SEATED
+  CANCELLED
+  NO_SHOW
+
+  @@map("reservation_status")
+}
+
+enum OrderType {
+  DINE_IN
+  TAKEAWAY
+  DELIVERY
+
+  @@map("order_type")
+}
+
+enum OrderStatus {
+  OPEN
+  BILL_REQUESTED
+  PAID
+  CANCELLED
+
+  @@map("order_status")
+}
+
+enum OrderItemStatus {
+  PENDING
+  SENT
+  CANCELLED
+
+  @@map("order_item_status")
+}
+
+enum KitchenStation {
+  KITCHEN
+  BAR
+
+  @@map("kitchen_station")
+}
+
+enum KitchenTicketStatus {
+  NEW
+  PREPARING
+  READY
+  DELIVERED
+  CANCELLED
+
+  @@map("kitchen_ticket_status")
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  TRANSFER
+  QR
+
+  @@map("payment_method")
+}
+
+enum PaymentStatus {
+  COMPLETED
+  VOIDED
+
+  @@map("payment_status")
+}
+
+enum CashSessionStatus {
+  OPEN
+  CLOSED
+
+  @@map("cash_session_status")
+}
+
+enum CashMovementType {
+  INCOME
+  WITHDRAWAL
+
+  @@map("cash_movement_type")
+}
+
+enum MeasureUnit {
+  UNIT
+  GRAM
+  KILOGRAM
+  MILLILITER
+  LITER
+
+  @@map("measure_unit")
+}
+
+enum InventoryMovementType {
+  PURCHASE
+  ENTRY
+  EXIT
+  WASTE
+  SALE
+  SALE_REVERSAL
+  ADJUSTMENT
+
+  @@map("inventory_movement_type")
+}
+
+enum PurchaseStatus {
+  DRAFT
+  RECEIVED
+  CANCELLED
+
+  @@map("purchase_status")
+}
+
+enum TaxKind {
+  VAT
+  CONSUMPTION
+  OTHER
+
+  @@map("tax_kind")
+}
+
+enum IdentityDocumentType {
+  CC
+  NIT
+  CE
+  TI
+  PASSPORT
+  FOREIGN_ID
+
+  @@map("identity_document_type")
+}
+
+enum FiscalDocumentType {
+  RECEIPT
+  POS_EQUIVALENT
+  INVOICE
+  ELECTRONIC_INVOICE
+  CREDIT_NOTE
+
+  @@map("fiscal_document_type")
+}
+
+enum InvoiceStatus {
+  ISSUED
+  PENDING_SUBMISSION
+  ACCEPTED
+  REJECTED
+  VOIDED
+
+  @@map("invoice_status")
+}
+
+enum PrinterKind {
+  THERMAL
+  STANDARD
+
+  @@map("printer_kind")
+}
+
+enum PrinterConnection {
+  USB
+  NETWORK
+  SYSTEM
+
+  @@map("printer_connection")
+}
+
+enum PrinterPurpose {
+  RECEIPT
+  KITCHEN
+  BAR
+  DOCUMENT
+
+  @@map("printer_purpose")
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Seguridad y acceso
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Rol RBAC. `permissions` guarda códigos `recurso:acción` definidos en @karbon/types.
+model Role {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  code        String   @unique @db.VarChar(40)
+  name        String   @db.VarChar(80)
+  description String?  @db.VarChar(255)
+  permissions String[] @default([])
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  users User[]
+
+  @@map("roles")
+}
+
+model User {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  roleId       String    @map("role_id") @db.Uuid
+  name         String    @db.VarChar(120)
+  username     String    @unique @db.VarChar(60)
+  email        String?   @unique @db.VarChar(160)
+  passwordHash String    @map("password_hash") @db.VarChar(255)
+  /// PIN para ingreso rápido en terminales compartidas (se elige el usuario y luego el PIN).
+  pinHash      String?   @map("pin_hash") @db.VarChar(255)
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  role                Role                @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  refreshTokens       RefreshToken[]
+  auditLogs           AuditLog[]
+  ordersServed        Order[]             @relation("OrderWaiter")
+  ordersCancelled     Order[]             @relation("OrderCancelledBy")
+  orderItemsCancelled OrderItem[]         @relation("OrderItemCancelledBy")
+  paymentsReceived    Payment[]           @relation("PaymentReceivedBy")
+  paymentsVoided      Payment[]           @relation("PaymentVoidedBy")
+  cashSessionsOpened  CashSession[]       @relation("CashSessionOpenedBy")
+  cashSessionsClosed  CashSession[]       @relation("CashSessionClosedBy")
+  cashMovements       CashMovement[]
+  expenses            Expense[]
+  inventoryMovements  InventoryMovement[]
+  purchases           Purchase[]
+  invoicesIssued      Invoice[]
+  reservationsCreated Reservation[]
+
+  @@index([roleId])
+  @@map("users")
+}
+
+/// Refresh tokens con rotación: cada uso crea uno nuevo en la misma familia. Reusar uno
+/// ya rotado revoca toda la familia (detección de robo de token).
+model RefreshToken {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  familyId     String    @map("family_id") @db.Uuid
+  tokenHash    String    @unique @map("token_hash") @db.VarChar(128)
+  deviceName   String?   @map("device_name") @db.VarChar(120)
+  userAgent    String?   @map("user_agent") @db.VarChar(255)
+  ipAddress    String?   @map("ip_address") @db.VarChar(45)
+  expiresAt    DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt    DateTime? @map("revoked_at") @db.Timestamptz(3)
+  replacedById String?   @map("replaced_by_id") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+/// Bitácora de acciones sensibles (anulaciones, descuentos, cierres de caja, cambios de permisos).
+model AuditLog {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String?  @map("user_id") @db.Uuid
+  action    String   @db.VarChar(80)
+  entity    String   @db.VarChar(60)
+  entityId  String?  @map("entity_id") @db.VarChar(64)
+  metadata  Json?
+  ipAddress String?  @map("ip_address") @db.VarChar(45)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId])
+  @@index([userId, createdAt])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Configuración del restaurante
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Fila única (id = 1, garantizado por CHECK). Todo lo editable desde el panel sin tocar código.
+model RestaurantSettings {
+  id                 Int          @id @default(1)
+  /// Identidad de esta instalación; clave para la futura sincronización multi-sucursal.
+  branchId           String       @unique @default(uuid(7)) @map("branch_id") @db.Uuid
+  name               String       @db.VarChar(120)
+  legalName          String?      @map("legal_name") @db.VarChar(160)
+  taxId              String?      @map("tax_id") @db.VarChar(30)
+  address            String?      @db.VarChar(255)
+  city               String?      @db.VarChar(80)
+  phone              String?      @db.VarChar(30)
+  email              String?      @db.VarChar(160)
+  logoPath           String?      @map("logo_path") @db.VarChar(255)
+  currency           String       @default("COP") @db.Char(3)
+  locale             String       @default("es-CO") @db.VarChar(10)
+  timezone           String       @default("America/Bogota") @db.VarChar(50)
+  pricesIncludeTax   Boolean      @default(true) @map("prices_include_tax")
+  tipEnabled         Boolean      @default(true) @map("tip_enabled")
+  tipPercent         Decimal      @default(10) @map("tip_percent") @db.Decimal(5, 2)
+  /// Lista de OpeningHoursSlot (@karbon/types).
+  openingHours       Json         @default("[]") @map("opening_hours")
+  receiptFooter      String?      @map("receipt_footer") @db.VarChar(500)
+  kdsWarningMinutes  Int          @default(10) @map("kds_warning_minutes")
+  kdsCriticalMinutes Int          @default(20) @map("kds_critical_minutes")
+  businessMode       BusinessMode @default(RESTAURANT) @map("business_mode")
+  /// Encabezado adicional del comprobante (plantilla configurable).
+  receiptHeader      String?      @map("receipt_header") @db.VarChar(500)
+  /// Licencia firmada del negocio (ver módulo de licenciamiento).
+  licenseKey         String?      @map("license_key")
+  /// Fin del asistente de primer arranque; null = instalación nueva.
+  setupCompletedAt   DateTime?    @map("setup_completed_at") @db.Timestamptz(3)
+  updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("restaurant_settings")
+}
+
+model Tax {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  name      String   @db.VarChar(60)
+  kind      TaxKind
+  /// Porcentaje en base 100: 8.00 = 8 %.
+  rate      Decimal  @db.Decimal(5, 2)
+  isDefault Boolean  @default(false) @map("is_default")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  products Product[]
+
+  @@map("taxes")
+}
+
+model Printer {
+  id           String            @id @default(uuid(7)) @db.Uuid
+  name         String            @db.VarChar(80)
+  kind         PrinterKind
+  connection   PrinterConnection
+  /// IP:puerto, ruta del dispositivo USB o nombre de la impresora del sistema operativo.
+  address      String?           @db.VarChar(255)
+  paperWidthMm Int               @default(80) @map("paper_width_mm")
+  purposes     PrinterPurpose[]
+  isActive     Boolean           @default(true) @map("is_active")
+  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("printers")
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Salón: áreas, mesas y reservas
+// ════════════════════════════════════════════════════════════════════════════
+
+model Area {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  name      String   @unique @db.VarChar(60)
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tables   DiningTable[]
+  elements FloorElement[]
+
+  @@map("areas")
+}
+
+/// Barra, cocina, baños, entrada… dibujados en el plano con la misma grilla que las mesas.
+model FloorElement {
+  id        String           @id @default(uuid(7)) @db.Uuid
+  areaId    String           @map("area_id") @db.Uuid
+  kind      FloorElementKind
+  /// Texto propio (p. ej. "Baños mujeres"); vacío = nombre del tipo.
+  label     String?          @db.VarChar(40)
+  posX      Int              @default(0) @map("pos_x")
+  posY      Int              @default(0) @map("pos_y")
+  width     Int              @default(1)
+  height    Int              @default(1)
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  area Area @relation(fields: [areaId], references: [id], onDelete: Cascade)
+
+  @@index([areaId])
+  @@map("floor_elements")
+}
+
+model DiningTable {
+  id           String      @id @default(uuid(7)) @db.Uuid
+  areaId       String      @map("area_id") @db.Uuid
+  name         String      @db.VarChar(20)
+  capacity     Int         @default(4)
+  status       TableStatus @default(FREE)
+  shape        TableShape  @default(SQUARE)
+  /// Posición y tamaño en la grilla del mapa visual de mesas.
+  posX         Int         @default(0) @map("pos_x")
+  posY         Int         @default(0) @map("pos_y")
+  width        Int         @default(1)
+  height       Int         @default(1)
+  /// Mesa principal cuando varias mesas se unen; el pedido vive en la principal.
+  mergedIntoId String?     @map("merged_into_id") @db.Uuid
+  /// Token aleatorio (v4, no predecible) para el futuro QR de menú en la mesa.
+  qrToken      String      @unique @default(uuid(4)) @map("qr_token") @db.Uuid
+  isActive     Boolean     @default(true) @map("is_active")
+  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime?   @map("deleted_at") @db.Timestamptz(3)
+
+  area         Area          @relation(fields: [areaId], references: [id], onDelete: Restrict)
+  mergedInto   DiningTable?  @relation("TableMerge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
+  mergedTables DiningTable[] @relation("TableMerge")
+  orders       Order[]
+  reservations Reservation[]
+
+  @@unique([areaId, name])
+  @@index([status])
+  @@index([mergedIntoId])
+  @@map("tables")
+}
+
+model Reservation {
+  id              String            @id @default(uuid(7)) @db.Uuid
+  tableId         String?           @map("table_id") @db.Uuid
+  customerId      String?           @map("customer_id") @db.Uuid
+  createdById     String?           @map("created_by_id") @db.Uuid
+  customerName    String            @map("customer_name") @db.VarChar(120)
+  phone           String?           @db.VarChar(30)
+  partySize       Int               @map("party_size")
+  reservedFor     DateTime          @map("reserved_for") @db.Timestamptz(3)
+  durationMinutes Int               @default(90) @map("duration_minutes")
+  status          ReservationStatus @default(PENDING)
+  notes           String?           @db.VarChar(500)
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  table     DiningTable? @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  customer  Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  createdBy User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([reservedFor])
+  @@index([tableId, reservedFor])
+  @@map("reservations")
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Catálogo
+// ════════════════════════════════════════════════════════════════════════════
+
+model Category {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  parentId    String?   @map("parent_id") @db.Uuid
+  name        String    @db.VarChar(80)
+  description String?   @db.VarChar(255)
+  color       String?   @db.VarChar(9)
+  icon        String?   @db.VarChar(40)
+  sortOrder   Int       @default(0) @map("sort_order")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children Category[] @relation("CategoryTree")
+  products Product[]
+
+  @@index([parentId, sortOrder])
+  @@map("categories")
+}
+
+model Product {
+  id             String         @id @default(uuid(7)) @db.Uuid
+  categoryId     String         @map("category_id") @db.Uuid
+  taxId          String?        @map("tax_id") @db.Uuid
+  sku            String?        @unique @db.VarChar(40)
+  barcode        String?        @unique @db.VarChar(60)
+  name           String         @db.VarChar(120)
+  description    String?        @db.VarChar(500)
+  price          Decimal        @db.Decimal(14, 2)
+  /// Costo teórico por receta; se recalcula cuando cambia el costo de los insumos.
+  cost           Decimal        @default(0) @db.Decimal(14, 2)
+  imagePath      String?        @map("image_path") @db.VarChar(255)
+  station        KitchenStation @default(KITCHEN)
+  sendToKitchen  Boolean        @default(true) @map("send_to_kitchen")
+  /// Si es true, cada venta descuenta los insumos de su receta.
+  trackInventory Boolean        @default(true) @map("track_inventory")
+  /// false = agotado temporalmente (sigue activo en la carta).
+  isAvailable    Boolean        @default(true) @map("is_available")
+  isActive       Boolean        @default(true) @map("is_active")
+  sortOrder      Int            @default(0) @map("sort_order")
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt      DateTime?      @map("deleted_at") @db.Timestamptz(3)
+
+  category    Category     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  tax         Tax?         @relation(fields: [taxId], references: [id], onDelete: SetNull)
+  recipeItems RecipeItem[]
+  orderItems  OrderItem[]
+
+  @@index([categoryId, sortOrder])
+  @@index([name])
+  @@map("products")
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Inventario
+// ════════════════════════════════════════════════════════════════════════════
+
+model Ingredient {
+  id          String      @id @default(uuid(7)) @db.Uuid
+  sku         String?     @unique @db.VarChar(40)
+  name        String      @db.VarChar(120)
+  unit        MeasureUnit
+  /// Saldo actual; siempre igual al balance_after del último movimiento (kardex).
+  stock       Decimal     @default(0) @db.Decimal(14, 3)
+  minStock    Decimal     @default(0) @map("min_stock") @db.Decimal(14, 3)
+  /// Costo promedio ponderado por unidad de medida.
+  averageCost Decimal     @default(0) @map("average_cost") @db.Decimal(14, 4)
+  lastCost    Decimal     @default(0) @map("last_cost") @db.Decimal(14, 4)
+  isActive    Boolean     @default(true) @map("is_active")
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime?   @map("deleted_at") @db.Timestamptz(3)
+
+  recipeItems   RecipeItem[]
+  movements     InventoryMovement[]
+  purchaseItems PurchaseItem[]
+
+  @@index([name])
+  @@map("ingredients")
+}
+
+/// Línea de receta: cantidad de insumo que consume UNA unidad vendida del producto.
+model RecipeItem {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  productId    String   @map("product_id") @db.Uuid
+  ingredientId String   @map("ingredient_id") @db.Uuid
+  quantity     Decimal  @db.Decimal(14, 3)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  product    Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+
+  @@unique([productId, ingredientId])
+  @@index([ingredientId])
+  @@map("recipes")
+}
+
+/// Kardex: registro inmutable. `quantity` lleva signo (+ entra, − sale).
+model InventoryMovement {
+  id           String                @id @default(uuid(7)) @db.Uuid
+  ingredientId String                @map("ingredient_id") @db.Uuid
+  type         InventoryMovementType
+  quantity     Decimal               @db.Decimal(14, 3)
+  balanceAfter Decimal               @map("balance_after") @db.Decimal(14, 3)
+  unitCost     Decimal?              @map("unit_cost") @db.Decimal(14, 4)
+  reason       String?               @db.VarChar(255)
+  orderId      String?               @map("order_id") @db.Uuid
+  purchaseId   String?               @map("purchase_id") @db.Uuid
+  userId       String?               @map("user_id") @db.Uuid
+  createdAt    DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+  order      Order?     @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  purchase   Purchase?  @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
+  user       User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([ingredientId, createdAt])
+  @@index([type, createdAt])
+  @@index([orderId])
+  @@index([purchaseId])
+  @@map("inventory_movements")
+}
+
+model Supplier {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  name        String    @db.VarChar(120)
+  taxId       String?   @map("tax_id") @db.VarChar(30)
+  contactName String?   @map("contact_name") @db.VarChar(120)
+  phone       String?   @db.VarChar(30)
+  email       String?   @db.VarChar(160)
+  address     String?   @db.VarChar(255)
+  notes       String?   @db.VarChar(500)
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  purchases Purchase[]
+  expenses  Expense[]
+
+  @@index([name])
+  @@map("suppliers")
+}
+
+model Purchase {
+  id                    String         @id @default(uuid(7)) @db.Uuid
+  supplierId            String         @map("supplier_id") @db.Uuid
+  userId                String         @map("user_id") @db.Uuid
+  status                PurchaseStatus @default(DRAFT)
+  supplierInvoiceNumber String?        @map("supplier_invoice_number") @db.VarChar(40)
+  purchasedAt           DateTime       @default(now()) @map("purchased_at") @db.Timestamptz(3)
+  receivedAt            DateTime?      @map("received_at") @db.Timestamptz(3)
+  subtotal              Decimal        @default(0) @db.Decimal(14, 2)
+  taxTotal              Decimal        @default(0) @map("tax_total") @db.Decimal(14, 2)
+  total                 Decimal        @default(0) @db.Decimal(14, 2)
+  notes                 String?        @db.VarChar(500)
+  createdAt             DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  supplier  Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  user      User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  items     PurchaseItem[]
+  movements InventoryMovement[]
+
+  @@index([supplierId, purchasedAt])
+  @@index([status])
+  @@map("purchases")
+}
+
+model PurchaseItem {
+  id           String  @id @default(uuid(7)) @db.Uuid
+  purchaseId   String  @map("purchase_id") @db.Uuid
+  ingredientId String  @map("ingredient_id") @db.Uuid
+  quantity     Decimal @db.Decimal(14, 3)
+  unitCost     Decimal @map("unit_cost") @db.Decimal(14, 4)
+  total        Decimal @db.Decimal(14, 2)
+
+  purchase   Purchase   @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+
+  @@index([purchaseId])
+  @@index([ingredientId])
+  @@map("purchase_items")
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Clientes
+// ════════════════════════════════════════════════════════════════════════════
+
+model Customer {
+  id             String                @id @default(uuid(7)) @db.Uuid
+  name           String                @db.VarChar(120)
+  phone          String?               @db.VarChar(30)
+  email          String?               @db.VarChar(160)
+  documentType   IdentityDocumentType? @map("document_type")
+  documentNumber String?               @map("document_number") @db.VarChar(30)
+  birthday       DateTime?             @db.Date
+  address        String?               @db.VarChar(255)
+  notes          String?               @db.VarChar(500)
+  /// Contadores desnormalizados que se actualizan al cobrar; el detalle sale de `orders`.
+  visitsCount    Int                   @default(0) @map("visits_count")
+  totalSpent     Decimal               @default(0) @map("total_spent") @db.Decimal(14, 2)
+  lastVisitAt    DateTime?             @map("last_visit_at") @db.Timestamptz(3)
+  createdAt      DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt      DateTime?             @map("deleted_at") @db.Timestamptz(3)
+
+  orders       Order[]
+  invoices     Invoice[]
+  reservations Reservation[]
+
+  @@unique([documentType, documentNumber])
+  @@index([phone])
+  @@index([name])
+  @@map("customers")
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Pedidos y cocina
+// ════════════════════════════════════════════════════════════════════════════
+
+model Order {
+  id              String      @id @default(uuid(7)) @db.Uuid
+  /// Consecutivo legible (#1234) único en esta sucursal.
+  number          Int         @unique @default(autoincrement())
+  type            OrderType   @default(DINE_IN)
+  status          OrderStatus @default(OPEN)
+  tableId         String?     @map("table_id") @db.Uuid
+  waiterId        String      @map("waiter_id") @db.Uuid
+  customerId      String?     @map("customer_id") @db.Uuid
+  /// Sesión de caja en la que se completó el cobro.
+  cashSessionId   String?     @map("cash_session_id") @db.Uuid
+  /// Pedido de origen cuando la cuenta se divide por ítems.
+  splitFromId     String?     @map("split_from_id") @db.Uuid
+  guests          Int?
+  /// Nombre de la cuenta cuando no hay mesa (cuenta abierta en barra, pedido para llevar).
+  label           String?     @db.VarChar(60)
+  notes           String?     @db.VarChar(500)
+  subtotal        Decimal     @default(0) @db.Decimal(14, 2)
+  discountTotal   Decimal     @default(0) @map("discount_total") @db.Decimal(14, 2)
+  taxTotal        Decimal     @default(0) @map("tax_total") @db.Decimal(14, 2)
+  tipAmount       Decimal     @default(0) @map("tip_amount") @db.Decimal(14, 2)
+  /// Propina aplicada al pedido (se inicializa desde la configuración; el cajero puede cambiarla).
+  tipPercent      Decimal     @default(0) @map("tip_percent") @db.Decimal(5, 2)
+  total           Decimal     @default(0) @db.Decimal(14, 2)
+  /// Concurrencia optimista: dos terminales no pueden pisar la misma versión del pedido.
+  version         Int         @default(0)
+  billRequestedAt DateTime?   @map("bill_requested_at") @db.Timestamptz(3)
+  closedAt        DateTime?   @map("closed_at") @db.Timestamptz(3)
+  cancelledAt     DateTime?   @map("cancelled_at") @db.Timestamptz(3)
+  cancelReason    String?     @map("cancel_reason") @db.VarChar(255)
+  cancelledById   String?     @map("cancelled_by_id") @db.Uuid
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  table              DiningTable?        @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  waiter             User                @relation("OrderWaiter", fields: [waiterId], references: [id], onDelete: Restrict)
+  cancelledBy        User?               @relation("OrderCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
+  customer           Customer?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  cashSession        CashSession?        @relation(fields: [cashSessionId], references: [id], onDelete: SetNull)
+  splitFrom          Order?              @relation("OrderSplit", fields: [splitFromId], references: [id], onDelete: SetNull)
+  splits             Order[]             @relation("OrderSplit")
+  items              OrderItem[]
+  tickets            KitchenTicket[]
+  payments           Payment[]
+  invoices           Invoice[]
+  inventoryMovements InventoryMovement[]
+
+  @@index([status, createdAt])
+  @@index([tableId, status])
+  @@index([waiterId, createdAt])
+  @@index([customerId])
+  @@index([cashSessionId])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id            String          @id @default(uuid(7)) @db.Uuid
+  orderId       String          @map("order_id") @db.Uuid
+  productId     String          @map("product_id") @db.Uuid
+  ticketId      String?         @map("ticket_id") @db.Uuid
+  status        OrderItemStatus @default(PENDING)
+  /// Nombre, precio y tarifa congelados al momento de la venta.
+  productName   String          @map("product_name") @db.VarChar(120)
+  unitPrice     Decimal         @map("unit_price") @db.Decimal(14, 2)
+  quantity      Int
+  taxRate       Decimal         @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  /// Costo teórico unitario congelado al vender, para la utilidad histórica.
+  unitCost      Decimal         @default(0) @map("unit_cost") @db.Decimal(14, 2)
+  discount      Decimal         @default(0) @db.Decimal(14, 2)
+  total         Decimal         @db.Decimal(14, 2)
+  /// Instrucciones para cocina: "sin cebolla, extra queso".
+  notes         String?         @db.VarChar(255)
+  sortOrder     Int             @default(0) @map("sort_order")
+  cancelledAt   DateTime?       @map("cancelled_at") @db.Timestamptz(3)
+  cancelReason  String?         @map("cancel_reason") @db.VarChar(255)
+  cancelledById String?         @map("cancelled_by_id") @db.Uuid
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  order       Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product        @relation(fields: [productId], references: [id], onDelete: Restrict)
+  ticket      KitchenTicket? @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+  cancelledBy User?          @relation("OrderItemCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
+
+  @@index([orderId, sortOrder])
+  @@index([productId, createdAt])
+  @@index([ticketId])
+  @@map("order_items")
+}
+
+/// Comanda: cada "enviar a cocina" genera una por estación con los ítems pendientes.
+/// El KDS mueve comandas por NEW → PREPARING → READY → DELIVERED.
+model KitchenTicket {
+  id          String              @id @default(uuid(7)) @db.Uuid
+  orderId     String              @map("order_id") @db.Uuid
+  /// Ronda de envío dentro del pedido (1, 2, 3…).
+  sequence    Int
+  station     KitchenStation
+  status      KitchenTicketStatus @default(NEW)
+  notes       String?             @db.VarChar(255)
+  createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  startedAt   DateTime?           @map("started_at") @db.Timestamptz(3)
+  readyAt     DateTime?           @map("ready_at") @db.Timestamptz(3)
+  deliveredAt DateTime?           @map("delivered_at") @db.Timestamptz(3)
+  cancelledAt DateTime?           @map("cancelled_at") @db.Timestamptz(3)
+  updatedAt   DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  order Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  items OrderItem[]
+
+  @@unique([orderId, sequence, station])
+  @@index([station, status, createdAt])
+  @@index([status, createdAt])
+  @@map("kitchen_tickets")
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Caja y pagos
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Turno de caja. Un índice parcial único garantiza una sola sesión abierta a la vez.
+model CashSession {
+  id            String            @id @default(uuid(7)) @db.Uuid
+  openedById    String            @map("opened_by_id") @db.Uuid
+  closedById    String?           @map("closed_by_id") @db.Uuid
+  status        CashSessionStatus @default(OPEN)
+  openingAmount Decimal           @map("opening_amount") @db.Decimal(14, 2)
+  /// Al cierre: base + efectivo cobrado + ingresos − retiros − gastos pagados con caja.
+  expectedCash  Decimal?          @map("expected_cash") @db.Decimal(14, 2)
+  countedCash   Decimal?          @map("counted_cash") @db.Decimal(14, 2)
+  /// contado − esperado (negativo = faltante).
+  difference    Decimal?          @db.Decimal(14, 2)
+  notes         String?           @db.VarChar(500)
+  openedAt      DateTime          @default(now()) @map("opened_at") @db.Timestamptz(3)
+  closedAt      DateTime?         @map("closed_at") @db.Timestamptz(3)
+  updatedAt     DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  openedBy  User           @relation("CashSessionOpenedBy", fields: [openedById], references: [id], onDelete: Restrict)
+  closedBy  User?          @relation("CashSessionClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
+  payments  Payment[]
+  orders    Order[]
+  movements CashMovement[]
+  expenses  Expense[]
+
+  @@unique([status], map: "cash_sessions_single_open_key", where: raw("status = 'OPEN'"))
+  @@index([openedAt])
+  @@map("cash_sessions")
+}
+
+/// Un pedido puede tener varios pagos: así se modelan el pago mixto y la cuenta dividida.
+model Payment {
+  id            String        @id @default(uuid(7)) @db.Uuid
+  orderId       String        @map("order_id") @db.Uuid
+  cashSessionId String        @map("cash_session_id") @db.Uuid
+  receivedById  String        @map("received_by_id") @db.Uuid
+  method        PaymentMethod
+  status        PaymentStatus @default(COMPLETED)
+  amount        Decimal       @db.Decimal(14, 2)
+  /// Solo efectivo: lo que entregó el cliente y el cambio devuelto.
+  tendered      Decimal?      @db.Decimal(14, 2)
+  change        Decimal?      @db.Decimal(14, 2)
+  /// Número de voucher, referencia de transferencia o de QR.
+  reference     String?       @db.VarChar(80)
+  voidedAt      DateTime?     @map("voided_at") @db.Timestamptz(3)
+  voidReason    String?       @map("void_reason") @db.VarChar(255)
+  voidedById    String?       @map("voided_by_id") @db.Uuid
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  order       Order       @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  cashSession CashSession @relation(fields: [cashSessionId], references: [id], onDelete: Restrict)
+  receivedBy  User        @relation("PaymentReceivedBy", fields: [receivedById], references: [id], onDelete: Restrict)
+  voidedBy    User?       @relation("PaymentVoidedBy", fields: [voidedById], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([cashSessionId, method])
+  @@index([createdAt])
+  @@map("payments")
+}
+
+/// Movimientos de efectivo que no son ventas ni gastos: base adicional o retiros parciales.
+model CashMovement {
+  id            String           @id @default(uuid(7)) @db.Uuid
+  cashSessionId String           @map("cash_session_id") @db.Uuid
+  userId        String           @map("user_id") @db.Uuid
+  type          CashMovementType
+  amount        Decimal          @db.Decimal(14, 2)
+  description   String           @db.VarChar(255)
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  cashSession CashSession @relation(fields: [cashSessionId], references: [id], onDelete: Restrict)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([cashSessionId])
+  @@map("cash_movements")
+}
+
+/// Gastos del negocio. Si se pagaron con efectivo de la caja abierta, llevan su sesión.
+model Expense {
+  id            String        @id @default(uuid(7)) @db.Uuid
+  category      String        @db.VarChar(60)
+  description   String        @db.VarChar(255)
+  amount        Decimal       @db.Decimal(14, 2)
+  paymentMethod PaymentMethod @map("payment_method")
+  supplierId    String?       @map("supplier_id") @db.Uuid
+  cashSessionId String?       @map("cash_session_id") @db.Uuid
+  userId        String        @map("user_id") @db.Uuid
+  reference     String?       @db.VarChar(80)
+  incurredAt    DateTime      @default(now()) @map("incurred_at") @db.Timestamptz(3)
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  supplier    Supplier?    @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  cashSession CashSession? @relation(fields: [cashSessionId], references: [id], onDelete: Restrict)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([incurredAt])
+  @@index([cashSessionId])
+  @@index([category])
+  @@map("expenses")
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Facturación (núcleo agnóstico del proveedor fiscal)
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Rangos de numeración autorizados (p. ej. resoluciones DIAN) o consecutivos internos.
+model NumberingRange {
+  id               String             @id @default(uuid(7)) @db.Uuid
+  documentType     FiscalDocumentType @map("document_type")
+  prefix           String             @db.VarChar(10)
+  rangeFrom        Int                @map("range_from")
+  rangeTo          Int                @map("range_to")
+  nextNumber       Int                @map("next_number")
+  resolutionNumber String?            @map("resolution_number") @db.VarChar(40)
+  resolutionDate   DateTime?          @map("resolution_date") @db.Date
+  validFrom        DateTime?          @map("valid_from") @db.Date
+  validUntil       DateTime?          @map("valid_until") @db.Date
+  /// Credencial del proveedor fiscal (clave técnica DIAN). Nunca se expone por la API.
+  technicalKey     String?            @map("technical_key") @db.VarChar(120)
+  isActive         Boolean            @default(true) @map("is_active")
+  createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  invoices Invoice[]
+
+  @@index([documentType, isActive])
+  @@map("numbering_ranges")
+}
+
+model Invoice {
+  id               String             @id @default(uuid(7)) @db.Uuid
+  orderId          String             @map("order_id") @db.Uuid
+  customerId       String?            @map("customer_id") @db.Uuid
+  numberingRangeId String             @map("numbering_range_id") @db.Uuid
+  issuedById       String             @map("issued_by_id") @db.Uuid
+  documentType     FiscalDocumentType @map("document_type")
+  status           InvoiceStatus      @default(ISSUED)
+  prefix           String             @db.VarChar(10)
+  number           Int
+  subtotal         Decimal            @db.Decimal(14, 2)
+  taxTotal         Decimal            @map("tax_total") @db.Decimal(14, 2)
+  tipAmount        Decimal            @default(0) @map("tip_amount") @db.Decimal(14, 2)
+  total            Decimal            @db.Decimal(14, 2)
+  currency         String             @db.Char(3)
+  /// Lista de TaxBreakdownLine (@karbon/types) congelada al emitir.
+  taxBreakdown     Json               @default("[]") @map("tax_breakdown")
+  /// Adaptador que emitió el documento: "local", o el proveedor de facturación electrónica.
+  provider         String             @default("local") @db.VarChar(40)
+  externalId       String?            @map("external_id") @db.VarChar(120)
+  /// Código de autorización fiscal (CUFE/CUDE en Colombia).
+  fiscalCode       String?            @map("fiscal_code") @db.VarChar(120)
+  qrData           String?            @map("qr_data")
+  providerResponse Json?              @map("provider_response")
+  issuedAt         DateTime           @default(now()) @map("issued_at") @db.Timestamptz(3)
+  voidedAt         DateTime?          @map("voided_at") @db.Timestamptz(3)
+  createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  order          Order          @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  customer       Customer?      @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  numberingRange NumberingRange @relation(fields: [numberingRangeId], references: [id], onDelete: Restrict)
+  issuedBy       User           @relation(fields: [issuedById], references: [id], onDelete: Restrict)
+
+  @@unique([prefix, number])
+  @@index([orderId])
+  @@index([issuedAt])
+  @@index([status])
+  @@map("invoices")
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Infraestructura
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Respuestas de operaciones idempotentes (enviar a cocina, pagos, pedidos offline).
+/// Reintentar con la misma clave devuelve la respuesta original sin repetir la operación.
+model IdempotencyKey {
+  key        String   @db.VarChar(100)
+  userId     String   @map("user_id") @db.Uuid
+  route      String   @db.VarChar(200)
+  /// null mientras la operación original está en curso.
+  statusCode Int?     @map("status_code")
+  response   Json?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@id([userId, key])
+  @@index([createdAt])
+  @@map("idempotency_keys")
+}
