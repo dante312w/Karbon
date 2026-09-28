@@ -88,8 +88,10 @@ Todas las rutas cuelgan de `/api/v1`. "Público" = sin token; "autenticado" = cu
 | `GET/POST /areas` · `PATCH/DELETE /areas/:id` (cada área incluye sus `elements` del plano)                   | `tables:read` / `tables:write`             |
 | `POST /areas/:id/elements` · `PATCH/DELETE /floor-elements/:id` (barra, cocina, baños, entrada, caja, pared) | `tables:write`                             |
 | `GET/POST /tables` · `GET/PATCH/DELETE /tables/:id`                                                          | `tables:read` / `tables:write`             |
-| `POST /tables/:id/merge` · `POST /tables/:id/unmerge` · `PATCH /tables/:id/status`                           | `tables:operate`                           |
+| `POST /tables/:id/merge` · `POST /tables/:id/unmerge` · `PATCH /tables/:id/status`                           | `tables:operate` (+ propiedad, ver abajo)  |
 | `GET/POST /reservations` · `PATCH/DELETE /reservations/:id`                                                  | `reservations:read` / `reservations:write` |
+
+**Unir mesas** acepta mesas libres u ocupadas: las cuentas abiertas de las mesas que se unen pasan a la principal como cuentas separadas, con sus productos, notas, mesero, comandas (enviadas o ya preparadas), pagos parciales y divisiones; su `version` sube. Si una mesa unida tenía otras unidas, todas quedan con la principal. **Separar** libera las mesas unidas y deja las cuentas en la principal. En ambos casos hay que poder operar cada cuenta de las mesas involucradas; si no, `403 FORBIDDEN`.
 
 Cada mesa trae en `activeOrders` el resumen de sus cuentas abiertas: total, mesero, `itemCount`, `readyTickets` (comandas listas para recoger) y `preparingSince` (envío de la comanda más antigua aún en cocina). Con eso el celular pinta el mapa sin cargar cada pedido; `table.changed` lo mantiene al día.
 
@@ -105,6 +107,8 @@ Cada mesa trae en `activeOrders` el resumen de sus cuentas abiertas: total, mese
 | `GET /products/:id/recipe` · `PUT /products/:id/recipe`               | `catalog:read` / `catalog:write`             |
 
 ### Pedidos y preparación (cocina o barra)
+
+**Propiedad del pedido.** Toda ruta que modifica un pedido (ítems, envío, cuenta, mover, dividir, cancelar, entrega) exige, además del permiso, ser el mesero del pedido o tener `orders:manage_any` (caja y administración por defecto). Si no, `403 FORBIDDEN`. Consultar pedidos no cambia: `orders:read` ve todos.
 
 | Método y ruta                                          | Permiso                          | Descripción                                                     |
 | ------------------------------------------------------ | -------------------------------- | --------------------------------------------------------------- |

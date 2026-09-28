@@ -73,6 +73,10 @@ Sin el certificado la app funciona igual en modo básico (HTTP); solo que si se 
   - Arriba de las mesas, los contadores **Para recoger**, **Preparando**, **Cuenta** y **Libres** filtran el salón con un toque.
   - Cada mesa con algo en cocina muestra cuánto lleva y si va **A tiempo**, **Demorado** o **Crítico** (los minutos son los del tablero de cocina).
   - En **Mis pedidos** aparece primero lo listo para llevar; **Entregado en la mesa** lo confirma todo de una vez.
+  - En el pedido, el botón **⋮** abre las acciones: detalles (personas y notas), **mover** a otra mesa libre, **unir mesas** (las cuentas de la otra mesa pasan a esta, cada una por separado), **separar**, **dividir cuenta** y, con permiso, **cancelar**.
+  - Toca un producto **sin enviar** para cambiar la cantidad o la nota, o quitarlo. Uno ya enviado solo se anula con motivo (con permiso; si no, pídelo a caja).
+  - Cada mesero opera **sus** pedidos: los de otro compañero se ven con un candado. Caja y administración pueden operar todos.
+  - Una mesa **Pagada** se marca libre desde el celular al tocarla.
 - **Caja (PC):** Mesas → mesa → agregar productos, o **Pedido sin mesa** para llevar o domicilio.
 - Se puede agregar más rondas, cambiar cantidades, anular ítems (con motivo), mover el pedido a otra mesa, unir mesas o **dividir la cuenta**.
 

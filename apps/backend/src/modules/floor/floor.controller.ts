@@ -26,7 +26,6 @@ import {
   CreateFloorElementDto,
   CreateReservationDto,
   CreateTableDto,
-  MergeTablesDto,
   ReservationQueryDto,
   SetTableStatusDto,
   TableQueryDto,
@@ -136,25 +135,7 @@ export class FloorController {
     await this.floor.deleteTable(id, user);
   }
 
-  @Post('tables/:id/merge')
-  @RequirePermissions(Permission.TABLES_OPERATE)
-  @ApiOperation({ summary: 'Une mesas libres a esta mesa' })
-  merge(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: MergeTablesDto,
-    @CurrentUser() user: AuthenticatedUser,
-  ): Promise<TableDto> {
-    return this.floor.merge(id, dto, user);
-  }
-
-  @Post('tables/:id/unmerge')
-  @RequirePermissions(Permission.TABLES_OPERATE)
-  unmerge(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() user: AuthenticatedUser,
-  ): Promise<TableDto> {
-    return this.floor.unmerge(id, user);
-  }
+  // Unir y separar mesas mueve cuentas: vive en el módulo de pedidos (TableOperationsController).
 
   @Patch('tables/:id/status')
   @RequirePermissions(Permission.TABLES_OPERATE)

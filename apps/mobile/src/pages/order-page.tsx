@@ -3,10 +3,11 @@ import {
   useHasPermission,
   useMoney,
   useOrder,
+  useOrderAccess,
   useOrderMutation,
   useTerminology,
 } from '@karbon/client';
-import { OrderItemStatus, OrderStatus, Permission } from '@karbon/types';
+import { type OrderItemDto, OrderItemStatus, OrderStatus, Permission } from '@karbon/types';
 import {
   Badge,
   Button,
@@ -20,13 +21,17 @@ import {
 import { formatTime, isOrderActive } from '@karbon/utils';
 import {
   ArrowLeftIcon,
+  ChevronRightIcon,
+  EllipsisVerticalIcon,
   HandCoinsIcon,
+  LockIcon,
   PlusIcon,
   ReceiptTextIcon,
   SendIcon,
-  Trash2Icon,
 } from 'lucide-react';
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
+import { ItemSheet, OrderActions } from '../components/order-actions';
 import { TicketProgress } from '../components/ticket-progress';
 
 /** Pedido desde el celular: qué se pidió, cómo va en cocina/barra y acciones del mesero. */
@@ -39,6 +44,9 @@ export default function OrderPage() {
   const order = useOrder(orderId);
   const canSend = useHasPermission(Permission.ORDERS_SEND);
   const canBill = useHasPermission(Permission.ORDERS_REQUEST_BILL);
+  const canUpdate = useHasPermission(Permission.ORDERS_UPDATE);
+  const canCancel = useHasPermission(Permission.ORDERS_CANCEL);
+  const access = useOrderAccess();
 
   const send = useOrderMutation(orderId, (current) => api.orders.send(orderId, current.version), {
     onSuccess: () => toast.success(`Enviado ${terms.toPrepArea}`),
@@ -52,12 +60,8 @@ export default function OrderPage() {
       onError: notifyError,
     },
   );
-  const removePending = useOrderMutation(
-    orderId,
-    (current, itemId: string) =>
-      api.orders.cancelItem(orderId, itemId, { version: current.version }),
-    { onError: notifyError },
-  );
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const [editing, setEditing] = useState<OrderItemDto | null>(null);
 
   if (order.isPending) return <Spinner className="self-center p-10" />;
   const data = order.data;
@@ -79,7 +83,13 @@ export default function OrderPage() {
     );
   }
 
-  const editable = isOrderActive(data.status);
+  // Cada mesero opera sus pedidos; los de otro los ve, pero no los modifica.
+  const owned = access.canManage(data.waiter.id);
+  const editable = isOrderActive(data.status) && owned;
+  const canTouch = (item: OrderItemDto): boolean =>
+    editable &&
+    item.status !== OrderItemStatus.CANCELLED &&
+    (item.status === OrderItemStatus.PENDING ? canUpdate : canCancel);
   const items = [...data.items].sort((a, b) => a.sortOrder - b.sortOrder);
   const pendingCount = items
     .filter((item) => item.status === OrderItemStatus.PENDING)
@@ -110,7 +120,32 @@ export default function OrderPage() {
         <Badge variant={data.status === OrderStatus.BILL_REQUESTED ? 'destructive' : 'secondary'}>
           {ORDER_STATUS_LABEL[data.status]}
         </Badge>
+        {editable ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-11"
+            aria-label="Más acciones"
+            onClick={() => {
+              setActionsOpen(true);
+            }}
+          >
+            <EllipsisVerticalIcon />
+          </Button>
+        ) : null}
       </div>
+
+      {isOrderActive(data.status) && !owned ? (
+        <p className="flex items-center gap-2 border-b bg-muted px-3 py-2 text-sm">
+          <LockIcon className="size-4 shrink-0" aria-hidden />
+          Lo atiende {data.waiter.name}: puedes verlo, pero no modificarlo.
+        </p>
+      ) : null}
+      {data.notes ? (
+        <p className="bg-background px-3 pt-3 text-sm">
+          <span className="font-semibold">Nota del pedido:</span> {data.notes}
+        </p>
+      ) : null}
 
       <TicketProgress order={data} />
 
@@ -118,43 +153,40 @@ export default function OrderPage() {
         {items.map((item) => {
           const pending = item.status === OrderItemStatus.PENDING;
           const cancelled = item.status === OrderItemStatus.CANCELLED;
+          const touchable = canTouch(item);
           return (
-            <li
-              key={item.id}
-              className={cn(
-                'flex items-start gap-3 px-3 py-2.5',
-                pending && 'bg-status-waiting-food/10',
-                cancelled && 'text-muted-foreground line-through',
-              )}
-            >
-              <span className="min-w-7 rounded-md bg-muted px-1.5 py-0.5 text-center text-sm font-bold">
-                {item.quantity}
-              </span>
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="font-medium">{item.productName}</span>
-                {item.notes ? (
-                  <span className="text-xs text-muted-foreground">· {item.notes}</span>
+            <li key={item.id}>
+              <button
+                type="button"
+                disabled={!touchable}
+                onClick={() => {
+                  setEditing(item);
+                }}
+                className={cn(
+                  'flex min-h-14 w-full items-start gap-3 px-3 py-2.5 text-left active:bg-accent disabled:active:bg-transparent',
+                  pending && 'bg-status-waiting-food/10',
+                  cancelled && 'text-muted-foreground line-through',
+                )}
+              >
+                <span className="min-w-7 rounded-md bg-muted px-1.5 py-0.5 text-center text-sm font-bold">
+                  {item.quantity}
+                </span>
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="font-medium">{item.productName}</span>
+                  {item.notes ? (
+                    <span className="text-xs text-muted-foreground">· {item.notes}</span>
+                  ) : null}
+                  {pending ? (
+                    <span className="text-[11px] font-semibold text-status-waiting-food">
+                      Sin enviar{touchable ? ' · toca para editar' : ''}
+                    </span>
+                  ) : null}
+                </span>
+                <span className="text-sm font-semibold tabular-nums">{money(item.total)}</span>
+                {touchable ? (
+                  <ChevronRightIcon className="size-5 shrink-0 self-center text-muted-foreground" />
                 ) : null}
-                {pending ? (
-                  <span className="text-[11px] font-semibold text-status-waiting-food">
-                    Sin enviar
-                  </span>
-                ) : null}
-              </span>
-              <span className="text-sm font-semibold tabular-nums">{money(item.total)}</span>
-              {pending && editable ? (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="-my-2 size-11"
-                  aria-label={`Quitar ${item.productName}`}
-                  onClick={() => {
-                    removePending.mutate(item.id);
-                  }}
-                >
-                  <Trash2Icon />
-                </Button>
-              ) : null}
+              </button>
             </li>
           );
         })}
@@ -215,6 +247,24 @@ export default function OrderPage() {
             </Button>
           ) : null}
         </div>
+      ) : null}
+
+      {actionsOpen ? (
+        <OrderActions
+          order={data}
+          onClose={() => {
+            setActionsOpen(false);
+          }}
+        />
+      ) : null}
+      {editing ? (
+        <ItemSheet
+          order={data}
+          item={editing}
+          onClose={() => {
+            setEditing(null);
+          }}
+        />
       ) : null}
     </div>
   );

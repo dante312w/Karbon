@@ -19,7 +19,6 @@ import type {
   CreateAreaDto,
   CreateFloorElementDto,
   CreateTableDto,
-  MergeTablesDto,
   SetTableStatusDto,
   TableQueryDto,
   UpdateAreaDto,
@@ -150,69 +149,6 @@ export class FloorService {
     });
     // Las demás terminales la quitan del plano (llega inactiva).
     await this.publishTables([id]);
-  }
-
-  /** Une mesas libres a una principal: el pedido del grupo vive en la principal. */
-  async merge(mainId: string, dto: MergeTablesDto, user: AuthenticatedUser): Promise<TableDto> {
-    const childIds = dto.tableIds.filter((id) => id !== mainId);
-    await this.prisma.$transaction(async (tx) => {
-      const main = await tx.diningTable.findFirst({
-        where: { id: mainId, deletedAt: null, isActive: true },
-      });
-      if (!main) throw notFound('La mesa principal');
-      if (main.mergedIntoId)
-        throw conflict(ErrorCode.CONFLICT, 'La mesa principal ya está unida a otra');
-      const children = await tx.diningTable.findMany({
-        where: { id: { in: childIds }, deletedAt: null, isActive: true },
-        include: {
-          orders: { where: { status: { in: [...ACTIVE_ORDER_STATUSES] } }, select: { id: true } },
-        },
-      });
-      if (children.length !== childIds.length) throw notFound('Alguna de las mesas');
-      const busy = children.filter(
-        (child) => child.orders.length > 0 || child.mergedIntoId !== null,
-      );
-      if (busy.length > 0) {
-        throw conflict(ErrorCode.TABLE_OCCUPIED, 'Solo se pueden unir mesas libres', {
-          tableIds: busy.map((child) => child.id),
-        });
-      }
-      await tx.diningTable.updateMany({
-        where: { id: { in: childIds } },
-        data: { mergedIntoId: mainId, status: main.status },
-      });
-      await this.audit.log(
-        {
-          userId: user.id,
-          action: 'table.merge',
-          entity: 'table',
-          entityId: mainId,
-          metadata: { childIds },
-        },
-        tx,
-      );
-    });
-    await this.publishTables([mainId, ...childIds]);
-    return this.getTable(mainId);
-  }
-
-  async unmerge(mainId: string, user: AuthenticatedUser): Promise<TableDto> {
-    const children = await this.prisma.diningTable.findMany({
-      where: { mergedIntoId: mainId },
-      select: { id: true },
-    });
-    await this.prisma.diningTable.updateMany({
-      where: { mergedIntoId: mainId },
-      data: { mergedIntoId: null, status: TableStatus.FREE },
-    });
-    await this.audit.log({
-      userId: user.id,
-      action: 'table.unmerge',
-      entity: 'table',
-      entityId: mainId,
-    });
-    await this.publishTables([mainId, ...children.map((child) => child.id)]);
-    return this.getTable(mainId);
   }
 
   /** Reserva manual o liberación de una mesa sin pedidos activos. */
