@@ -1,7 +1,55 @@
 import { describe, expect, it } from 'vitest';
-import { formatElapsed, getTicketUrgency } from './kds.js';
+import { formatElapsed, getTicketUrgency, ticketTiming } from './kds.js';
 
 const MINUTE = 60_000;
+const T0 = Date.parse('2026-09-28T12:00:00.000Z');
+const at = (minutes: number): string => new Date(T0 + minutes * MINUTE).toISOString();
+
+describe('ticketTiming', () => {
+  const base = { createdAt: at(0), readyAt: null, deliveredAt: null };
+
+  it('mientras está en cocina el cronómetro corre desde el envío', () => {
+    const timing = ticketTiming({ ...base, status: 'PREPARING' }, T0 + 8 * MINUTE);
+    expect(timing).toEqual({
+      kitchenMs: 8 * MINUTE,
+      pickupMs: null,
+      totalMs: null,
+      stopped: false,
+    });
+  });
+
+  it('lista: congela el tiempo de cocina y mide la espera del mesero', () => {
+    const ticket = { ...base, status: 'READY' as const, readyAt: at(9) };
+    expect(ticketTiming(ticket, T0 + 12 * MINUTE)).toEqual({
+      kitchenMs: 9 * MINUTE,
+      pickupMs: 3 * MINUTE,
+      totalMs: null,
+      stopped: false,
+    });
+  });
+
+  it('entregada: el total queda fijo aunque pase el tiempo', () => {
+    const ticket = { ...base, status: 'DELIVERED' as const, readyAt: at(9), deliveredAt: at(12) };
+    const now = ticketTiming(ticket, T0 + 13 * MINUTE);
+    const hoursLater = ticketTiming(ticket, T0 + 300 * MINUTE);
+    expect(now).toEqual({
+      kitchenMs: 9 * MINUTE,
+      pickupMs: 3 * MINUTE,
+      totalMs: 12 * MINUTE,
+      stopped: true,
+    });
+    expect(hoursLater).toEqual(now);
+  });
+
+  it('entregada sin marca de entrega (datos antiguos) no usa la hora actual', () => {
+    const ticket = { ...base, status: 'DELIVERED' as const, readyAt: at(9) };
+    expect(ticketTiming(ticket, T0 + 500 * MINUTE).totalMs).toBe(9 * MINUTE);
+  });
+
+  it('cancelada: detenida', () => {
+    expect(ticketTiming({ ...base, status: 'CANCELLED' }, T0 + MINUTE).stopped).toBe(true);
+  });
+});
 
 describe('getTicketUrgency', () => {
   it('usa verde / amarillo / rojo según los umbrales por defecto (10 y 20 min)', () => {

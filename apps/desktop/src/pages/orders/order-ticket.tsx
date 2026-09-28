@@ -1,8 +1,13 @@
-import { useMoney, useTerminology } from '@karbon/client';
-import { type OrderDto, type OrderItemDto, OrderItemStatus } from '@karbon/types';
-import { cn, KITCHEN_TICKET_STATUS_LABEL } from '@karbon/ui';
+import { useMoney, useOrderAccess, useTerminology, useTicketDelivery } from '@karbon/client';
+import {
+  KitchenTicketStatus,
+  type OrderDto,
+  type OrderItemDto,
+  OrderItemStatus,
+} from '@karbon/types';
+import { cn, KITCHEN_TICKET_STATUS_LABEL, notifyError, toast } from '@karbon/ui';
 import { isTicketOpen, STATION_LABEL } from '@karbon/utils';
-import { ShoppingBasketIcon } from 'lucide-react';
+import { HandPlatterIcon, ShoppingBasketIcon } from 'lucide-react';
 
 /** Líneas del pedido y totales. Las líneas sin enviar se resaltan hasta mandarlas a preparar. */
 export function OrderTicket({
@@ -18,26 +23,57 @@ export function OrderTicket({
   const terms = useTerminology();
   const items = [...order.items].sort((a, b) => a.sortOrder - b.sortOrder);
   const activeTickets = order.tickets.filter((ticket) => isTicketOpen(ticket.status));
+  const canDeliver = useOrderAccess().canDeliver(order.waiter.id);
+  const delivery = useTicketDelivery(order.id, {
+    onDelivered: (_order, ticketId) => {
+      toast.success('Entrega confirmada', {
+        action: {
+          label: 'Deshacer',
+          onClick: () => {
+            delivery.undo.mutate(ticketId);
+          },
+        },
+      });
+    },
+    onError: notifyError,
+  });
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {activeTickets.length > 0 ? (
         <div className="flex flex-wrap gap-1.5 border-b px-4 py-2">
-          {activeTickets.map((ticket) => (
-            <span
-              key={ticket.id}
-              className={cn(
-                'rounded-full px-2 py-0.5 text-[11px] font-semibold',
-                ticket.status === 'READY'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-status-waiting-food/20 text-foreground',
-              )}
-            >
-              Ronda {ticket.sequence} ·{' '}
-              {terms.mode === 'BAR' ? terms.prepArea : STATION_LABEL[ticket.station]} ·{' '}
-              {KITCHEN_TICKET_STATUS_LABEL[ticket.status]}
-            </span>
-          ))}
+          {activeTickets.map((ticket) => {
+            const label = `Ronda ${String(ticket.sequence)} · ${
+              terms.mode === 'BAR' ? terms.prepArea : STATION_LABEL[ticket.station]
+            } · ${KITCHEN_TICKET_STATUS_LABEL[ticket.status]}`;
+            const ready = ticket.status === KitchenTicketStatus.READY;
+            return ready && canDeliver ? (
+              <button
+                key={ticket.id}
+                type="button"
+                disabled={delivery.deliver.isPending}
+                onClick={() => {
+                  delivery.deliver.mutate(ticket.id);
+                }}
+                className="flex h-8 items-center gap-1.5 rounded-full bg-primary px-3 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
+                aria-label={`${label}: confirmar entrega`}
+              >
+                <HandPlatterIcon className="size-3.5" /> {label} · Entregar
+              </button>
+            ) : (
+              <span
+                key={ticket.id}
+                className={cn(
+                  'rounded-full px-2 py-0.5 text-[11px] font-semibold',
+                  ready
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-status-waiting-food/20 text-foreground',
+                )}
+              >
+                {label}
+              </span>
+            );
+          })}
         </div>
       ) : null}
 

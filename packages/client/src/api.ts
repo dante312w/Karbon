@@ -245,6 +245,10 @@ export function createApi(http: HttpClient) {
         ),
       requestBill: (id: string, version?: number) =>
         http.post<OrderDto>(`/orders/${id}/request-bill`, { version }),
+      deliverTicket: (id: string, ticketId: string) =>
+        http.post<OrderDto>(`/orders/${id}/tickets/${ticketId}/deliver`),
+      undeliverTicket: (id: string, ticketId: string) =>
+        http.post<OrderDto>(`/orders/${id}/tickets/${ticketId}/undeliver`),
       move: (id: string, body: MoveOrderRequest) => http.post<OrderDto>(`/orders/${id}/move`, body),
       split: (id: string, body: SplitOrderRequest) =>
         http.post<OrderDto>(`/orders/${id}/split`, body),

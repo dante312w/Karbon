@@ -12,6 +12,11 @@ const TICKET_ITEM_SELECT = {
   status: true,
 } satisfies Prisma.OrderItemSelect;
 
+const TICKET_CORE_INCLUDE = {
+  items: { select: TICKET_ITEM_SELECT, orderBy: { sortOrder: 'asc' } },
+  deliveredBy: { select: { id: true, name: true } },
+} satisfies Prisma.KitchenTicketInclude;
+
 export const ORDER_INCLUDE = {
   table: { select: { id: true, name: true } },
   waiter: { select: { id: true, name: true } },
@@ -19,7 +24,7 @@ export const ORDER_INCLUDE = {
   items: { orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] },
   tickets: {
     orderBy: [{ sequence: 'asc' }, { station: 'asc' }],
-    include: { items: { select: TICKET_ITEM_SELECT, orderBy: { sortOrder: 'asc' } } },
+    include: TICKET_CORE_INCLUDE,
   },
   payments: { where: { status: PaymentStatus.COMPLETED }, select: { amount: true } },
 } satisfies Prisma.OrderInclude;
@@ -27,7 +32,7 @@ export const ORDER_INCLUDE = {
 export type OrderWithRelations = Prisma.OrderGetPayload<{ include: typeof ORDER_INCLUDE }>;
 
 export const TICKET_INCLUDE = {
-  items: { select: TICKET_ITEM_SELECT, orderBy: { sortOrder: 'asc' } },
+  ...TICKET_CORE_INCLUDE,
   order: {
     select: {
       number: true,
@@ -49,6 +54,7 @@ interface TicketContext {
   number: number;
   label: string | null;
   tableName: string | null;
+  waiterId: string;
   waiterName: string;
 }
 
@@ -59,6 +65,7 @@ function toTicketDto(ticket: TicketCore, context: TicketContext): KitchenTicketD
     orderNumber: context.number,
     // En barra o para llevar no hay mesa: se muestra el nombre de la cuenta.
     tableName: context.tableName ?? context.label,
+    waiterId: context.waiterId,
     waiterName: context.waiterName,
     sequence: ticket.sequence,
     station: ticket.station,
@@ -75,6 +82,7 @@ function toTicketDto(ticket: TicketCore, context: TicketContext): KitchenTicketD
     startedAt: isoOrNull(ticket.startedAt),
     readyAt: isoOrNull(ticket.readyAt),
     deliveredAt: isoOrNull(ticket.deliveredAt),
+    deliveredBy: ticket.deliveredBy,
   };
 }
 
@@ -83,6 +91,7 @@ export function toTicketDtoWithOrder(ticket: TicketWithRelations): KitchenTicket
     number: ticket.order.number,
     label: ticket.order.label,
     tableName: ticket.order.table?.name ?? null,
+    waiterId: ticket.order.waiterId,
     waiterName: ticket.order.waiter.name,
   });
 }
@@ -118,6 +127,7 @@ export function toOrderDto(order: OrderWithRelations, currency: string): OrderDt
     number: order.number,
     label: order.label,
     tableName: order.table?.name ?? null,
+    waiterId: order.waiter.id,
     waiterName: order.waiter.name,
   };
   return {

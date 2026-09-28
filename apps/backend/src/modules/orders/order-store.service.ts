@@ -6,6 +6,7 @@ import {
   type Permission,
   SocketEvent,
 } from '@karbon/types';
+import { canManageOrder } from '@karbon/utils';
 import type { AuthenticatedUser } from '../../common/auth/authenticated-user.js';
 import { conflict, notFound } from '../../common/errors/domain-error.js';
 import { minorToDecimal } from '../../common/money.js';
@@ -20,6 +21,13 @@ import { ORDER_INCLUDE, toOrderDto } from './orders.mapper.js';
 export function requirePermission(user: AuthenticatedUser, permission: Permission): void {
   if (!user.permissions.includes(permission)) {
     throw new ForbiddenException('No tienes permiso para esta acción');
+  }
+}
+
+/** Propiedad del pedido (ver `canManageOrder`): un mesero no opera pedidos de otro. */
+export function assertCanManageOrder(user: AuthenticatedUser, waiterId: string): void {
+  if (!canManageOrder(user, waiterId)) {
+    throw new ForbiddenException('Este pedido lo atiende otro mesero');
   }
 }
 

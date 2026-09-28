@@ -115,13 +115,17 @@ Todas las rutas cuelgan de `/api/v1`. "Público" = sin token; "autenticado" = cu
 | `PUT /orders/:id/items/order`                          | `orders:update`                  | Reordenar                                                       |
 | `POST /orders/:id/send`                                | `orders:send`                    | Envía lo pendiente: una comanda por estación (idempotente)      |
 | `POST /orders/:id/request-bill`                        | `orders:request_bill`            | Mesa en "esperando cuenta"                                      |
+| `POST /orders/:id/tickets/:ticketId/deliver`           | `orders:deliver` + propiedad     | Confirma que una comanda **Listo** llegó a la mesa (ver abajo)  |
+| `POST /orders/:id/tickets/:ticketId/undeliver`         | `orders:deliver` + propiedad     | Deshace una entrega confirmada por error (vuelve a **Listo**)   |
 | `POST /orders/:id/move`                                | `tables:operate`                 | Mover a otra mesa libre                                         |
 | `POST /orders/:id/split`                               | `orders:update`                  | Dividir la cuenta por ítems en un pedido nuevo                  |
 | `POST /orders/:id/duplicate`                           | `orders:create`                  | Repetir el pedido                                               |
 | `POST /orders/:id/cancel`                              | `orders:cancel`                  | Anular con motivo (no si tiene pagos)                           |
 | `GET /kitchen/tickets?station=&status=`                | `kitchen:read`                   | Comandas del KDS                                                |
-| `PATCH /kitchen/tickets/:id/status`                    | `kitchen:update`                 | `NEW → PREPARING → READY → DELIVERED`                           |
+| `PATCH /kitchen/tickets/:id/status`                    | `kitchen:update`                 | `NEW → PREPARING → READY` (o retroceder un paso)                |
 | `POST /kitchen/tickets/:id/print`                      | `kitchen:update` o `orders:send` | Reimprime la comanda en su impresora                            |
+
+**Entrega en la mesa** ([ADR 0012](adr/0012-entrega-confirmada-por-el-mesero.md)). Cocina o barra llevan la comanda hasta **Listo**; pedirle `DELIVERED` al KDS responde `409 INVALID_STATUS_TRANSITION`. La entrega la confirma el mesero del pedido; con `orders:manage_any` (caja, administración y la barra en modo bar) se confirma la de cualquier pedido; si no, `403 FORBIDDEN`. Cada paso guarda su hora y retroceder borra la del paso deshecho, así los cronómetros se calculan siempre con marcas reales. Al cobrar el pedido completo, lo que seguía en **Listo** pasa a **Entregado** sin `deliveredBy` y queda en la bitácora (`order.auto_deliver`).
 
 ### Caja, pagos y facturación
 
@@ -188,6 +192,7 @@ socket.on('order.updated', ({ id, occurredAt, data }) => {
 | `order.created`     | `{ order: OrderDto }`                          | Se crea un pedido                                                                 |
 | `order.updated`     | `{ order: OrderDto }`                          | Ítems, envío a preparación, avance de comandas, pagos, cancelación                |
 | `kitchen.ready`     | `{ ticket: KitchenTicketDto, waiterId }`       | Una comanda pasa a **Listo** (al mesero que la tomó y a caja)                     |
+| `kitchen.delivered` | `{ ticket: KitchenTicketDto, waiterId }`       | Se confirma o se deshace una entrega (al mesero, cocina, caja y administración)   |
 | `table.changed`     | `{ table: TableDto }`                          | Cambia el estado de una mesa, se une o se mueve un pedido                         |
 | `inventory.updated` | `{ ingredientIds, lowStock: LowStockAlert[] }` | Movimientos de inventario (ventas, compras, ajustes)                              |
 | `cash.closed`       | `{ session: CashSessionDto }`                  | Se cierra un turno de caja                                                        |

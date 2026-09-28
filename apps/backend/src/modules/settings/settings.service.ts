@@ -4,6 +4,7 @@ import {
   type RestaurantSettingsDto,
   SocketEvent,
   SystemRole,
+  systemRolePermissions,
 } from '@karbon/types';
 import { getTerminology, SUPPORTED_CURRENCIES } from '@karbon/utils';
 import type { AuthenticatedUser } from '../../common/auth/authenticated-user.js';
@@ -101,10 +102,14 @@ export class SettingsService {
         },
       });
       if (dto.businessMode && dto.businessMode !== current.businessMode) {
-        // El rol que opera el tablero se llama Cocina o Barra según el modo.
+        // El rol que opera el tablero se llama Cocina o Barra según el modo, y en bar también
+        // confirma las entregas.
         await tx.role.updateMany({
           where: { code: SystemRole.KITCHEN, isSystem: true },
-          data: { name: getTerminology(dto.businessMode).prepRoleName },
+          data: {
+            name: getTerminology(dto.businessMode).prepRoleName,
+            permissions: systemRolePermissions(SystemRole.KITCHEN, dto.businessMode),
+          },
         });
       }
       await this.audit.log(
