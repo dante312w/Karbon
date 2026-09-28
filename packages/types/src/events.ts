@@ -1,4 +1,5 @@
 import type { IsoDateTime, Quantity, Uuid } from './common.js';
+import type { MeasureUnit } from './enums.js';
 import type { CashSessionDto } from './entities/cash.js';
 import type { RestaurantSettingsDto } from './entities/settings.js';
 import type { TableDto } from './entities/floor.js';
@@ -61,6 +62,7 @@ export interface LowStockAlert {
   name: string;
   stock: Quantity;
   minStock: Quantity;
+  unit: MeasureUnit;
 }
 
 export interface InventoryUpdatedData {

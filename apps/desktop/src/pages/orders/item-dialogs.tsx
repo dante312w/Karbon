@@ -5,7 +5,7 @@ import {
   useOrderMutation,
   useTerminology,
 } from '@karbon/client';
-import { OrderItemStatus, Permission, type OrderItemDto, type ProductDto } from '@karbon/types';
+import { OrderItemStatus, Permission, type OrderItemDto } from '@karbon/types';
 import {
   Button,
   Dialog,
@@ -19,54 +19,6 @@ import {
 import { ArrowDownIcon, ArrowUpIcon, CopyIcon, Trash2Icon } from 'lucide-react';
 import { useState } from 'react';
 import { MoneyInput } from '../../components/money-input';
-
-/** Agregar un producto con cantidad y nota (clic derecho en el catálogo). */
-export function AddItemDialog({
-  product,
-  onClose,
-  onConfirm,
-}: {
-  product: ProductDto;
-  onClose: () => void;
-  onConfirm: (quantity: number, notes: string | null) => void;
-}) {
-  const money = useMoney();
-  const terms = useTerminology();
-  const [quantity, setQuantity] = useState(1);
-  const [notes, setNotes] = useState('');
-  return (
-    <Dialog
-      open
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-    >
-      <DialogContent
-        title={product.name}
-        description={money(product.price)}
-        footer={
-          <>
-            <Button variant="outline" onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button
-              size="lg"
-              onClick={() => {
-                onConfirm(quantity, notes.trim() || null);
-                onClose();
-              }}
-            >
-              Agregar · {money(product.price * quantity)}
-            </Button>
-          </>
-        }
-      >
-        <QuantityStepper value={quantity} onChange={setQuantity} className="self-center" />
-        <NotesEditor value={notes} onChange={setNotes} suggestions={terms.quickNotes} />
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 /**
  * Edición de una línea: cantidad y nota mientras no se haya enviado; descuento (con permiso),
@@ -138,7 +90,7 @@ export function ItemEditorDialog({
   );
   const position = items.findIndex((candidate) => candidate.id === item.id);
   const busy = save.isPending || remove.isPending || duplicate.isPending;
-  const unitTotal = item.unitPrice * (pending ? quantity : item.quantity) - discount;
+  const lineTotal = item.unitPrice * (pending ? quantity : item.quantity) - discount;
 
   if (cancelling) {
     return (
@@ -229,7 +181,7 @@ export function ItemEditorDialog({
                 save.mutate();
               }}
             >
-              Guardar · {money(Math.max(0, unitTotal))}
+              Guardar · {money(Math.max(0, lineTotal))}
             </Button>
           </>
         }

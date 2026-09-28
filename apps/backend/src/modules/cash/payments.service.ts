@@ -9,7 +9,7 @@ import {
   PaymentStatus,
 } from '@karbon/types';
 import type { AuthenticatedUser } from '../../common/auth/authenticated-user.js';
-import { conflict, invalid, notFound } from '../../common/errors/domain-error.js';
+import { badRequest, conflict, invalid, notFound } from '../../common/errors/domain-error.js';
 import { decimalToMinor, minorToDecimal } from '../../common/money.js';
 import { Prisma, type Order } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
@@ -73,8 +73,7 @@ export class PaymentsService {
         const amount = minorToDecimal(dto.amount, currency);
 
         if (amount.isZero()) {
-          if (!pending.isZero())
-            throw invalid(ErrorCode.VALIDATION_FAILED, 'El monto debe ser mayor que cero');
+          if (!pending.isZero()) throw badRequest('El monto debe ser mayor que cero');
         } else {
           if (amount.gt(pending)) {
             throw conflict(ErrorCode.PAYMENT_EXCEEDS_BALANCE, 'El pago supera el saldo pendiente', {
@@ -129,21 +128,26 @@ export class PaymentsService {
     user: AuthenticatedUser,
   ): Promise<PaymentResultDto> {
     let ingredientIds: string[] = [];
-    const payment = await this.prisma.payment.findUnique({
+    const target = await this.prisma.payment.findUnique({
       where: { id: paymentId },
-      include: { cashSession: true },
+      select: { orderId: true },
     });
-    if (!payment) throw notFound('El pago');
-    if (payment.status !== PaymentStatus.COMPLETED)
-      throw conflict(ErrorCode.CONFLICT, 'El pago ya fue anulado');
-    if (payment.cashSession.status !== CashSessionStatus.OPEN) {
-      throw conflict(ErrorCode.CONFLICT, 'Solo se anulan pagos de la caja abierta');
-    }
+    if (!target) throw notFound('El pago');
     const currency = await this.settings.currency();
 
     const order = await this.prisma.$transaction(
       async (tx) => {
-        const locked = await this.store.lock(tx, payment.orderId);
+        // Con el pedido bloqueado, dos anulaciones simultáneas del mismo pago no pasan ambas.
+        const locked = await this.store.lock(tx, target.orderId);
+        const payment = await tx.payment.findUniqueOrThrow({
+          where: { id: paymentId },
+          include: { cashSession: { select: { status: true } } },
+        });
+        if (payment.status !== PaymentStatus.COMPLETED)
+          throw conflict(ErrorCode.CONFLICT, 'El pago ya fue anulado');
+        if (payment.cashSession.status !== CashSessionStatus.OPEN) {
+          throw conflict(ErrorCode.CONFLICT, 'Solo se anulan pagos de la caja abierta');
+        }
         await tx.payment.update({
           where: { id: paymentId },
           data: {

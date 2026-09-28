@@ -6,16 +6,15 @@ import {
   type Permission,
   SocketEvent,
 } from '@karbon/types';
-import { calculateOrderTotals, lineAmount, practicalUnit } from '@karbon/utils';
 import type { AuthenticatedUser } from '../../common/auth/authenticated-user.js';
 import { conflict, notFound } from '../../common/errors/domain-error.js';
-import { num } from '../../common/mapping.js';
-import { decimalToMinor, minorToDecimal } from '../../common/money.js';
-import type { Order, Prisma } from '../../generated/prisma/client.js';
+import { minorToDecimal } from '../../common/money.js';
+import type { Order } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import type { Db, Tx } from '../../prisma/prisma.types.js';
+import type { Tx } from '../../prisma/prisma.types.js';
 import { EVENT_ROOMS, EventsService } from '../realtime/events.service.js';
 import { SettingsService } from '../settings/settings.service.js';
+import { orderTotals } from './order-totals.js';
 import { ORDER_INCLUDE, toOrderDto } from './orders.mapper.js';
 
 export function requirePermission(user: AuthenticatedUser, permission: Permission): void {
@@ -45,66 +44,39 @@ export class OrderStore {
       throw conflict(
         ErrorCode.ORDER_VERSION_CONFLICT,
         'El pedido cambió en otra terminal; se recargó la última versión',
-        {
-          currentVersion: order.version,
-        },
+        { currentVersion: order.version },
       );
     }
     return order;
   }
 
-  /** Recalcula totales con la misma función que usan los clientes y sube la versión. */
+  /** Recalcula totales y sube la versión. */
   async recalculate(tx: Tx, orderId: string): Promise<void> {
     const settings = await this.settings.get();
     const order = await tx.order.findUniqueOrThrow({
       where: { id: orderId },
       include: { items: { where: { status: { not: OrderItemStatus.CANCELLED } } } },
     });
-    const currency = settings.currency;
-    const totals = calculateOrderTotals(
-      order.items.map((item) => ({
-        unitPrice: decimalToMinor(item.unitPrice, currency),
-        quantity: item.quantity,
-        taxRate: num(item.taxRate),
-        discount: decimalToMinor(item.discount, currency),
-      })),
-      {
-        pricesIncludeTax: settings.pricesIncludeTax,
-        tipPercent: num(order.tipPercent),
-        tipRoundingUnit: practicalUnit(settings.currency),
-      },
-    );
+    const totals = orderTotals(order.items, order.tipPercent, settings);
+    const decimal = (amount: number) => minorToDecimal(amount, settings.currency);
     await tx.order.update({
       where: { id: orderId },
       data: {
-        subtotal: minorToDecimal(totals.subtotal, currency),
-        discountTotal: minorToDecimal(totals.discountTotal, currency),
-        taxTotal: minorToDecimal(totals.taxTotal, currency),
-        tipAmount: minorToDecimal(totals.tipAmount, currency),
-        total: minorToDecimal(totals.total, currency),
+        subtotal: decimal(totals.subtotal),
+        discountTotal: decimal(totals.discountTotal),
+        taxTotal: decimal(totals.taxTotal),
+        tipAmount: decimal(totals.tipAmount),
+        total: decimal(totals.total),
         version: { increment: 1 },
       },
     });
   }
 
-  /** Total de una línea (precio × cantidad − descuento) en DECIMAL. */
-  async lineTotal(
-    unitPrice: Prisma.Decimal,
-    quantity: number,
-    discount: Prisma.Decimal,
-  ): Promise<Prisma.Decimal> {
-    const currency = await this.settings.currency();
-    const amount = lineAmount({
-      unitPrice: decimalToMinor(unitPrice, currency),
-      quantity,
-      taxRate: 0,
-      discount: decimalToMinor(discount, currency),
+  async load(orderId: string): Promise<OrderDto> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: ORDER_INCLUDE,
     });
-    return minorToDecimal(amount, currency);
-  }
-
-  async load(orderId: string, db: Db = this.prisma): Promise<OrderDto> {
-    const order = await db.order.findUnique({ where: { id: orderId }, include: ORDER_INCLUDE });
     if (!order) throw notFound('El pedido');
     return toOrderDto(order, await this.settings.currency());
   }

@@ -13,7 +13,7 @@ import { catchError, from, map, type Observable, of, switchMap, throwError } fro
 import { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import type { AuthenticatedRequest } from '../auth/authenticated-user.js';
-import { DomainError, conflict } from '../errors/domain-error.js';
+import { badRequest, conflict } from '../errors/domain-error.js';
 
 const HEADER = 'idempotency-key';
 const KEY_PATTERN = /^[\w-]{8,100}$/;
@@ -35,13 +35,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
     const key = request.headers[HEADER];
     const userId = request.user?.id;
     if (typeof key !== 'string' || !userId) return next.handle();
-    if (!KEY_PATTERN.test(key)) {
-      throw new DomainError(
-        ErrorCode.VALIDATION_FAILED,
-        'Idempotency-Key inválida',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
+    if (!KEY_PATTERN.test(key)) throw badRequest('Idempotency-Key inválida');
     // Nest aplica el código HTTP después de los interceptores: se toma de la metadata.
     const statusCode =
       this.reflector.get<number | undefined>(HTTP_CODE_METADATA, context.getHandler()) ??

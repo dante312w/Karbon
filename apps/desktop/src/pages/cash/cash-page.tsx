@@ -21,7 +21,6 @@ import {
   DataTable,
   EmptyState,
   notifyError,
-  PAYMENT_METHOD_LABEL,
   PageHeader,
   Pagination,
   Spinner,
@@ -32,6 +31,7 @@ import {
   TabsTrigger,
   toast,
 } from '@karbon/ui';
+import { FISCAL_DOCUMENT_LABEL, PAYMENT_METHOD_LABEL } from '@karbon/utils';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import {
   ArrowDownUpIcon,
@@ -448,14 +448,6 @@ function ExpensesList() {
   );
 }
 
-const DOCUMENT_TYPE_LABEL: Record<InvoiceDto['documentType'], string> = {
-  RECEIPT: 'Tiquete',
-  POS_EQUIVALENT: 'Doc. equivalente POS',
-  INVOICE: 'Factura',
-  ELECTRONIC_INVOICE: 'Factura electrónica',
-  CREDIT_NOTE: 'Nota crédito',
-};
-
 function InvoicesList() {
   const api = useApi();
   const money = useMoney();
@@ -478,7 +470,7 @@ function InvoicesList() {
       header: 'Número',
       cell: (invoice) => <span className="font-semibold">{invoice.fullNumber}</span>,
     },
-    { key: 'type', header: 'Tipo', cell: (invoice) => DOCUMENT_TYPE_LABEL[invoice.documentType] },
+    { key: 'type', header: 'Tipo', cell: (invoice) => FISCAL_DOCUMENT_LABEL[invoice.documentType] },
     { key: 'date', header: 'Fecha', cell: (invoice) => formatDateTime(invoice.issuedAt) },
     {
       key: 'status',

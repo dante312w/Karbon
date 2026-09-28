@@ -4,8 +4,8 @@ import {
   ALL_PERMISSIONS,
   DEFAULT_ROLE_PERMISSIONS,
   Permission,
-  hasPermission,
   isPermission,
+  toPermissions,
 } from './permissions.js';
 
 describe('permisos RBAC', () => {
@@ -38,10 +38,9 @@ describe('permisos RBAC', () => {
     expect(waiter.some((p) => p.startsWith('cash:'))).toBe(false);
   });
 
-  it('valida códigos y verifica permisos concedidos', () => {
+  it('valida códigos y descarta los desconocidos', () => {
     expect(isPermission('orders:create')).toBe(true);
     expect(isPermission('orders:destroy')).toBe(false);
-    expect(hasPermission(['orders:read'], Permission.ORDERS_READ)).toBe(true);
-    expect(hasPermission(['orders:read'], Permission.ORDERS_CANCEL)).toBe(false);
+    expect(toPermissions(['orders:read', 'orders:destroy'])).toEqual([Permission.ORDERS_READ]);
   });
 });

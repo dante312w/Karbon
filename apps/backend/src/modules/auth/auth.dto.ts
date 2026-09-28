@@ -1,6 +1,11 @@
-import type { LoginRequest, PinLoginRequest, RefreshTokenRequest } from '@karbon/types';
+import {
+  type LoginRequest,
+  PIN_PATTERN,
+  type PinLoginRequest,
+  type RefreshTokenRequest,
+} from '@karbon/types';
 import { IsOptional, IsString, IsUUID, Length, Matches, MaxLength } from 'class-validator';
-import { PIN_MESSAGE, PIN_PATTERN } from '../../common/auth/credentials.js';
+import { PIN_MESSAGE } from '../../common/auth/credentials.js';
 
 export class LoginDto implements LoginRequest {
   @IsString()

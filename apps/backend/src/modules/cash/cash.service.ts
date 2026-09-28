@@ -13,15 +13,15 @@ import {
   PaymentStatus,
   SocketEvent,
 } from '@karbon/types';
+import { ACTIVE_ORDER_STATUSES } from '@karbon/utils';
 import type { AuthenticatedUser } from '../../common/auth/authenticated-user.js';
 import { conflict, notFound } from '../../common/errors/domain-error.js';
 import { dateRange, pageArgs, paginated } from '../../common/http/pagination.js';
 import { decimalToMinor, minorToDecimal } from '../../common/money.js';
 import { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import type { Db, Tx } from '../../prisma/prisma.types.js';
+import type { Db } from '../../prisma/prisma.types.js';
 import { AuditService } from '../audit/audit.service.js';
-import { ACTIVE_ORDER_STATUSES } from '../floor/floor.constants.js';
 import { DomainEventsService } from '../realtime/domain-events.service.js';
 import { EVENT_ROOMS, EventsService } from '../realtime/events.service.js';
 import { SettingsService } from '../settings/settings.service.js';
@@ -105,11 +105,6 @@ export class CashService {
     const openOrders = await db.order.count({
       where: { status: { in: [...ACTIVE_ORDER_STATUSES] } },
     });
-    const expected = session.openingAmount
-      .add(totals.cashSales)
-      .add(totals.incomes)
-      .sub(totals.withdrawals)
-      .sub(totals.cashExpenses);
     const minor = (value: Prisma.Decimal): number => decimalToMinor(value, currency);
     return {
       session: toCashSessionDto(session, currency),
@@ -124,7 +119,7 @@ export class CashService {
       incomes: minor(totals.incomes),
       withdrawals: minor(totals.withdrawals),
       cashExpenses: minor(totals.cashExpenses),
-      expectedCash: session.expectedCash ? minor(session.expectedCash) : minor(expected),
+      expectedCash: minor(session.expectedCash ?? totals.expectedCash(session.openingAmount)),
       openOrders,
     };
   }
@@ -143,11 +138,7 @@ export class CashService {
         throw conflict(ErrorCode.INVALID_STATUS_TRANSITION, 'La caja ya está cerrada');
       }
       const totals = await this.computeTotals(tx, sessionId);
-      const expected = session.openingAmount
-        .add(totals.cashSales)
-        .add(totals.incomes)
-        .sub(totals.withdrawals)
-        .sub(totals.cashExpenses);
+      const expected = totals.expectedCash(session.openingAmount);
       const counted = minorToDecimal(dto.countedCash, currency);
       await tx.cashSession.update({
         where: { id: sessionId },
@@ -291,7 +282,7 @@ export class CashService {
   }
 
   /** Consultas secuenciales: dentro de una transacción comparten una sola conexión. */
-  private async computeTotals(db: Db | Tx, sessionId: string) {
+  private async computeTotals(db: Db, sessionId: string) {
     const byMethod = await db.payment.groupBy({
       by: ['method'],
       where: { cashSessionId: sessionId, status: PaymentStatus.COMPLETED },
@@ -317,14 +308,21 @@ export class CashService {
     }));
     const movementSum = (type: CashMovementType): Prisma.Decimal =>
       movements.find((row) => row.type === type)?._sum.amount ?? ZERO;
+    const cashSales = methods.find((row) => row.method === PaymentMethod.CASH)?.amount ?? ZERO;
+    const incomes = movementSum(CashMovementType.INCOME);
+    const withdrawals = movementSum(CashMovementType.WITHDRAWAL);
+    const cashOut = cashExpenses._sum.amount ?? ZERO;
     return {
       byMethod: methods,
       salesTotal: methods.reduce((sum, row) => sum.add(row.amount), ZERO),
-      cashSales: methods.find((row) => row.method === PaymentMethod.CASH)?.amount ?? ZERO,
-      incomes: movementSum(CashMovementType.INCOME),
-      withdrawals: movementSum(CashMovementType.WITHDRAWAL),
-      cashExpenses: cashExpenses._sum.amount ?? ZERO,
+      cashSales,
+      incomes,
+      withdrawals,
+      cashExpenses: cashOut,
       ordersPaid,
+      /** Base + efectivo cobrado + ingresos − retiros − gastos pagados con la caja. */
+      expectedCash: (openingAmount: Prisma.Decimal): Prisma.Decimal =>
+        openingAmount.add(cashSales).add(incomes).sub(withdrawals).sub(cashOut),
     };
   }
 }

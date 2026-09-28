@@ -8,7 +8,6 @@ import {
   fromMinorUnits,
   percentOf,
   SUPPORTED_CURRENCIES,
-  splitEvenly,
   splitTaxFromGross,
   sumMinor,
   toBasisPoints,
@@ -68,7 +67,7 @@ describe('splitTaxFromGross', () => {
   });
 });
 
-describe('allocate / splitEvenly', () => {
+describe('allocate', () => {
   it('reparte el residuo sin perder ni crear centavos', () => {
     expect(allocate(100, [1, 1, 1])).toEqual([34, 33, 33]);
     expect(allocate(1_000, [1, 2, 7])).toEqual([100, 200, 700]);
@@ -81,16 +80,10 @@ describe('allocate / splitEvenly', () => {
     expect(sumMinor(allocate(99_999, [0.3, 0.3, 0.4]))).toBe(99_999);
   });
 
-  it('divide la cuenta en partes iguales', () => {
-    expect(splitEvenly(10_000, 3)).toEqual([3_334, 3_333, 3_333]);
-    expect(splitEvenly(10_000, 1)).toEqual([10_000]);
-  });
-
   it('valida los argumentos', () => {
     expect(() => allocate(100, [])).toThrow(RangeError);
     expect(() => allocate(100, [0, 0])).toThrow(RangeError);
     expect(() => allocate(100, [-1, 2])).toThrow(RangeError);
-    expect(() => splitEvenly(100, 0)).toThrow(RangeError);
   });
 });
 

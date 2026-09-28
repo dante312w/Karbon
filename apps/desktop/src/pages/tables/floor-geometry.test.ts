@@ -5,6 +5,7 @@ import {
   CELL,
   chairPositions,
   fitFontSize,
+  freePosition,
   overlaps,
   planSize,
   tableRect,
@@ -54,6 +55,17 @@ describe('plano del salón', () => {
     expect(overlaps(box(0, 0), box(1, 0))).toBe(false);
     expect(blocks(FloorElementKind.WALL)).toBe(false);
     expect(blocks('TABLE')).toBe(true);
+  });
+
+  it('ubica lo nuevo en el primer lugar libre, sin encimarlo a mesas ni elementos', () => {
+    const bar = box(0, 0, 3, 1);
+    const table = box(3, 0, 2, 2);
+    expect(freePosition({ width: 1, height: 1 }, [bar, table])).toEqual({ posX: 5, posY: 0 });
+    expect(freePosition({ width: 2, height: 1 }, [bar, table], { posX: 6, posY: 3 })).toEqual({
+      posX: 6,
+      posY: 3,
+    });
+    expect(freePosition({ width: 9, height: 1 }, [bar])).toEqual({ posX: 0, posY: 1 });
   });
 
   it('achica la letra de nombres largos sin bajar del mínimo', () => {

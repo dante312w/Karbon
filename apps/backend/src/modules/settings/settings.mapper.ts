@@ -13,7 +13,7 @@ import type {
 } from '../../generated/prisma/client.js';
 import { dateOnly, iso, num, timestamps } from '../../common/mapping.js';
 
-export const LOGO_URL = '/api/v1/settings/logo';
+const LOGO_URL = '/api/v1/settings/logo';
 
 export function toSettingsDto(settings: RestaurantSettings): RestaurantSettingsDto {
   return {

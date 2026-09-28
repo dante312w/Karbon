@@ -78,17 +78,21 @@ export default function KdsPage() {
     ? { warningMinutes: settings.kdsWarningMinutes, criticalMinutes: settings.kdsCriticalMinutes }
     : DEFAULT_KDS_THRESHOLDS;
 
-  // Aviso sonoro cuando llega una comanda que no estaba en pantalla.
-  const seen = useRef<Set<string> | null>(null);
+  // Aviso sonoro cuando llega una comanda que no estaba en pantalla. Al cambiar de estación
+  // se vuelve a empezar: las comandas de la otra estación no son nuevas.
+  const seen = useRef<{ station: KitchenStation | undefined; ids: Set<string> } | null>(null);
   useEffect(() => {
     if (!tickets.data) return;
-    const ids = new Set(tickets.data.map((ticket) => ticket.id));
+    const last = seen.current;
+    const previous = last !== null && last.station === station ? last.ids : null;
     const arrived =
-      seen.current !== null &&
-      tickets.data.some((ticket) => ticket.status === 'NEW' && !seen.current?.has(ticket.id));
+      previous !== null &&
+      tickets.data.some(
+        (ticket) => ticket.status === KitchenTicketStatus.NEW && !previous.has(ticket.id),
+      );
     if (arrived && soundOn) playChime('new');
-    seen.current = ids;
-  }, [tickets.data, soundOn]);
+    seen.current = { station, ids: new Set(tickets.data.map((ticket) => ticket.id)) };
+  }, [tickets.data, station, soundOn]);
 
   useEffect(() => {
     const onChange = (): void => {

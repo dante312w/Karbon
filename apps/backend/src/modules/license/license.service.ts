@@ -1,6 +1,6 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ErrorCode, type LicenseState, type LicenseStatusDto } from '@karbon/types';
-import { DomainError } from '../../common/errors/domain-error.js';
+import { DomainError, invalid } from '../../common/errors/domain-error.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { InvalidLicenseError, type LicensePayload, verifyLicense } from './license-key.js';
 
@@ -49,12 +49,14 @@ export class LicenseService {
     try {
       payload = verifyLicense(key);
     } catch (error) {
-      if (error instanceof InvalidLicenseError) throw this.invalid(error.message);
+      if (error instanceof InvalidLicenseError)
+        throw invalid(ErrorCode.LICENSE_INVALID, error.message);
       throw error;
     }
     const status = this.describe(payload, settings.branchId, new Date());
     if (status.state !== 'ACTIVE') {
-      throw this.invalid(
+      throw invalid(
+        ErrorCode.LICENSE_INVALID,
         status.state === 'EXPIRED' ? 'La licencia ya venció' : 'La licencia es de otra instalación',
       );
     }
@@ -91,9 +93,5 @@ export class LicenseService {
       expiresAt: payload.expiresAt,
       trialDaysLeft: null,
     };
-  }
-
-  private invalid(message: string): DomainError {
-    return new DomainError(ErrorCode.LICENSE_INVALID, message, HttpStatus.UNPROCESSABLE_ENTITY);
   }
 }

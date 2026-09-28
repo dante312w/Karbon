@@ -7,6 +7,7 @@ import {
   type TableDto,
   TableStatus,
 } from '@karbon/types';
+import { ACTIVE_ORDER_STATUSES } from '@karbon/utils';
 import type { AuthenticatedUser } from '../../common/auth/authenticated-user.js';
 import { conflict, notFound } from '../../common/errors/domain-error.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
@@ -14,7 +15,6 @@ import type { Db, Tx } from '../../prisma/prisma.types.js';
 import { AuditService } from '../audit/audit.service.js';
 import { EVENT_ROOMS, EventsService } from '../realtime/events.service.js';
 import { SettingsService } from '../settings/settings.service.js';
-import { ACTIVE_ORDER_STATUSES } from './floor.constants.js';
 import type {
   CreateAreaDto,
   CreateFloorElementDto,
@@ -125,10 +125,9 @@ export class FloorService {
   }
 
   async createTable(dto: CreateTableDto): Promise<TableDto> {
-    const table = await this.prisma.diningTable.create({ data: dto, include: TABLE_INCLUDE });
-    const dtoOut = toTableDto(table, await this.settings.currency());
-    this.events.publish(SocketEvent.TABLE_CHANGED, { table: dtoOut }, EVENT_ROOMS.tableChanged);
-    return dtoOut;
+    const { id } = await this.prisma.diningTable.create({ data: dto });
+    await this.publishTables([id]);
+    return this.getTable(id);
   }
 
   async updateTable(id: string, dto: UpdateTableDto): Promise<TableDto> {
@@ -149,6 +148,8 @@ export class FloorService {
       entity: 'table',
       entityId: id,
     });
+    // Las demás terminales la quitan del plano (llega inactiva).
+    await this.publishTables([id]);
   }
 
   /** Une mesas libres a una principal: el pedido del grupo vive en la principal. */

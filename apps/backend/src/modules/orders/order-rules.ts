@@ -1,10 +1,10 @@
 import {
   ErrorCode,
   KitchenTicketStatus,
-  OrderStatus,
   type KitchenTicketStatus as TicketStatus,
-  type OrderStatus as OrderStatusValue,
+  type OrderStatus,
 } from '@karbon/types';
+import { isOrderActive } from '@karbon/utils';
 import { conflict } from '../../common/errors/domain-error.js';
 
 /**
@@ -50,8 +50,8 @@ export function ticketTimestampField(
   }
 }
 
-export function assertOrderEditable(status: OrderStatusValue): void {
-  if (status !== OrderStatus.OPEN && status !== OrderStatus.BILL_REQUESTED) {
+export function assertOrderEditable(status: OrderStatus): void {
+  if (!isOrderActive(status)) {
     throw conflict(ErrorCode.ORDER_NOT_EDITABLE, 'El pedido ya fue pagado o cancelado');
   }
 }

@@ -7,6 +7,7 @@ import {
   type SocketEventMap,
   type TableDto,
 } from '@karbon/types';
+import { isOrderActive } from '@karbon/utils';
 import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { queryKeys } from '../query-keys';
 import { type KarbonSocket, useKarbon } from './context';
@@ -32,9 +33,8 @@ export function bindRealtimeCache(socket: KarbonSocket, queryClient: QueryClient
     queryClient.setQueryData(queryKeys.order(order.id), order);
     queryClient.setQueryData<ActiveOrders>(queryKeys.activeOrders, (current) => {
       if (!current) return current;
-      const active = order.status === 'OPEN' || order.status === 'BILL_REQUESTED';
       const others = current.items.filter((candidate) => candidate.id !== order.id);
-      return { ...current, items: active ? [order, ...others] : others };
+      return { ...current, items: isOrderActive(order.status) ? [order, ...others] : others };
     });
     void queryClient.invalidateQueries({ queryKey: queryKeys.tickets });
   };

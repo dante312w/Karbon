@@ -1,7 +1,8 @@
 import { MinusIcon, PlusIcon } from 'lucide-react';
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { cn } from '../lib/cn';
 import { Button } from './button';
+import { Dialog, DialogContent } from './dialog';
 import { Label, Textarea } from './form';
 import { Chip } from './layout';
 
@@ -99,5 +100,60 @@ export function NotesEditor({ value, onChange, suggestions, label = 'Notas' }: N
         }}
       />
     </div>
+  );
+}
+
+export interface ItemNotesDialogProps {
+  title: string;
+  description: string;
+  suggestions: readonly string[];
+  /** Texto del botón según la cantidad elegida, p. ej. "Agregar · $25.000". */
+  confirmLabel: (quantity: number) => string;
+  onConfirm: (quantity: number, notes: string | null) => void;
+  onClose: () => void;
+}
+
+/** Agregar un producto con cantidad y nota (caja y celulares). */
+export function ItemNotesDialog({
+  title,
+  description,
+  suggestions,
+  confirmLabel,
+  onConfirm,
+  onClose,
+}: ItemNotesDialogProps) {
+  const [quantity, setQuantity] = useState(1);
+  const [notes, setNotes] = useState('');
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent
+        title={title}
+        description={description}
+        footer={
+          <>
+            <Button variant="outline" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button
+              size="lg"
+              onClick={() => {
+                onConfirm(quantity, notes.trim() || null);
+                onClose();
+              }}
+            >
+              {confirmLabel(quantity)}
+            </Button>
+          </>
+        }
+      >
+        <QuantityStepper value={quantity} onChange={setQuantity} className="self-center" />
+        <NotesEditor value={notes} onChange={setNotes} suggestions={suggestions} />
+      </DialogContent>
+    </Dialog>
   );
 }

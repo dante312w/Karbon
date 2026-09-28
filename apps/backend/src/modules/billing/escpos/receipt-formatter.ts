@@ -1,13 +1,6 @@
-import type { KitchenTicketDto, PaymentMethod, ReceiptDocument } from '@karbon/types';
-import { formatMoney } from '@karbon/utils';
+import type { KitchenTicketDto, ReceiptDocument } from '@karbon/types';
+import { formatMoney, PAYMENT_METHOD_LABEL } from '@karbon/utils';
 import { EscPosBuilder, wrap } from './escpos-builder.js';
-
-const METHOD_LABEL: Readonly<Record<PaymentMethod, string>> = {
-  CASH: 'Efectivo',
-  CARD: 'Tarjeta',
-  TRANSFER: 'Transferencia',
-  QR: 'QR',
-};
 
 function money(amount: number, document: Pick<ReceiptDocument, 'currency' | 'locale'>): string {
   // Las impresoras térmicas no tienen espacio de no separación.
@@ -79,7 +72,7 @@ export function formatReceipt(
   if (document.payments.length > 0) {
     printer.separator();
     for (const payment of document.payments) {
-      printer.columnsLine(METHOD_LABEL[payment.method], money(payment.amount, document));
+      printer.columnsLine(PAYMENT_METHOD_LABEL[payment.method], money(payment.amount, document));
       if (payment.tendered !== null)
         printer.columnsLine('  Recibido', money(payment.tendered, document));
       if (payment.change) printer.columnsLine('  Cambio', money(payment.change, document));

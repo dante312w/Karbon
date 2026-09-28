@@ -14,9 +14,11 @@ import type {
   InventoryMovementType,
   KitchenStation,
   KitchenTicketStatus,
+  MeasureUnit,
   OrderType,
   PaymentMethod,
 } from '../enums.js';
+import type { LowStockAlert } from '../events.js';
 import type { CashSessionDto } from '../entities/cash.js';
 import type { OrderDto } from '../entities/orders.js';
 
@@ -243,7 +245,7 @@ export interface ReceiptDocument {
 export interface CreateIngredientRequest {
   name: string;
   sku?: string | null;
-  unit: 'UNIT' | 'GRAM' | 'KILOGRAM' | 'MILLILITER' | 'LITER';
+  unit: MeasureUnit;
   minStock?: Quantity;
   /** Costo unitario inicial (unidades mayores por unidad de medida). */
   cost?: UnitCost;
@@ -345,11 +347,5 @@ export interface DashboardDto {
   topProducts: { productId: Uuid; name: string; quantity: number; total: MinorUnits }[];
   salesByWaiter: { waiterId: Uuid; name: string; total: MinorUnits; orders: number }[];
   paymentsByMethod: { method: PaymentMethod; total: MinorUnits }[];
-  criticalInventory: {
-    ingredientId: Uuid;
-    name: string;
-    stock: Quantity;
-    minStock: Quantity;
-    unit: string;
-  }[];
+  criticalInventory: LowStockAlert[];
 }
