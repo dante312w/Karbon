@@ -31,7 +31,7 @@ import { LicenseService } from '../license/license.service.js';
 import { DomainEventsService } from '../realtime/domain-events.service.js';
 import { ConfigCatalogService } from '../settings/catalog-config.service.js';
 import { SettingsService } from '../settings/settings.service.js';
-import { OrderStore, requirePermission } from './order-store.service.js';
+import { assertCanManageOrder, OrderStore, requirePermission } from './order-store.service.js';
 import { assertOrderEditable, normalizeNotes } from './order-rules.js';
 import { lineTotal } from './order-totals.js';
 import type {
@@ -181,7 +181,7 @@ export class OrdersService {
 
   addItems(orderId: string, dto: AddItemsDto, user: AuthenticatedUser): Promise<OrderDto> {
     if (dto.send) requirePermission(user, Permission.ORDERS_SEND);
-    return this.mutate(orderId, dto.version, async (tx, order) => {
+    return this.mutate(orderId, dto.version, user, async (tx, order) => {
       assertOrderEditable(order.status);
       await this.addItemsTx(tx, order, dto.items);
       return dto.send
@@ -197,7 +197,7 @@ export class OrdersService {
     user: AuthenticatedUser,
   ): Promise<OrderDto> {
     if (dto.discount !== undefined) requirePermission(user, Permission.ORDERS_DISCOUNT);
-    return this.mutate(orderId, dto.version, async (tx, order) => {
+    return this.mutate(orderId, dto.version, user, async (tx, order) => {
       assertOrderEditable(order.status);
       const item = await this.findItem(tx, orderId, itemId);
       const changesContent = dto.quantity !== undefined || dto.notes !== undefined;
@@ -244,7 +244,7 @@ export class OrdersService {
     dto: CancelItemDto,
     user: AuthenticatedUser,
   ): Promise<OrderDto> {
-    return this.mutate(orderId, dto.version, async (tx, order) => {
+    return this.mutate(orderId, dto.version, user, async (tx, order) => {
       assertOrderEditable(order.status);
       const item = await this.findItem(tx, orderId, itemId);
       if (item.status === OrderItemStatus.PENDING) {
@@ -292,8 +292,13 @@ export class OrdersService {
     });
   }
 
-  duplicateItem(orderId: string, itemId: string, version: number): Promise<OrderDto> {
-    return this.mutate(orderId, version, async (tx, order) => {
+  duplicateItem(
+    orderId: string,
+    itemId: string,
+    version: number,
+    user: AuthenticatedUser,
+  ): Promise<OrderDto> {
+    return this.mutate(orderId, version, user, async (tx, order) => {
       assertOrderEditable(order.status);
       const item = await this.findItem(tx, orderId, itemId);
       await this.addItemsTx(
@@ -308,8 +313,8 @@ export class OrdersService {
     });
   }
 
-  reorderItems(orderId: string, dto: ReorderItemsDto): Promise<OrderDto> {
-    return this.mutate(orderId, dto.version, async (tx, order) => {
+  reorderItems(orderId: string, dto: ReorderItemsDto, user: AuthenticatedUser): Promise<OrderDto> {
+    return this.mutate(orderId, dto.version, user, async (tx, order) => {
       assertOrderEditable(order.status);
       const count = await tx.orderItem.count({ where: { orderId, id: { in: dto.itemIds } } });
       if (count !== dto.itemIds.length) throw notFound('Alguno de los productos del pedido');
@@ -322,16 +327,20 @@ export class OrdersService {
 
   // ─── Flujo del pedido ───────────────────────────────────────────────────────
 
-  send(orderId: string, version: number | undefined): Promise<OrderDto> {
-    return this.mutate(orderId, version, async (tx, order) => {
+  send(orderId: string, version: number | undefined, user: AuthenticatedUser): Promise<OrderDto> {
+    return this.mutate(orderId, version, user, async (tx, order) => {
       assertOrderEditable(order.status);
       const sentTicketIds = await this.sendTx(tx, orderId, await this.settings.businessMode());
       return { sentTicketIds };
     });
   }
 
-  requestBill(orderId: string, version: number | undefined): Promise<OrderDto> {
-    return this.mutate(orderId, version, async (tx, order) => {
+  requestBill(
+    orderId: string,
+    version: number | undefined,
+    user: AuthenticatedUser,
+  ): Promise<OrderDto> {
+    return this.mutate(orderId, version, user, async (tx, order) => {
       assertOrderEditable(order.status);
       const items = await tx.orderItem.count({
         where: { orderId, status: { not: OrderItemStatus.CANCELLED } },
@@ -347,7 +356,7 @@ export class OrdersService {
 
   update(orderId: string, dto: UpdateOrderDto, user: AuthenticatedUser): Promise<OrderDto> {
     if (dto.tipPercent !== undefined) requirePermission(user, Permission.PAYMENTS_CREATE);
-    return this.mutate(orderId, dto.version, async (tx, order) => {
+    return this.mutate(orderId, dto.version, user, async (tx, order) => {
       assertOrderEditable(order.status);
       await tx.order.update({
         where: { id: orderId },
@@ -364,7 +373,7 @@ export class OrdersService {
   }
 
   move(orderId: string, dto: MoveOrderDto, user: AuthenticatedUser): Promise<OrderDto> {
-    return this.mutate(orderId, dto.version, async (tx, order) => {
+    return this.mutate(orderId, dto.version, user, async (tx, order) => {
       assertOrderEditable(order.status);
       const target = await this.floor.resolveServingTable(tx, dto.tableId);
       if (target.id === order.tableId) return {};
@@ -393,7 +402,7 @@ export class OrdersService {
   /** Divide la cuenta por ítems: los elegidos pasan a un pedido nuevo en la misma mesa. */
   async split(orderId: string, dto: SplitOrderDto, user: AuthenticatedUser): Promise<OrderDto> {
     let newOrderId = '';
-    await this.mutate(orderId, dto.version, async (tx, order) => {
+    await this.mutate(orderId, dto.version, user, async (tx, order) => {
       assertOrderEditable(order.status);
       const paid = await tx.payment.count({ where: { orderId, status: PaymentStatus.COMPLETED } });
       if (paid > 0)
@@ -516,7 +525,7 @@ export class OrdersService {
   }
 
   cancel(orderId: string, dto: CancelDto, user: AuthenticatedUser): Promise<OrderDto> {
-    return this.mutate(orderId, dto.version, async (tx, order) => {
+    return this.mutate(orderId, dto.version, user, async (tx, order) => {
       assertOrderEditable(order.status);
       const paid = await tx.payment.count({ where: { orderId, status: PaymentStatus.COMPLETED } });
       if (paid > 0)
@@ -550,15 +559,20 @@ export class OrdersService {
 
   // ─── Internos ───────────────────────────────────────────────────────────────
 
-  /** Envoltura común: bloqueo con versión → cambio → totales → estado de mesa → eventos. */
+  /**
+   * Envoltura común: bloqueo con versión → propiedad del pedido → cambio → totales → estado de
+   * mesa → eventos. Ninguna modificación se salta la regla de que cada mesero opera lo suyo.
+   */
   private async mutate(
     orderId: string,
     version: number | undefined,
+    user: AuthenticatedUser,
     change: (tx: Tx, order: Order) => Promise<MutationResult>,
   ): Promise<OrderDto> {
     const { order, result } = await this.prisma.$transaction(
       async (tx) => {
         const locked = await this.store.lock(tx, orderId, version);
+        assertCanManageOrder(user, locked.waiterId);
         const outcome = await change(tx, locked);
         await this.store.recalculate(tx, orderId);
         await this.floor.refreshStatuses(tx, [locked.tableId, ...(outcome.tableIds ?? [])]);

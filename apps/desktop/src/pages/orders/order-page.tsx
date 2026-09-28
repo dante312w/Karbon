@@ -3,6 +3,7 @@ import {
   useHasPermission,
   useMoney,
   useOrder,
+  useOrderAccess,
   useOrderMutation,
   useTerminology,
 } from '@karbon/client';
@@ -102,7 +103,9 @@ function OrderWorkspace({ order }: { order: OrderDto }) {
     move: useHasPermission(Permission.TABLES_OPERATE),
     create: useHasPermission(Permission.ORDERS_CREATE),
   };
-  const editable = isOrderActive(order.status) && can.update;
+  // Cada mesero opera sus pedidos; con `orders:manage_any` (caja, administración), todos.
+  const owned = useOrderAccess().canManage(order.waiter.id);
+  const editable = isOrderActive(order.status) && can.update && owned;
   const pendingCount = order.items
     .filter((item) => item.status === OrderItemStatus.PENDING)
     .reduce((sum, item) => sum + item.quantity, 0);
@@ -176,11 +179,17 @@ function OrderWorkspace({ order }: { order: OrderDto }) {
         ) : (
           <EmptyState
             icon={ReceiptTextIcon}
-            title={`Pedido ${ORDER_STATUS_LABEL[order.status].toLowerCase()}`}
+            title={
+              isOrderActive(order.status) && !owned
+                ? `Pedido de ${order.waiter.name}`
+                : `Pedido ${ORDER_STATUS_LABEL[order.status].toLowerCase()}`
+            }
             description={
-              order.cancelReason
-                ? `Motivo: ${order.cancelReason}`
-                : 'Este pedido ya no admite cambios.'
+              isOrderActive(order.status) && !owned
+                ? 'Solo quien lo atiende (o caja) puede modificarlo.'
+                : order.cancelReason
+                  ? `Motivo: ${order.cancelReason}`
+                  : 'Este pedido ya no admite cambios.'
             }
             className="my-auto"
           />

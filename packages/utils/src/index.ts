@@ -7,4 +7,5 @@ export * from './business-mode.js';
 export * from './labels.js';
 export * from './search.js';
 export * from './table-summary.js';
+export * from './table-ops.js';
 export * from './time.js';

@@ -296,7 +296,7 @@ Además de claves foráneas y únicas, la migración inicial agrega `CHECK` cons
 
 ### Migraciones de datos
 
-Los roles de sistema se crean con el seed, que solo corre en instalaciones nuevas. Cuando una versión agrega permisos, su migración los suma a los roles existentes sin quitar los que ya tenían (p. ej. `20260928202352_waiter_delivery`: `orders:deliver` para todo rol que toma pedidos, `orders:manage_any` para administración y caja, y ambos para la barra si el negocio está en modo bar).
+Los roles de sistema se crean con el seed, que solo corre en instalaciones nuevas. Cuando una versión agrega permisos, su migración los suma a los roles existentes sin quitar los que ya tenían (p. ej. `20260928202352_waiter_delivery`: `orders:deliver` para todo rol que toma pedidos, `orders:manage_any` para administración y caja, y ambos para la barra si el negocio está en modo bar; `20260928230000_waiter_table_operations`: `tables:operate` para el rol Mesero y `orders:manage_any` para todo rol que cobra, que hasta entonces operaba pedidos de cualquiera).
 
 ## Flujo de trabajo con migraciones
 
