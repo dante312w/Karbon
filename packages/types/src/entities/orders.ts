@@ -33,6 +33,8 @@ export interface KitchenTicketDto {
   orderId: Uuid;
   orderNumber: number;
   tableName: string | null;
+  /** Mesero del pedido: es quien confirma la entrega (o alguien con `orders:manage_any`). */
+  waiterId: Uuid;
   waiterName: string;
   /** Ronda de envío dentro del pedido (1, 2, 3…). */
   sequence: number;
@@ -44,6 +46,8 @@ export interface KitchenTicketDto {
   startedAt: IsoDateTime | null;
   readyAt: IsoDateTime | null;
   deliveredAt: IsoDateTime | null;
+  /** Quién confirmó la entrega; `null` si la cerró el sistema al cobrar el pedido. */
+  deliveredBy: { id: Uuid; name: string } | null;
 }
 
 export interface OrderTotals {

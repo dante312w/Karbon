@@ -8,13 +8,19 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); v
 
 - Plano del salón: cada área se ve desde arriba con sus mesas (redondas, cuadradas o rectangulares, con sus sillas según la capacidad), el color del estado, el tiempo y el total de la cuenta, más barra, cocina, baños, entrada, caja y paredes. La vista de tarjetas sigue disponible.
 - Editor del plano en Configuración → Salón: arrastrar y soltar (o flechas del teclado) celda por celda, sin encimar mesas.
+- Celular del mesero: cada comanda del pedido muestra su estado con texto e ícono ("En cola", "Preparando", "Listo para recoger", "Entregado") y su tiempo en vivo; lo listo se confirma con **Entregado en la mesa**, con opción de deshacer.
+- Permisos nuevos: **Confirmar entregas en la mesa** y **Operar pedidos de otros meseros** (caja y administración).
 
 ### Cambiado
+
+- La entrega la confirma el mesero, no cocina: el KDS llega hasta **Listo** y muestra cuánto lleva **por recoger**. En modo bar, el barman también puede entregar desde el tablero. Al cobrar, lo que seguía listo se da por entregado y queda en la auditoría.
 
 - Identidad visual morada: botones y acentos violeta, barra lateral y pantallas de ingreso en morado oscuro, neutros con un leve tinte morado y logo nuevo. El verde queda solo para estados (mesa libre, comanda a tiempo). Paleta de gráficos validada para daltonismo en ambos temas.
 - KDS en pantallas anchas (TV): dos o más comandas por fila en cada columna.
 
 ### Corregido
+
+- KDS: el cronómetro de las comandas entregadas seguía contando. Ahora muestra un **tiempo total fijo**, con cuánto tardó en prepararse y en recogerse, y quién la entregó. Deshacer un paso (Listo → Preparando) ya no deja marcas de tiempo viejas.
 
 - Configuración → Celulares: el QR apuntaba al backend aunque este no publicara la app de meseros (en desarrollo) y, con Docker, a la IP interna del contenedor. Ahora el servidor informa dónde se abre cada app (el mismo servidor en el programa instalado, los puertos de Vite en desarrollo) y, si no se publica, la pantalla lo explica en lugar de mostrar un QR que no sirve.
 - Menú lateral: en pantallas bajas (laptops con escala de Windows al 125 %) el botón Configuración quedaba cortado sin forma de llegar a él; ahora está fijo al fondo y los demás módulos se desplazan.

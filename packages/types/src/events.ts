@@ -10,6 +10,8 @@ export const SocketEvent = {
   ORDER_CREATED: 'order.created',
   ORDER_UPDATED: 'order.updated',
   KITCHEN_READY: 'kitchen.ready',
+  /** El mesero confirmó que la comanda llegó a la mesa (o se devolvió a "Listo"). */
+  KITCHEN_DELIVERED: 'kitchen.delivered',
   TABLE_CHANGED: 'table.changed',
   INVENTORY_UPDATED: 'inventory.updated',
   CASH_CLOSED: 'cash.closed',
@@ -48,7 +50,8 @@ export interface OrderEventData {
   order: OrderDto;
 }
 
-export interface KitchenReadyData {
+/** Cambio de una comanda que le interesa al mesero del pedido (lista, entregada). */
+export interface KitchenTicketEventData {
   ticket: KitchenTicketDto;
   waiterId: Uuid;
 }
@@ -81,7 +84,8 @@ export interface SettingsUpdatedData {
 export interface SocketEventMap {
   [SocketEvent.ORDER_CREATED]: OrderEventData;
   [SocketEvent.ORDER_UPDATED]: OrderEventData;
-  [SocketEvent.KITCHEN_READY]: KitchenReadyData;
+  [SocketEvent.KITCHEN_READY]: KitchenTicketEventData;
+  [SocketEvent.KITCHEN_DELIVERED]: KitchenTicketEventData;
   [SocketEvent.TABLE_CHANGED]: TableChangedData;
   [SocketEvent.INVENTORY_UPDATED]: InventoryUpdatedData;
   [SocketEvent.CASH_CLOSED]: CashClosedData;

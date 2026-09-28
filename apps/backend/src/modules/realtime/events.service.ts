@@ -17,6 +17,9 @@ export const EVENT_ROOMS = {
   orderCreated: [SocketRoom.CASHIER, SocketRoom.ADMIN, SocketRoom.KITCHEN],
   orderUpdated: [SocketRoom.KITCHEN, SocketRoom.CASHIER, SocketRoom.WAITERS, SocketRoom.ADMIN],
   tableChanged: [SocketRoom.WAITERS, SocketRoom.CASHIER, SocketRoom.ADMIN],
+  /** Más la sala propia del mesero del pedido, que agrega quien publica. */
+  kitchenReady: [SocketRoom.CASHIER],
+  kitchenDelivered: [SocketRoom.KITCHEN, SocketRoom.CASHIER, SocketRoom.ADMIN],
   inventoryUpdated: [SocketRoom.ADMIN],
   cashClosed: [SocketRoom.ADMIN, SocketRoom.CASHIER],
 } as const;

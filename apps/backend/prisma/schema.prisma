@@ -278,6 +278,7 @@ model User {
   ordersServed        Order[]             @relation("OrderWaiter")
   ordersCancelled     Order[]             @relation("OrderCancelledBy")
   orderItemsCancelled OrderItem[]         @relation("OrderItemCancelledBy")
+  ticketsDelivered    KitchenTicket[]     @relation("TicketDeliveredBy")
   paymentsReceived    Payment[]           @relation("PaymentReceivedBy")
   paymentsVoided      Payment[]           @relation("PaymentVoidedBy")
   cashSessionsOpened  CashSession[]       @relation("CashSessionOpenedBy")
@@ -822,24 +823,27 @@ model OrderItem {
 }
 
 /// Comanda: cada "enviar a cocina" genera una por estación con los ítems pendientes.
-/// El KDS mueve comandas por NEW → PREPARING → READY → DELIVERED.
+/// El KDS la mueve por NEW → PREPARING → READY; el mesero confirma READY → DELIVERED.
 model KitchenTicket {
-  id          String              @id @default(uuid(7)) @db.Uuid
-  orderId     String              @map("order_id") @db.Uuid
+  id            String              @id @default(uuid(7)) @db.Uuid
+  orderId       String              @map("order_id") @db.Uuid
   /// Ronda de envío dentro del pedido (1, 2, 3…).
-  sequence    Int
-  station     KitchenStation
-  status      KitchenTicketStatus @default(NEW)
-  notes       String?             @db.VarChar(255)
-  createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
-  startedAt   DateTime?           @map("started_at") @db.Timestamptz(3)
-  readyAt     DateTime?           @map("ready_at") @db.Timestamptz(3)
-  deliveredAt DateTime?           @map("delivered_at") @db.Timestamptz(3)
-  cancelledAt DateTime?           @map("cancelled_at") @db.Timestamptz(3)
-  updatedAt   DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  sequence      Int
+  station       KitchenStation
+  status        KitchenTicketStatus @default(NEW)
+  notes         String?             @db.VarChar(255)
+  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  startedAt     DateTime?           @map("started_at") @db.Timestamptz(3)
+  readyAt       DateTime?           @map("ready_at") @db.Timestamptz(3)
+  deliveredAt   DateTime?           @map("delivered_at") @db.Timestamptz(3)
+  /// Quién confirmó la entrega; null con delivered_at = la cerró el sistema al cobrar.
+  deliveredById String?             @map("delivered_by_id") @db.Uuid
+  cancelledAt   DateTime?           @map("cancelled_at") @db.Timestamptz(3)
+  updatedAt     DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  order Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  items OrderItem[]
+  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  deliveredBy User?       @relation("TicketDeliveredBy", fields: [deliveredById], references: [id], onDelete: SetNull)
+  items       OrderItem[]
 
   @@unique([orderId, sequence, station])
   @@index([station, status, createdAt])
