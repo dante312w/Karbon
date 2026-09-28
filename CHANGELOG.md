@@ -12,9 +12,14 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); v
 - Mesas en el celular, rediseñadas: contadores que filtran (**Para recoger**, **Preparando**, **Cuenta**, **Libres**), tarjetas táctiles más grandes con ícono y texto de estado, cuenta, tiempo abierto, mesero y, si hay algo en cocina, su tiempo y urgencia ("A tiempo", "Demorado", "Crítico"). Dos columnas desde 320 px y más en tablet.
 - **Mis pedidos**: primero lo que hay que llevar a la mesa, con hora de apertura, cantidad de productos, espera en cocina y un botón para confirmar de una vez todo lo listo.
 - Detalle del pedido en el celular: cada comanda muestra su urgencia y la hora de envío.
+- Gestión de mesas desde el celular: detalles del pedido, mover, unir y separar mesas, dividir cuenta, cancelar (con permiso), editar cantidad y notas de lo no enviado, anular lo enviado con motivo y marcar libre una mesa pagada.
+- Unir mesas ocupadas: las cuentas de la mesa que se une pasan a la principal, cada una por separado, sin perder productos, comandas ni pagos parciales.
 - Permisos nuevos: **Confirmar entregas en la mesa** y **Operar pedidos de otros meseros** (caja y administración).
 
 ### Cambiado
+
+- Cada mesero opera solo sus pedidos (el servidor lo exige en todas las modificaciones); caja, administración y los roles que cobran operan todos. Los pedidos de otro se ven en modo lectura.
+- El rol Mesero puede mover, unir y liberar mesas (con sus propias cuentas).
 
 - La entrega la confirma el mesero, no cocina: el KDS llega hasta **Listo** y muestra cuánto lleva **por recoger**. En modo bar, el barman también puede entregar desde el tablero. Al cobrar, lo que seguía listo se da por entregado y queda en la auditoría.
 

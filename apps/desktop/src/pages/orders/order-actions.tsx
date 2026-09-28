@@ -11,20 +11,13 @@ import {
   Textarea,
   toast,
 } from '@karbon/ui';
+import { freeTables } from '@karbon/utils';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { CustomerPicker } from '../../components/customer-picker';
 
-/** Mesas libres a las que se puede mover o duplicar un pedido. */
 function useFreeTables(excludeId: string | null) {
-  const tables = useTables().data ?? [];
-  return tables.filter(
-    (table) =>
-      table.isActive &&
-      table.id !== excludeId &&
-      table.mergedIntoId === null &&
-      table.activeOrders.length === 0,
-  );
+  return freeTables(useTables().data ?? [], excludeId);
 }
 
 export function MoveOrderDialog({ order, onClose }: { order: OrderDto; onClose: () => void }) {

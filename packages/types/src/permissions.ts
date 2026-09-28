@@ -93,8 +93,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Readonly<Record<SystemRole, readonly Perm
     P.CUSTOMERS_READ,
     P.CUSTOMERS_WRITE,
   ],
+  // Opera mesas (mover, unir, liberar), pero solo con sus propias cuentas (`canManageOrder`).
   [SystemRole.WAITER]: [
     P.TABLES_READ,
+    P.TABLES_OPERATE,
     P.CATALOG_READ,
     P.ORDERS_READ,
     P.ORDERS_CREATE,

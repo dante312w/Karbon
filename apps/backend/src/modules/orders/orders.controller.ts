@@ -121,15 +121,20 @@ export class OrdersController {
     @Param('id', ParseUUIDPipe) id: string,
     @Param('itemId', ParseUUIDPipe) itemId: string,
     @Body() dto: VersionDto,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<OrderDto> {
-    return this.orders.duplicateItem(id, itemId, dto.version);
+    return this.orders.duplicateItem(id, itemId, dto.version, user);
   }
 
   @Put(':id/items/order')
   @RequirePermissions(Permission.ORDERS_UPDATE)
   @ApiOperation({ summary: 'Reordena los ítems del ticket' })
-  reorder(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ReorderItemsDto): Promise<OrderDto> {
-    return this.orders.reorderItems(id, dto);
+  reorder(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReorderItemsDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<OrderDto> {
+    return this.orders.reorderItems(id, dto, user);
   }
 
   @Post(':id/send')
@@ -137,8 +142,12 @@ export class OrdersController {
   @RequirePermissions(Permission.ORDERS_SEND)
   @ApiHeader(IDEMPOTENCY_HEADER)
   @ApiOperation({ summary: 'Envía los ítems pendientes a cocina/barra (una comanda por estación)' })
-  send(@Param('id', ParseUUIDPipe) id: string, @Body() dto: OptionalVersionDto): Promise<OrderDto> {
-    return this.orders.send(id, dto.version);
+  send(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: OptionalVersionDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<OrderDto> {
+    return this.orders.send(id, dto.version, user);
   }
 
   @Post(':id/tickets/:ticketId/deliver')
@@ -171,8 +180,9 @@ export class OrdersController {
   requestBill(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: OptionalVersionDto,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<OrderDto> {
-    return this.orders.requestBill(id, dto.version);
+    return this.orders.requestBill(id, dto.version, user);
   }
 
   @Post(':id/move')
