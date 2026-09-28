@@ -1,12 +1,16 @@
 import {
+  queryKeys,
   useActiveOrders,
+  useApi,
+  useApiMutation,
   useAreas,
+  useHasPermission,
   useMoney,
   useSession,
   useTables,
   useTerminology,
 } from '@karbon/client';
-import { type OrderDto, type TableDto, TableStatus } from '@karbon/types';
+import { type OrderDto, Permission, type TableDto, TableStatus } from '@karbon/types';
 import {
   Button,
   Chip,
@@ -14,13 +18,16 @@ import {
   Dialog,
   DialogContent,
   EmptyState,
+  notifyError,
   Spinner,
   TABLE_STATUS_META,
   tableStatusLabel,
+  toast,
   useNow,
 } from '@karbon/ui';
 import {
   elapsedLabel,
+  mergedChildren,
   summarizePreparation,
   summarizeTable,
   type TableSummary,
@@ -29,9 +36,11 @@ import {
   BadgeCheckIcon,
   CalendarClockIcon,
   CircleIcon,
+  DoorOpenIcon,
   HandPlatterIcon,
   HourglassIcon,
   LayoutGridIcon,
+  Link2Icon,
   type LucideIcon,
   PlusIcon,
   ReceiptTextIcon,
@@ -108,6 +117,19 @@ export function TablesPage() {
   const [mineOnly, setMineOnly] = useState(false);
   const [focus, setFocus] = useState<Focus | null>(null);
   const [choosing, setChoosing] = useState<TableDto | null>(null);
+  const api = useApi();
+  const canOperate = useHasPermission(Permission.TABLES_OPERATE);
+  const release = useApiMutation(
+    (tableId: string) => api.floor.setStatus(tableId, { status: 'FREE' }),
+    [queryKeys.tables],
+    {
+      onSuccess: (table) => {
+        toast.success(`${table.name} quedó libre`);
+        setChoosing(null);
+      },
+      onError: notifyError,
+    },
+  );
 
   const myId = session?.user.id;
   const activeAreas = (areas.data ?? [])
@@ -239,6 +261,7 @@ export function TablesPage() {
           <TableCard
             key={table.id}
             table={table}
+            joined={mergedChildren(table, tables.data ?? []).map((child) => child.name)}
             summary={summary}
             now={now}
             myId={myId}
@@ -283,6 +306,20 @@ export function TablesPage() {
               <ChooseOrder table={choosing} />
             ) : (
               <>
+                {canOperate &&
+                (choosing.status === TableStatus.PAID ||
+                  choosing.status === TableStatus.RESERVED) ? (
+                  <Button
+                    variant="secondary"
+                    size="touch"
+                    disabled={release.isPending}
+                    onClick={() => {
+                      release.mutate(choosing.id);
+                    }}
+                  >
+                    <DoorOpenIcon /> Marcar libre
+                  </Button>
+                ) : null}
                 <p className="text-sm font-medium">¿Cuántas personas?</p>
                 <div className="grid grid-cols-4 gap-2">
                   {GUESTS.map((guests) => (
@@ -309,12 +346,15 @@ export function TablesPage() {
 
 function TableCard({
   table,
+  joined,
   summary,
   now,
   myId,
   onOpen,
 }: {
   table: TableDto;
+  /** Mesas unidas a esta (se ocultan del mapa y se nombran aquí). */
+  joined: readonly string[];
   summary: TableSummary;
   now: number;
   myId: string | undefined;
@@ -352,6 +392,11 @@ function TableCard({
           </span>
         ) : null}
       </span>
+      {joined.length > 0 ? (
+        <span className="-mt-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
+          <Link2Icon className="size-3.5" aria-hidden /> Unida con {joined.join(', ')}
+        </span>
+      ) : null}
       <span className="flex items-center gap-1.5 text-sm font-medium">
         <span className={cn('grid size-5 place-items-center rounded-full', meta.dotClass)}>
           <Icon className="size-3 text-white" aria-hidden />

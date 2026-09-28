@@ -407,9 +407,9 @@ describe('Operación de un turno (integración)', () => {
       expect((await ingredient('Carne de res molida')).stock).toBe(carneBefore - 300);
     });
 
-    it('libera la mesa después de pagar', async () => {
-      await waiter.patch(`/tables/${table('Mesa 2').id}/status`, { status: 'FREE' }).expect(403);
-      await cashier.patch(`/tables/${table('Mesa 2').id}/status`, { status: 'FREE' }).expect(200);
+    it('libera la mesa después de pagar (el mesero también puede)', async () => {
+      await kitchen.patch(`/tables/${table('Mesa 2').id}/status`, { status: 'FREE' }).expect(403);
+      await waiter.patch(`/tables/${table('Mesa 2').id}/status`, { status: 'FREE' }).expect(200);
       await refreshTables();
       expect(table('Mesa 2').status).toBe('FREE');
     });
@@ -528,6 +528,113 @@ describe('Operación de un turno (integración)', () => {
       const logs = (await admin.get('/audit-logs?search=order.auto_deliver').expect(200))
         .body as Paginated<AuditLogDto>;
       expect(logs.items.some((log) => log.entityId === created.id)).toBe(true);
+    });
+  });
+
+  describe('mesas desde el celular: cada mesero opera lo suyo', () => {
+    let andres: ApiClient;
+    let own: OrderDto;
+    let other: OrderDto;
+    const openOrder = async (client: ApiClient, tableName: string, send = false) =>
+      (
+        await client
+          .post('/orders', {
+            tableId: table(tableName).id,
+            guests: 2,
+            items: [
+              { productId: product('Hamburguesa clásica').id, quantity: 1, notes: 'bien asada' },
+            ],
+            send,
+          })
+          .expect(201)
+      ).body as OrderDto;
+
+    beforeAll(async () => {
+      andres = await loginWithPin(harness, 'Andrés', '3333');
+      await refreshTables();
+      own = await openOrder(waiter, 'Mesa 6');
+      other = await openOrder(andres, 'Terraza 3');
+    });
+
+    it('otro mesero no modifica, envía ni cobra un pedido ajeno', async () => {
+      const add = { items: [{ productId: product('Agua 600 ml').id, quantity: 1 }] };
+      await andres.post(`/orders/${own.id}/items`, add).expect(403);
+      await andres.post(`/orders/${own.id}/send`, { version: own.version }).expect(403);
+      await andres.post(`/orders/${own.id}/request-bill`, {}).expect(403);
+      await andres.patch(`/orders/${own.id}`, { version: own.version, guests: 5 }).expect(403);
+      const response = await andres
+        .post(`/orders/${own.id}/move`, { version: own.version, tableId: table('Mesa 7').id })
+        .expect(403);
+      expect(response.body.code).toBe('FORBIDDEN');
+      // Caja opera los pedidos de todos.
+      own = (await cashier.post(`/orders/${own.id}/items`, add).expect(201)).body as OrderDto;
+    });
+
+    it('el mesero mueve su pedido a una mesa libre', async () => {
+      own = (
+        await waiter
+          .post(`/orders/${own.id}/move`, { version: own.version, tableId: table('Mesa 7').id })
+          .expect(201)
+      ).body as OrderDto;
+      expect(own.tableName).toBe('Mesa 7');
+    });
+
+    it('une una mesa ocupada: su cuenta pasa a la principal sin perder nada', async () => {
+      const second = await openOrder(waiter, 'Mesa 8', true);
+      const partial = (
+        await cashier
+          .post(`/orders/${second.id}/payments`, { method: 'CARD', amount: 1_000_000 })
+          .expect(201)
+      ).body as PaymentResultDto;
+
+      const merged = (
+        await waiter
+          .post(`/tables/${table('Mesa 7').id}/merge`, { tableIds: [table('Mesa 8').id] })
+          .expect(201)
+      ).body as TableDto;
+      expect(merged.activeOrders.map((summary) => summary.id).sort()).toEqual(
+        [own.id, second.id].sort(),
+      );
+
+      const moved = (await waiter.get(`/orders/${second.id}`).expect(200)).body as OrderDto;
+      expect(moved.tableName).toBe('Mesa 7');
+      expect(moved.version).toBeGreaterThan(partial.order.version);
+      expect(moved.waiter.id).toBe(waiter.session.user.id);
+      expect(moved.paidAmount).toBe(1_000_000);
+      expect(moved.items[0]?.notes).toBe('bien asada');
+      expect(moved.tickets).toHaveLength(second.tickets.length);
+      await refreshTables();
+      expect(table('Mesa 8').mergedIntoId).toBe(table('Mesa 7').id);
+      expect(table('Mesa 8').status).toBe(table('Mesa 7').status);
+    });
+
+    it('no une mesas con cuentas de otro mesero', async () => {
+      const response = await waiter
+        .post(`/tables/${table('Terraza 4').id}/merge`, { tableIds: [table('Terraza 3').id] })
+        .expect(403);
+      expect(response.body.message).toContain('Terraza 3');
+      await andres.post(`/tables/${table('Mesa 7').id}/unmerge`).expect(403);
+    });
+
+    it('separar deja las cuentas en la principal y libera las demás', async () => {
+      const separated = (await waiter.post(`/tables/${table('Mesa 7').id}/unmerge`).expect(201))
+        .body as TableDto;
+      expect(separated.activeOrders).toHaveLength(2);
+      await refreshTables();
+      expect(table('Mesa 8').mergedIntoId).toBeNull();
+      expect(table('Mesa 8').status).toBe('FREE');
+    });
+
+    afterAll(async () => {
+      for (const created of [own, other]) {
+        const current = (await admin.get(`/orders/${created.id}`).expect(200)).body as OrderDto;
+        await admin
+          .post(`/orders/${created.id}/cancel`, {
+            version: current.version,
+            reason: 'Fin de prueba',
+          })
+          .expect(201);
+      }
     });
   });
 
