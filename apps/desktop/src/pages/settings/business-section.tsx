@@ -63,8 +63,8 @@ export function BusinessSection() {
   return (
     <div className="flex flex-col gap-5">
       <ModeSection settings={settings} />
-      <IdentitySection key={settings.updatedAt} settings={settings} />
-      <HoursSection key={`hours-${settings.updatedAt}`} settings={settings} />
+      <IdentitySection settings={settings} />
+      <HoursSection settings={settings} />
     </div>
   );
 }

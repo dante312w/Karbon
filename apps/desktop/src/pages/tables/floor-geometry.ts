@@ -8,6 +8,8 @@ const TABLE_INSET = 18;
 const CHAIR_OFFSET = 10;
 /** Más sillas no caben con claridad; la capacidad exacta se ve en el panel de la mesa. */
 const MAX_CHAIRS = 12;
+/** Ancho mínimo (en celdas) donde se buscan lugares libres para ubicar algo nuevo. */
+const PLACEMENT_COLUMNS = 8;
 
 export interface GridBox {
   posX: number;
@@ -23,7 +25,7 @@ export interface Rect {
   height: number;
 }
 
-export interface Point {
+interface Point {
   x: number;
   y: number;
 }
@@ -81,6 +83,32 @@ export function overlaps(a: GridBox, b: GridBox): boolean {
 /** Las paredes y barandas pueden bordear otros elementos; el resto no se superpone. */
 export function blocks(kind: FloorElementKind | 'TABLE'): boolean {
   return kind !== FloorElementKind.WALL;
+}
+
+type Position = Pick<GridBox, 'posX' | 'posY'>;
+
+/**
+ * Posición donde cabe un ítem de `size` sin tocar `occupied`: la preferida si está libre; si no,
+ * la primera libre recorriendo el plano fila por fila.
+ */
+export function freePosition(
+  size: Pick<GridBox, 'width' | 'height'>,
+  occupied: readonly GridBox[],
+  preferred: Position = { posX: 0, posY: 0 },
+): Position {
+  const fits = (posX: number, posY: number): boolean =>
+    !occupied.some((other) => overlaps({ ...size, posX, posY }, other));
+  if (fits(preferred.posX, preferred.posY)) return preferred;
+  const cols = Math.max(
+    PLACEMENT_COLUMNS,
+    size.width,
+    planSize(occupied, 0, { cols: 0, rows: 0 }).cols,
+  );
+  for (let posY = 0; ; posY += 1) {
+    for (let posX = 0; posX + size.width <= cols; posX += 1) {
+      if (fits(posX, posY)) return { posX, posY };
+    }
+  }
 }
 
 function spread(count: number, start: number, length: number): number[] {

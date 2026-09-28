@@ -13,7 +13,7 @@ import { useRuntime } from '../../lib/runtime-context';
 import { Section } from './section';
 
 /** Ruta pública del certificado de la CA local (para instalarlo en los celulares). */
-export const CA_CERTIFICATE_PATH = '/api/v1/system/ca.crt';
+const CA_CERTIFICATE_PATH = '/api/v1/system/ca.crt';
 
 /**
  * Cómo conectar celulares y tablets: los meseros escanean el QR y abren la app (PWA); el KDS

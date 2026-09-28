@@ -1,5 +1,5 @@
 import { useActiveOrders, useMoney, useSession, useTerminology } from '@karbon/client';
-import { OrderItemStatus } from '@karbon/types';
+import { KitchenTicketStatus, OrderItemStatus, OrderStatus } from '@karbon/types';
 import { Badge, EmptyState, ORDER_STATUS_LABEL, Spinner, useNow } from '@karbon/ui';
 import { elapsedLabel } from '@karbon/utils';
 import { ReceiptTextIcon } from 'lucide-react';
@@ -27,9 +27,13 @@ export default function MyOrdersPage() {
   return (
     <ul className="flex flex-col gap-2 p-3">
       {mine.map((order) => {
-        const ready = order.tickets.filter((ticket) => ticket.status === 'READY').length;
+        const ready = order.tickets.filter(
+          (ticket) => ticket.status === KitchenTicketStatus.READY,
+        ).length;
         const preparing = order.tickets.filter(
-          (ticket) => ticket.status === 'NEW' || ticket.status === 'PREPARING',
+          (ticket) =>
+            ticket.status === KitchenTicketStatus.NEW ||
+            ticket.status === KitchenTicketStatus.PREPARING,
         ).length;
         const pending = order.items.filter(
           (item) => item.status === OrderItemStatus.PENDING,
@@ -48,7 +52,7 @@ export default function MyOrdersPage() {
               </span>
               <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                 #{order.number} · {elapsedLabel(order.createdAt, now)}
-                {order.status === 'BILL_REQUESTED' ? (
+                {order.status === OrderStatus.BILL_REQUESTED ? (
                   <Badge variant="destructive">{ORDER_STATUS_LABEL[order.status]}</Badge>
                 ) : null}
                 {ready > 0 ? <Badge>Listo para llevar ({ready})</Badge> : null}

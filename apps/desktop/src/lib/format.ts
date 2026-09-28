@@ -1,4 +1,10 @@
+import type { MeasureUnit } from '@karbon/types';
 import { fromMinorUnits, toMinorUnits } from '@karbon/utils';
+
+/** Fecha calendario del equipo (`YYYY-MM-DD`) para filtros y campos de fecha. */
+export function localIsoDate(date = new Date()): string {
+  return date.toLocaleDateString('sv-SE');
+}
 
 export function formatTime(iso: string, locale = 'es-CO'): string {
   return new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
@@ -16,7 +22,7 @@ export function formatQuantity(value: number, locale = 'es-CO'): string {
   return value.toLocaleString(locale, { maximumFractionDigits: 3 });
 }
 
-const UNIT_LABEL: Record<string, string> = {
+const UNIT_LABEL: Readonly<Record<MeasureUnit, string>> = {
   UNIT: 'und',
   GRAM: 'g',
   KILOGRAM: 'kg',
@@ -24,8 +30,8 @@ const UNIT_LABEL: Record<string, string> = {
   LITER: 'l',
 };
 
-export function unitLabel(unit: string): string {
-  return UNIT_LABEL[unit] ?? unit;
+export function unitLabel(unit: MeasureUnit): string {
+  return UNIT_LABEL[unit];
 }
 
 /** Texto del usuario ("25.000", "25000,50") a unidades menores. */

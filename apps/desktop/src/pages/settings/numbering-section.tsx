@@ -17,16 +17,9 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { PlusIcon } from 'lucide-react';
 import { useState } from 'react';
+import { FISCAL_DOCUMENT_LABEL } from '@karbon/utils';
 import { formatDate } from '../../lib/format';
 import { Section } from './section';
-
-const TYPE_LABEL: Record<FiscalDocumentType, string> = {
-  RECEIPT: 'Tiquete de venta',
-  POS_EQUIVALENT: 'Documento equivalente POS',
-  INVOICE: 'Factura de venta',
-  ELECTRONIC_INVOICE: 'Factura electrónica',
-  CREDIT_NOTE: 'Nota crédito',
-};
 
 export function NumberingSection() {
   const api = useApi();
@@ -45,7 +38,11 @@ export function NumberingSection() {
     },
   );
   const columns: Column<NumberingRangeDto>[] = [
-    { key: 'type', header: 'Documento', cell: (range) => TYPE_LABEL[range.documentType] },
+    {
+      key: 'type',
+      header: 'Documento',
+      cell: (range) => FISCAL_DOCUMENT_LABEL[range.documentType],
+    },
     { key: 'prefix', header: 'Prefijo', cell: (range) => range.prefix || '—' },
     { key: 'range', header: 'Rango', cell: (range) => `${range.rangeFrom} – ${range.rangeTo}` },
     {
@@ -212,7 +209,7 @@ function RangeDialog({ onClose }: { onClose: () => void }) {
               >
                 {Object.values(FiscalDocumentType).map((type) => (
                   <option key={type} value={type}>
-                    {TYPE_LABEL[type]}
+                    {FISCAL_DOCUMENT_LABEL[type]}
                   </option>
                 ))}
               </Select>

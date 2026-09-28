@@ -11,8 +11,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { ReceiptView } from '../components/receipt-view';
 import { resolveAssetUrl, useRuntime } from './runtime-context';
 
-export type PrintSource =
-  { kind: 'order'; orderId: string } | { kind: 'invoice'; invoiceId: string };
+type PrintSource = { kind: 'order'; orderId: string } | { kind: 'invoice'; invoiceId: string };
 
 function escapeHtml(text: string): string {
   return text.replace(/[&<>"]/g, (char) => `&#${char.charCodeAt(0)};`);
@@ -32,11 +31,7 @@ function collectCss(): string {
 }
 
 /** HTML autocontenido (estilos incluidos) para imprimir o exportar a PDF fuera de la app. */
-export function documentHtml(
-  title: string,
-  content: ReactElement,
-  paperWidthMm: number | null,
-): string {
+function documentHtml(title: string, content: ReactElement, paperWidthMm: number | null): string {
   const body = renderToStaticMarkup(content);
   const pageCss = paperWidthMm
     ? `@page { size: ${paperWidthMm}mm auto; margin: 0 } body > * { width: ${paperWidthMm - 6}mm; padding: 2mm }`
@@ -46,7 +41,7 @@ ${pageCss}
 html, body { background: #fff; margin: 0 }</style></head><body>${body}</body></html>`;
 }
 
-export function receiptHtml(receipt: ReceiptDocument, paperWidthMm: number | null): string {
+function receiptHtml(receipt: ReceiptDocument, paperWidthMm: number | null): string {
   return documentHtml(
     receipt.title,
     <ReceiptView document={receipt} paper={paperWidthMm ? 'thermal' : 'a4'} />,

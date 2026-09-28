@@ -1,15 +1,7 @@
 import { useDashboard, useMoney, useSettings } from '@karbon/client';
 import type { DashboardDto } from '@karbon/types';
-import {
-  Button,
-  Chip,
-  Input,
-  PAYMENT_METHOD_LABEL,
-  PageHeader,
-  Spinner,
-  StatCard,
-} from '@karbon/ui';
-import { fromMinorUnits } from '@karbon/utils';
+import { Button, Chip, Input, PageHeader, Spinner, StatCard } from '@karbon/ui';
+import { fromMinorUnits, PAYMENT_METHOD_LABEL } from '@karbon/utils';
 import {
   AlertTriangleIcon,
   DownloadIcon,
@@ -35,16 +27,12 @@ import {
   YAxis,
 } from 'recharts';
 import { downloadCsv } from '../../lib/csv';
-import { formatQuantity, unitLabel } from '../../lib/format';
+import { formatQuantity, localIsoDate, unitLabel } from '../../lib/format';
 
 /** Series de los gráficos (tokens de `@karbon/ui`, con su versión para tema oscuro). */
 const PALETTE = Array.from({ length: 8 }, (_, index) => `var(--chart-${String(index + 1)})`);
 
 type Preset = 'today' | 'yesterday' | 'week' | 'month' | 'lastMonth' | 'custom';
-
-function isoDate(date: Date): string {
-  return date.toLocaleDateString('sv-SE');
-}
 
 function presetRange(preset: Exclude<Preset, 'custom'>): { from: string; to: string } {
   const today = new Date();
@@ -52,20 +40,20 @@ function presetRange(preset: Exclude<Preset, 'custom'>): { from: string; to: str
     new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset);
   switch (preset) {
     case 'today':
-      return { from: isoDate(today), to: isoDate(today) };
+      return { from: localIsoDate(today), to: localIsoDate(today) };
     case 'yesterday':
-      return { from: isoDate(days(-1)), to: isoDate(days(-1)) };
+      return { from: localIsoDate(days(-1)), to: localIsoDate(days(-1)) };
     case 'week':
-      return { from: isoDate(days(-6)), to: isoDate(today) };
+      return { from: localIsoDate(days(-6)), to: localIsoDate(today) };
     case 'month':
       return {
-        from: isoDate(new Date(today.getFullYear(), today.getMonth(), 1)),
-        to: isoDate(today),
+        from: localIsoDate(new Date(today.getFullYear(), today.getMonth(), 1)),
+        to: localIsoDate(today),
       };
     case 'lastMonth':
       return {
-        from: isoDate(new Date(today.getFullYear(), today.getMonth() - 1, 1)),
-        to: isoDate(new Date(today.getFullYear(), today.getMonth(), 0)),
+        from: localIsoDate(new Date(today.getFullYear(), today.getMonth() - 1, 1)),
+        to: localIsoDate(new Date(today.getFullYear(), today.getMonth(), 0)),
       };
   }
 }

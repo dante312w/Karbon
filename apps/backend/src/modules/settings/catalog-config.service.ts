@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
   ErrorCode,
   type FiscalDocumentType,
@@ -7,7 +7,7 @@ import {
   type TaxDto,
 } from '@karbon/types';
 import type { AuthenticatedUser } from '../../common/auth/authenticated-user.js';
-import { DomainError, notFound } from '../../common/errors/domain-error.js';
+import { badRequest, conflict } from '../../common/errors/domain-error.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import type { Tx } from '../../prisma/prisma.types.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -118,13 +118,7 @@ export class ConfigCatalogService {
     dto: CreateNumberingRangeDto,
     user: AuthenticatedUser,
   ): Promise<NumberingRangeDto> {
-    if (dto.rangeFrom > dto.rangeTo) {
-      throw new DomainError(
-        ErrorCode.VALIDATION_FAILED,
-        'El rango inicial supera al final',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
+    if (dto.rangeFrom > dto.rangeTo) throw badRequest('El rango inicial supera al final');
     const range = await this.prisma.numberingRange.create({
       data: {
         documentType: dto.documentType,
@@ -175,17 +169,11 @@ export class ConfigCatalogService {
       RETURNING id, prefix, next_number - 1 AS number`;
     const taken = rows[0];
     if (!taken) {
-      throw new DomainError(
+      throw conflict(
         ErrorCode.NUMBERING_RANGE_EXHAUSTED,
         'No hay un rango de numeración vigente para este tipo de documento',
-        HttpStatus.CONFLICT,
       );
     }
     return { rangeId: taken.id, prefix: taken.prefix, number: taken.number };
-  }
-
-  async requireTax(id: string): Promise<void> {
-    const tax = await this.prisma.tax.findUnique({ where: { id } });
-    if (!tax) throw notFound('El impuesto');
   }
 }

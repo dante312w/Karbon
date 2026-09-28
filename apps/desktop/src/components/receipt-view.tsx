@@ -1,6 +1,5 @@
 import type { ReceiptDocument } from '@karbon/types';
-import { PAYMENT_METHOD_LABEL } from '@karbon/ui';
-import { formatMoney } from '@karbon/utils';
+import { formatMoney, PAYMENT_METHOD_LABEL } from '@karbon/utils';
 
 /**
  * Comprobante en HTML: la misma plantilla sirve para impresoras del sistema (80 mm), factura A4

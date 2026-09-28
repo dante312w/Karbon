@@ -6,7 +6,7 @@ import {
   useOrderMutation,
   useTerminology,
 } from '@karbon/client';
-import { OrderItemStatus, OrderStatus, Permission } from '@karbon/types';
+import { KitchenTicketStatus, OrderItemStatus, OrderStatus, Permission } from '@karbon/types';
 import {
   Badge,
   Button,
@@ -18,7 +18,7 @@ import {
   Spinner,
   toast,
 } from '@karbon/ui';
-import { STATION_LABEL } from '@karbon/utils';
+import { isOrderActive, STATION_LABEL } from '@karbon/utils';
 import {
   ArrowLeftIcon,
   HandCoinsIcon,
@@ -79,12 +79,12 @@ export default function OrderPage() {
     );
   }
 
-  const editable = data.status === OrderStatus.OPEN || data.status === OrderStatus.BILL_REQUESTED;
+  const editable = isOrderActive(data.status);
   const items = [...data.items].sort((a, b) => a.sortOrder - b.sortOrder);
   const pendingCount = items
     .filter((item) => item.status === OrderItemStatus.PENDING)
     .reduce((sum, item) => sum + item.quantity, 0);
-  const tickets = data.tickets.filter((ticket) => ticket.status !== 'CANCELLED');
+  const tickets = data.tickets.filter((ticket) => ticket.status !== KitchenTicketStatus.CANCELLED);
 
   return (
     <div className="flex flex-1 flex-col pb-28">
@@ -120,9 +120,9 @@ export default function OrderPage() {
               key={ticket.id}
               className={cn(
                 'rounded-full px-2 py-0.5 text-[11px] font-semibold',
-                ticket.status === 'READY'
+                ticket.status === KitchenTicketStatus.READY
                   ? 'bg-primary text-primary-foreground'
-                  : ticket.status === 'DELIVERED'
+                  : ticket.status === KitchenTicketStatus.DELIVERED
                     ? 'bg-muted text-muted-foreground'
                     : 'bg-status-waiting-food/20',
               )}

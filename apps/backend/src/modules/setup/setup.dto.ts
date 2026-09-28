@@ -1,4 +1,9 @@
-import { BusinessMode, type CompleteSetupRequest } from '@karbon/types';
+import {
+  BusinessMode,
+  type CompleteSetupRequest,
+  PIN_PATTERN,
+  USERNAME_PATTERN,
+} from '@karbon/types';
 import {
   IsBoolean,
   IsIn,
@@ -8,12 +13,7 @@ import {
   Matches,
   ValidateIf,
 } from 'class-validator';
-import {
-  PIN_MESSAGE,
-  PIN_PATTERN,
-  USERNAME_MESSAGE,
-  USERNAME_PATTERN,
-} from '../../common/auth/credentials.js';
+import { PIN_MESSAGE, USERNAME_MESSAGE } from '../../common/auth/credentials.js';
 
 export class CompleteSetupDto implements CompleteSetupRequest {
   @IsString() @Length(2, 120) restaurantName!: string;

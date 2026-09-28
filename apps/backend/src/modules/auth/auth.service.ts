@@ -2,10 +2,9 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import {
   type AuthUser,
   ErrorCode,
-  isPermission,
   type LoginResponse,
-  type Permission,
   type PinUserOption,
+  toPermissions,
 } from '@karbon/types';
 import { randomUUID } from 'node:crypto';
 import type { AuthenticatedUser } from '../../common/auth/authenticated-user.js';
@@ -200,9 +199,7 @@ export class AuthService {
       name: user.name,
       username: user.username,
       role: { id: user.role.id, code: user.role.code, name: user.role.name },
-      permissions: user.role.permissions.filter((permission): permission is Permission =>
-        isPermission(permission),
-      ),
+      permissions: toPermissions(user.role.permissions),
     };
   }
 

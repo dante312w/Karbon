@@ -22,20 +22,10 @@ import {
   useNow,
 } from '@karbon/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  ArrowDownIcon,
-  ArrowLeftIcon,
-  ArrowRightIcon,
-  ArrowUpIcon,
-  LayoutGridIcon,
-  MapPinnedIcon,
-  PencilIcon,
-  PlusIcon,
-  Trash2Icon,
-} from 'lucide-react';
+import { LayoutGridIcon, MapPinnedIcon, PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import { useState } from 'react';
 import { ConfirmDialog } from '../../components/confirm-dialog';
-import { planSize } from '../tables/floor-geometry';
+import { blocks, freePosition, type GridBox } from '../tables/floor-geometry';
 import { ELEMENT_LABEL } from '../tables/floor-labels';
 import { FloorPlan } from '../tables/floor-plan';
 import { Section } from './section';
@@ -45,25 +35,26 @@ const SHAPE_LABEL: Record<TableShape, string> = {
   ROUND: 'Redonda',
   RECTANGLE: 'Rectangular',
 };
-const COLUMNS = 6;
-
-/** Primera posición libre de la grilla (pasillos de una celda entre mesas). */
-function nextFreePosition(tables: TableDto[]): { posX: number; posY: number } {
-  const taken = new Set(tables.map((table) => `${table.posX}:${table.posY}`));
-  for (let index = 0; ; index += 1) {
-    const posX = (index % COLUMNS) * 2;
-    const posY = Math.floor(index / COLUMNS) * 2;
-    if (!taken.has(`${posX}:${posY}`)) return { posX, posY };
-  }
-}
-
 const AREAS_KEY = [...queryKeys.areas, 'all'];
 const TABLES_KEY = [...queryKeys.tables, 'all'];
 
-interface Position {
-  posX: number;
-  posY: number;
+type Position = Pick<GridBox, 'posX' | 'posY'>;
+
+interface PlanItem extends GridBox {
+  id: string;
+  kind: FloorElementKind | 'TABLE';
 }
+
+/**
+ * Ubicación al guardar desde un diálogo (la posición se cambia arrastrando en el plano): lo nuevo
+ * va al primer lugar vacío del área; lo existente conserva su lugar salvo que con su tamaño nuevo
+ * se encime a otra cosa.
+ */
+type Placer = (
+  areaId: string,
+  item: Pick<PlanItem, 'kind' | 'width' | 'height'> &
+    Partial<Pick<PlanItem, 'id' | 'posX' | 'posY'>>,
+) => Position;
 
 /** Movimientos del editor: se ven al instante y se corrigen si el servidor los rechaza. */
 function useFloorMoves() {
@@ -126,6 +117,18 @@ export function FloorSection() {
   const area = sortedAreas.find((candidate) => candidate.id === areaId) ?? sortedAreas[0] ?? null;
   const areaTables = (tables.data ?? []).filter((table) => table.areaId === area?.id);
   const areaElements = area?.elements ?? [];
+
+  const place: Placer = (targetAreaId, item) => {
+    const others: PlanItem[] = [
+      ...(tables.data ?? [])
+        .filter((table) => table.areaId === targetAreaId)
+        .map((table) => ({ ...table, kind: 'TABLE' as const })),
+      ...(sortedAreas.find((candidate) => candidate.id === targetAreaId)?.elements ?? []),
+    ].filter((other) => other.id !== item.id);
+    if (item.posX === undefined || item.posY === undefined) return freePosition(item, others);
+    const blocking = blocks(item.kind) ? others.filter((other) => blocks(other.kind)) : [];
+    return freePosition(item, blocking, { posX: item.posX, posY: item.posY });
+  };
 
   return (
     <Section
@@ -243,7 +246,7 @@ export function FloorSection() {
           table={editingTable.table}
           areas={sortedAreas}
           defaultAreaId={area.id}
-          defaultPosition={nextFreePosition(areaTables)}
+          place={place}
           onClose={() => {
             setEditingTable(null);
           }}
@@ -253,10 +256,7 @@ export function FloorSection() {
         <ElementDialog
           element={editingElement.element}
           areaId={area.id}
-          defaultPosition={{
-            posX: 0,
-            posY: planSize([...areaTables, ...areaElements], 0, { cols: 0, rows: 0 }).rows,
-          }}
+          place={place}
           onClose={() => {
             setEditingElement(null);
           }}
@@ -357,7 +357,7 @@ function AreaDialog({ area, onClose }: { area: AreaDto | null; onClose: () => vo
           open={removing}
           onOpenChange={setRemoving}
           title={`Eliminar ${area?.name ?? ''}`}
-          description="Solo se puede eliminar un área sin mesas con pedidos abiertos."
+          description="Solo se puede eliminar un área sin mesas."
           confirmLabel="Eliminar"
           destructive
           onConfirm={() => remove.mutateAsync(undefined)}
@@ -371,13 +371,13 @@ function TableDialog({
   table,
   areas,
   defaultAreaId,
-  defaultPosition,
+  place,
   onClose,
 }: {
   table: TableDto | null;
   areas: AreaDto[];
   defaultAreaId: string;
-  defaultPosition: { posX: number; posY: number };
+  place: Placer;
   onClose: () => void;
 }) {
   const api = useApi();
@@ -386,8 +386,6 @@ function TableDialog({
     areaId: table?.areaId ?? defaultAreaId,
     capacity: table?.capacity ?? 4,
     shape: table?.shape ?? TableShape.SQUARE,
-    posX: table?.posX ?? defaultPosition.posX,
-    posY: table?.posY ?? defaultPosition.posY,
     width: table?.width ?? 1,
     height: table?.height ?? 1,
   });
@@ -399,7 +397,14 @@ function TableDialog({
   const invalidate = [queryKeys.tables];
   const save = useApiMutation(
     () => {
-      const body = { ...form, name: form.name.trim() };
+      const current = table?.areaId === form.areaId ? table : null;
+      const position = place(form.areaId, {
+        kind: 'TABLE',
+        width: form.width,
+        height: form.height,
+        ...(current ? { id: current.id, posX: current.posX, posY: current.posY } : {}),
+      });
+      const body = { ...form, ...position, name: form.name.trim() };
       return table
         ? api.floor.updateTable(table.id, { ...body, isActive })
         : api.floor.createTable(body);
@@ -416,9 +421,6 @@ function TableDialog({
   const remove = useApiMutation(() => api.floor.removeTable(table?.id ?? ''), invalidate, {
     onSuccess: onClose,
   });
-  const nudge = (dx: number, dy: number): void => {
-    setForm({ ...form, posX: Math.max(0, form.posX + dx), posY: Math.max(0, form.posY + dy) });
-  };
 
   return (
     <Dialog
@@ -531,55 +533,6 @@ function TableDialog({
             }}
           />
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-medium">
-            Posición: columna {form.posX + 1}, fila {form.posY + 1}
-          </span>
-          <div className="grid grid-cols-3 gap-1">
-            <span />
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label="Arriba"
-              onClick={() => {
-                nudge(0, -1);
-              }}
-            >
-              <ArrowUpIcon />
-            </Button>
-            <span />
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label="Izquierda"
-              onClick={() => {
-                nudge(-1, 0);
-              }}
-            >
-              <ArrowLeftIcon />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label="Abajo"
-              onClick={() => {
-                nudge(0, 1);
-              }}
-            >
-              <ArrowDownIcon />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label="Derecha"
-              onClick={() => {
-                nudge(1, 0);
-              }}
-            >
-              <ArrowRightIcon />
-            </Button>
-          </div>
-        </div>
         {table ? <Switch checked={isActive} onCheckedChange={setIsActive} label="Activa" /> : null}
         <ConfirmDialog
           open={removing}
@@ -630,12 +583,12 @@ function NumberField({
 function ElementDialog({
   element,
   areaId,
-  defaultPosition,
+  place,
   onClose,
 }: {
   element: FloorElementDto | null;
   areaId: string;
-  defaultPosition: Position;
+  place: Placer;
   onClose: () => void;
 }) {
   const api = useApi();
@@ -648,10 +601,16 @@ function ElementDialog({
   const invalidate = [queryKeys.areas];
   const save = useApiMutation(
     () => {
-      const body = { ...form, label: form.label.trim() || null };
+      const position = place(areaId, {
+        kind: form.kind,
+        width: form.width,
+        height: form.height,
+        ...(element ? { id: element.id, posX: element.posX, posY: element.posY } : {}),
+      });
+      const body = { ...form, ...position, label: form.label.trim() || null };
       return element
         ? api.floor.updateElement(element.id, body)
-        : api.floor.createElement(areaId, { ...body, ...defaultPosition });
+        : api.floor.createElement(areaId, body);
     },
     invalidate,
     {

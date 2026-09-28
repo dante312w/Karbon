@@ -9,12 +9,12 @@ import {
   Field,
   Input,
   notifyError,
-  PAYMENT_METHOD_LABEL,
   Select,
   Switch,
   Textarea,
   toast,
 } from '@karbon/ui';
+import { PAYMENT_METHOD_LABEL } from '@karbon/utils';
 import { useState } from 'react';
 import { MoneyInput } from '../../components/money-input';
 

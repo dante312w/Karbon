@@ -338,7 +338,7 @@ describe('Operación de un turno (integración)', () => {
   });
 
   describe('operaciones de salón', () => {
-    it('divide la cuenta por ítems en un pedido nuevo', async () => {
+    it('divide la cuenta por ítems en un pedido nuevo y reparte el descuento', async () => {
       const created = (
         await waiter
           .post('/orders', {
@@ -352,18 +352,29 @@ describe('Operación de un turno (integración)', () => {
       ).body as OrderDto;
       const rice = created.items.find((item) => item.productName === 'Arroz con pollo');
       if (!rice) throw new Error('Ítem no encontrado');
+      const discounted = (
+        await cashier
+          .patch(`/orders/${created.id}/items/${rice.id}`, {
+            version: created.version,
+            discount: 400_000,
+          })
+          .expect(200)
+      ).body as OrderDto;
       const split = (
         await waiter
           .post(`/orders/${created.id}/split`, {
-            version: created.version,
+            version: discounted.version,
             items: [{ itemId: rice.id, quantity: 1 }],
           })
           .expect(201)
       ).body as OrderDto;
       expect(split.splitFromId).toBe(created.id);
       expect(split.items[0]?.quantity).toBe(1);
+      expect(split.items[0]?.discount).toBe(200_000);
       const original = (await waiter.get(`/orders/${created.id}`).expect(200)).body as OrderDto;
-      expect(original.total + split.total).toBe(created.total);
+      expect(original.items.find((item) => item.id === rice.id)?.discount).toBe(200_000);
+      expect(original.discountTotal + split.discountTotal).toBe(discounted.discountTotal);
+      expect(original.total + split.total).toBe(discounted.total);
       await refreshTables();
       expect(table('Mesa 3').activeOrders).toHaveLength(2);
     });

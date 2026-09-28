@@ -1,18 +1,20 @@
-import { ApiError, useApi, useAuthActions, useSession } from '@karbon/client';
-import type { PinUserOption } from '@karbon/types';
+import { ApiError, queryKeys, useApi, useAuthActions, useSession } from '@karbon/client';
+import { PIN_MAX_LENGTH, PIN_PATTERN, type PinUserOption } from '@karbon/types';
 import {
   Button,
   Card,
   ConnectionBadge,
+  EmptyState,
   Field,
   Input,
-  NumberPad,
+  PinEntry,
+  PinUserGrid,
   Spinner,
   errorMessage,
   useServerHealth,
 } from '@karbon/ui';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeftIcon, KeyRoundIcon, UserRoundIcon } from 'lucide-react';
+import { KeyRoundIcon, LogOutIcon, ShieldOffIcon, UserRoundIcon } from 'lucide-react';
 import { type SyntheticEvent, useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router';
 import { BrandMark } from '../components/brand-mark';
@@ -21,21 +23,13 @@ import { useRuntime } from '../lib/runtime-context';
 
 const DEVICE_NAME = 'Escritorio';
 
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('');
-}
-
 export function LoginPage() {
   const api = useApi();
   const runtime = useRuntime();
   const session = useSession();
   const navigate = useNavigate();
   const connection = useServerHealth(runtime.apiBaseUrl);
-  const { loginWithPassword, loginWithPin } = useAuthActions();
+  const { loginWithPassword, loginWithPin, logout } = useAuthActions();
   const [mode, setMode] = useState<'pin' | 'password'>('pin');
   const [selected, setSelected] = useState<PinUserOption | null>(null);
   const [pin, setPin] = useState('');
@@ -47,9 +41,13 @@ export function LoginPage() {
   // Solo se consultan con el servidor en línea: si arranca después que esta pantalla (equipo
   // recién encendido), la lista de usuarios aparece sola sin recargar.
   const online = connection.status === 'online' || connection.status === 'degraded';
-  const users = useQuery({ queryKey: ['pin-users'], queryFn: api.auth.pinUsers, enabled: online });
+  const users = useQuery({
+    queryKey: queryKeys.pinUsers,
+    queryFn: api.auth.pinUsers,
+    enabled: online,
+  });
   const setup = useQuery({
-    queryKey: ['setup-status'],
+    queryKey: queryKeys.setupStatus,
     queryFn: api.system.setupStatus,
     retry: false,
     enabled: online,
@@ -77,7 +75,7 @@ export function LoginPage() {
   };
 
   const submitPin = (): void => {
-    if (!selected || pin.length < 4) return;
+    if (!selected || busy || !PIN_PATTERN.test(pin)) return;
     void run(() => loginWithPin(selected.id, pin, DEVICE_NAME));
   };
 
@@ -90,10 +88,10 @@ export function LoginPage() {
   useEffect(() => {
     if (mode !== 'pin' || !selected || busy) return;
     const onKey = (event: KeyboardEvent): void => {
-      if (/^[0-9]$/.test(event.key)) setPin((current) => (current + event.key).slice(0, 6));
+      if (/^[0-9]$/.test(event.key))
+        setPin((current) => (current + event.key).slice(0, PIN_MAX_LENGTH));
       else if (event.key === 'Backspace') setPin((current) => current.slice(0, -1));
-      else if (event.key === 'Enter' && pin.length >= 4)
-        void run(() => loginWithPin(selected.id, pin, DEVICE_NAME));
+      else if (event.key === 'Enter') submitPin();
     };
     window.addEventListener('keydown', onKey);
     return () => {
@@ -101,7 +99,8 @@ export function LoginPage() {
     };
   });
 
-  if (session) return <Navigate to={landingPath(session.user.permissions)} replace />;
+  const home = session ? landingPath(session.user.permissions) : null;
+  if (home) return <Navigate to={home} replace />;
 
   return (
     <div className="grid min-h-dvh lg:grid-cols-[1fr_1.2fr]">
@@ -131,44 +130,37 @@ export function LoginPage() {
             <span className="text-lg font-bold">Karbon POS</span>
           </div>
 
-          {mode === 'pin' ? (
-            selected ? (
-              <div className="flex flex-col gap-4">
-                <button
-                  type="button"
-                  className="flex items-center gap-2 self-start text-sm text-muted-foreground hover:text-foreground"
+          {session ? (
+            <EmptyState
+              icon={ShieldOffIcon}
+              title="Tu usuario no tiene módulos asignados"
+              description="Pide al administrador que revise los permisos de tu rol."
+              action={
+                <Button
+                  variant="outline"
                   onClick={() => {
-                    setSelected(null);
-                    setPin('');
-                    setError(null);
+                    void logout();
                   }}
                 >
-                  <ArrowLeftIcon className="size-4" /> Cambiar usuario
-                </button>
-                <div className="text-center">
-                  <p className="text-lg font-semibold">{selected.name}</p>
-                  <p className="text-sm text-muted-foreground">Digita tu PIN</p>
-                </div>
-                <div
-                  className="flex justify-center gap-3"
-                  aria-label={`${pin.length} dígitos ingresados`}
-                >
-                  {Array.from({ length: 6 }, (_, index) => (
-                    <span
-                      key={index}
-                      className={`size-3.5 rounded-full ${index < pin.length ? 'bg-foreground' : 'bg-muted'}`}
-                    />
-                  ))}
-                </div>
-                {error ? <p className="text-center text-sm text-destructive">{error}</p> : null}
-                <NumberPad
-                  value={pin}
-                  onChange={setPin}
-                  maxLength={6}
-                  onSubmit={submitPin}
-                  submitLabel={busy ? '…' : 'Entrar'}
-                />
-              </div>
+                  <LogOutIcon /> Salir
+                </Button>
+              }
+            />
+          ) : mode === 'pin' ? (
+            selected ? (
+              <PinEntry
+                user={selected}
+                pin={pin}
+                onPinChange={setPin}
+                error={error}
+                busy={busy}
+                onSubmit={submitPin}
+                onBack={() => {
+                  setSelected(null);
+                  setPin('');
+                  setError(null);
+                }}
+              />
             ) : (
               <div className="flex flex-col gap-4">
                 <div>
@@ -178,24 +170,7 @@ export function LoginPage() {
                   </p>
                 </div>
                 {users.isLoading ? <Spinner /> : null}
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {users.data?.map((user) => (
-                    <button
-                      key={user.id}
-                      type="button"
-                      className="flex flex-col items-center gap-2 rounded-xl border p-3 transition hover:border-primary hover:bg-accent"
-                      onClick={() => {
-                        setSelected(user);
-                      }}
-                    >
-                      <span className="grid size-12 place-items-center rounded-full bg-muted text-lg font-bold">
-                        {initials(user.name)}
-                      </span>
-                      <span className="text-sm font-medium">{user.name}</span>
-                      <span className="text-xs text-muted-foreground">{user.roleName}</span>
-                    </button>
-                  ))}
-                </div>
+                <PinUserGrid users={users.data ?? []} onSelect={setSelected} />
                 {users.data?.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     Ningún usuario tiene PIN; ingresa con usuario y clave.

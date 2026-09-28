@@ -19,7 +19,7 @@ import {
   tableStatusLabel,
   useNow,
 } from '@karbon/ui';
-import { elapsedLabel } from '@karbon/utils';
+import { elapsedLabel, summarizeTable } from '@karbon/utils';
 import { LayoutGridIcon, PlusIcon, UsersIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -105,8 +105,7 @@ export function TablesPage() {
       <div className="grid grid-cols-3 gap-2">
         {visible.map((table) => {
           const meta = TABLE_STATUS_META[table.status];
-          const total = table.activeOrders.reduce((sum, order) => sum + order.total, 0);
-          const oldest = table.activeOrders.map((order) => order.createdAt).sort()[0];
+          const { total, openedAt } = summarizeTable(table);
           return (
             <button
               key={table.id}
@@ -129,8 +128,8 @@ export function TablesPage() {
               {total > 0 ? (
                 <span className="flex items-end justify-between gap-1 text-xs">
                   <span className="font-semibold tabular-nums">{money(total)}</span>
-                  {oldest ? (
-                    <span className="text-muted-foreground">{elapsedLabel(oldest, now)}</span>
+                  {openedAt ? (
+                    <span className="text-muted-foreground">{elapsedLabel(openedAt, now)}</span>
                   ) : null}
                 </span>
               ) : (

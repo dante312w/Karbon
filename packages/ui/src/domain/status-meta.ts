@@ -1,11 +1,4 @@
-import type {
-  KitchenTicketStatus,
-  OrderItemStatus,
-  OrderStatus,
-  OrderType,
-  PaymentMethod,
-  TableStatus,
-} from '@karbon/types';
+import type { KitchenTicketStatus, OrderStatus, OrderType, TableStatus } from '@karbon/types';
 import type { Terminology } from '@karbon/utils';
 
 export interface StatusMeta {
@@ -78,20 +71,6 @@ export const ORDER_STATUS_LABEL: Readonly<Record<OrderStatus, string>> = {
   BILL_REQUESTED: 'Cuenta pedida',
   PAID: 'Pagado',
   CANCELLED: 'Cancelado',
-};
-
-export const ORDER_ITEM_STATUS_LABEL: Readonly<Record<OrderItemStatus, string>> = {
-  PENDING: 'Sin enviar',
-  SENT: 'Enviado',
-  CANCELLED: 'Anulado',
-};
-
-/** "Mixto" no aparece: es un pedido con varios pagos. */
-export const PAYMENT_METHOD_LABEL: Readonly<Record<PaymentMethod, string>> = {
-  CASH: 'Efectivo',
-  CARD: 'Tarjeta',
-  TRANSFER: 'Transferencia',
-  QR: 'QR',
 };
 
 export const ORDER_TYPE_LABEL: Readonly<Record<OrderType, string>> = {

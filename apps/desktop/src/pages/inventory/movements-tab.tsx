@@ -35,7 +35,7 @@ export function MovementsTable({
     queryFn: () => api.inventory.ingredients({ includeInactive: true }),
     enabled: ingredientId === undefined,
   });
-  const names = new Map((ingredients.data ?? []).map((ingredient) => [ingredient.id, ingredient]));
+  const byId = new Map((ingredients.data ?? []).map((ingredient) => [ingredient.id, ingredient]));
   const query = {
     page,
     pageSize: PAGE_SIZE,
@@ -47,8 +47,10 @@ export function MovementsTable({
     queryFn: () => api.inventory.movements(query),
     placeholderData: keepPreviousData,
   });
-  const unitOf = (movement: InventoryMovementDto): string =>
-    unitLabel(unit ?? names.get(movement.ingredientId)?.unit ?? '');
+  const unitOf = (movement: InventoryMovementDto): string => {
+    const measure = unit ?? byId.get(movement.ingredientId)?.unit;
+    return measure ? unitLabel(measure) : '';
+  };
 
   const columns: Column<InventoryMovementDto>[] = [
     { key: 'date', header: 'Fecha', cell: (movement) => formatDateTime(movement.createdAt) },
@@ -58,7 +60,7 @@ export function MovementsTable({
           {
             key: 'ingredient',
             header: 'Insumo',
-            cell: (movement: InventoryMovementDto) => names.get(movement.ingredientId)?.name ?? '—',
+            cell: (movement: InventoryMovementDto) => byId.get(movement.ingredientId)?.name ?? '—',
           },
         ]),
     { key: 'type', header: 'Tipo', cell: (movement) => MOVEMENT_TYPE_LABEL[movement.type] },

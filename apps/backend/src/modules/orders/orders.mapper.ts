@@ -52,7 +52,7 @@ interface TicketContext {
   waiterName: string;
 }
 
-export function toTicketDto(ticket: TicketCore, context: TicketContext): KitchenTicketDto {
+function toTicketDto(ticket: TicketCore, context: TicketContext): KitchenTicketDto {
   return {
     id: ticket.id,
     orderId: ticket.orderId,

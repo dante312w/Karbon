@@ -9,15 +9,12 @@ export const IpcChannel = {
   LIST_PRINTERS: 'print:list-printers',
   PRINT_HTML: 'print:html',
   SAVE_PDF: 'print:save-pdf',
-  SERVER_STATUS: 'server:status',
   SET_AUTO_START: 'app:set-auto-start',
 } as const;
 
 export interface DesktopAppInfo {
   appVersion: string;
   electronVersion: string;
-  chromeVersion: string;
-  platform: string;
   /** URL del backend local que usa esta ventana. */
   serverUrl: string;
   /** ¿Arranca con Windows? */
@@ -44,10 +41,9 @@ export interface PrintHtmlRequest {
 export interface SavePdfRequest {
   html: string;
   fileName: string;
-  paperWidthMm?: number;
 }
 
-/** Estado del servidor embebido que supervisa el proceso principal. */
+/** Estado del servidor embebido (bandeja del sistema). */
 export interface ServerStatus {
   state: 'starting' | 'running' | 'error';
   message: string | null;
@@ -61,6 +57,5 @@ export interface DesktopBridge {
   printHtml: (request: PrintHtmlRequest) => Promise<void>;
   /** Devuelve la ruta guardada o `null` si el usuario canceló. */
   savePdf: (request: SavePdfRequest) => Promise<string | null>;
-  serverStatus: () => Promise<ServerStatus>;
   setAutoStart: (enabled: boolean) => Promise<boolean>;
 }

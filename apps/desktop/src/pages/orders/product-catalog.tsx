@@ -1,27 +1,19 @@
 import { useCategories, useMoney, useProducts } from '@karbon/client';
 import type { ProductDto } from '@karbon/types';
-import { Chip, cn, EmptyState, Input, Spinner } from '@karbon/ui';
+import { Chip, EmptyState, Input, Spinner } from '@karbon/ui';
+import { normalizeSearch } from '@karbon/utils';
 import { SearchIcon, SearchXIcon } from 'lucide-react';
 import { useDeferredValue, useState } from 'react';
 import { useAssetUrl } from '../../lib/runtime-context';
-
-function normalize(text: string): string {
-  return text
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLowerCase();
-}
 
 /**
  * Catálogo del POS: categorías, búsqueda sin tildes y botones grandes. Clic = agregar 1;
  * clic derecho = agregar con cantidad y nota.
  */
 export function ProductCatalog({
-  disabled,
   onAdd,
   onAddWithNote,
 }: {
-  disabled: boolean;
   onAdd: (product: ProductDto) => void;
   onAddWithNote: (product: ProductDto) => void;
 }) {
@@ -35,14 +27,15 @@ export function ProductCatalog({
 
   const activeCategories = (categories.data ?? []).filter((category) => category.isActive);
   const colorOf = new Map(activeCategories.map((category) => [category.id, category.color]));
-  const term = normalize(deferredSearch.trim());
+  const code = deferredSearch.trim();
+  const term = normalizeSearch(code);
   const visible = (products.data ?? []).filter(
     (product) =>
       product.isActive &&
       (term
-        ? normalize(product.name).includes(term) ||
-          product.sku === deferredSearch.trim() ||
-          product.barcode === deferredSearch.trim()
+        ? normalizeSearch(product.name).includes(term) ||
+          product.sku === code ||
+          product.barcode === code
         : categoryId === null || product.categoryId === categoryId),
   );
 
@@ -120,17 +113,15 @@ export function ProductCatalog({
             <button
               key={product.id}
               type="button"
-              disabled={disabled || soldOut}
+              disabled={soldOut}
               onClick={() => {
                 onAdd(product);
               }}
               onContextMenu={(event) => {
                 event.preventDefault();
-                if (!disabled && !soldOut) onAddWithNote(product);
+                if (!soldOut) onAddWithNote(product);
               }}
-              className={cn(
-                'relative flex min-h-24 flex-col overflow-hidden rounded-xl border bg-card text-left shadow-soft transition hover:shadow-elevated active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50',
-              )}
+              className="relative flex min-h-24 flex-col overflow-hidden rounded-xl border bg-card text-left shadow-soft transition hover:shadow-elevated active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
               style={{
                 borderTopColor: colorOf.get(product.categoryId) ?? undefined,
                 borderTopWidth: 4,

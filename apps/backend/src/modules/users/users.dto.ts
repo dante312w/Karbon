@@ -4,7 +4,10 @@ import {
   type CreateRoleRequest,
   type CreateUserRequest,
   type Permission,
+  PIN_PATTERN,
+  ROLE_CODE_PATTERN,
   type UpdateUserRequest,
+  USERNAME_PATTERN,
 } from '@karbon/types';
 import {
   ArrayUnique,
@@ -20,12 +23,7 @@ import {
   MaxLength,
   ValidateIf,
 } from 'class-validator';
-import {
-  PIN_MESSAGE,
-  PIN_PATTERN,
-  USERNAME_MESSAGE,
-  USERNAME_PATTERN,
-} from '../../common/auth/credentials.js';
+import { PIN_MESSAGE, USERNAME_MESSAGE } from '../../common/auth/credentials.js';
 
 export class CreateUserDto implements CreateUserRequest {
   @IsString() @Length(1, 120) name!: string;
@@ -62,7 +60,7 @@ export class UpdateUserDto implements UpdateUserRequest {
 }
 
 export class CreateRoleDto implements CreateRoleRequest {
-  @Matches(/^[A-Z][A-Z0-9_]{1,39}$/, { message: 'El código usa MAYÚSCULAS, números y guion bajo' })
+  @Matches(ROLE_CODE_PATTERN, { message: 'El código usa MAYÚSCULAS, números y guion bajo' })
   code!: string;
 
   @IsString() @Length(1, 80) name!: string;

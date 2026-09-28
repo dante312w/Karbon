@@ -3,6 +3,7 @@ import type {
   BusinessMode,
   FiscalDocumentType,
   FloorElementKind,
+  KitchenStation,
   PrinterConnection,
   PrinterKind,
   PrinterPurpose,
@@ -185,7 +186,7 @@ export interface CreateProductRequest {
   sku?: string | null;
   barcode?: string | null;
   description?: string | null;
-  station?: 'KITCHEN' | 'BAR';
+  station?: KitchenStation;
   sendToKitchen?: boolean;
   trackInventory?: boolean;
   isAvailable?: boolean;

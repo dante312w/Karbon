@@ -1,10 +1,9 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ErrorCode } from '@karbon/types';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, resolve } from 'node:path';
 import type { EnvironmentVariables } from '../../config/env.validation.js';
-import { DomainError } from '../errors/domain-error.js';
+import { badRequest } from '../errors/domain-error.js';
 
 const MAX_IMAGE_BYTES = 512 * 1024;
 const IMAGE_EXTENSIONS: Readonly<Record<string, string>> = {
@@ -31,21 +30,9 @@ export class StorageService {
   async saveImage(folder: string, baseName: string, dataUrl: string): Promise<string> {
     const match = /^data:(image\/[a-z]+);base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl);
     const extension = match?.[1] ? IMAGE_EXTENSIONS[match[1]] : undefined;
-    if (!match?.[2] || !extension) {
-      throw new DomainError(
-        ErrorCode.VALIDATION_FAILED,
-        'La imagen debe ser PNG, JPG o WEBP',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
+    if (!match?.[2] || !extension) throw badRequest('La imagen debe ser PNG, JPG o WEBP');
     const bytes = Buffer.from(match[2], 'base64');
-    if (bytes.length > MAX_IMAGE_BYTES) {
-      throw new DomainError(
-        ErrorCode.VALIDATION_FAILED,
-        'La imagen supera 512 KB',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
+    if (bytes.length > MAX_IMAGE_BYTES) throw badRequest('La imagen supera 512 KB');
     const directory = this.path('uploads', folder);
     await mkdir(directory, { recursive: true });
     const fileName = `${baseName}.${extension}`;
