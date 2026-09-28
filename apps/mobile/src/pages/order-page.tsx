@@ -17,7 +17,7 @@ import {
   Spinner,
   toast,
 } from '@karbon/ui';
-import { isOrderActive } from '@karbon/utils';
+import { formatTime, isOrderActive } from '@karbon/utils';
 import {
   ArrowLeftIcon,
   HandCoinsIcon,
@@ -103,7 +103,7 @@ export default function OrderPage() {
             {data.tableName ?? data.label ?? `Pedido #${String(data.number)}`}
           </h1>
           <p className="text-xs text-muted-foreground">
-            #{data.number} · {data.waiter.name}
+            #{data.number} · {data.waiter.name} · abierto {formatTime(data.createdAt)}
             {data.guests ? ` · ${String(data.guests)} pers.` : ''}
           </p>
         </div>
@@ -146,7 +146,7 @@ export default function OrderPage() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="-my-1 size-8"
+                  className="-my-2 size-11"
                   aria-label={`Quitar ${item.productName}`}
                   onClick={() => {
                     removePending.mutate(item.id);

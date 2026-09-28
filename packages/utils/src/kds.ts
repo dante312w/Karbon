@@ -1,4 +1,4 @@
-import { type KitchenTicketDto, KitchenTicketStatus } from '@karbon/types';
+import { type KitchenTicketDto, KitchenTicketStatus, type TableOrderSummary } from '@karbon/types';
 
 export type TicketUrgency = 'normal' | 'warning' | 'critical';
 
@@ -83,6 +83,28 @@ export function ticketTiming(ticket: TimedTicket, now: number): TicketTiming {
         stopped: true,
       };
   }
+}
+
+export type PreparationSummary = Pick<TableOrderSummary, 'readyTickets' | 'preparingSince'>;
+
+/**
+ * Qué le importa al mesero de las comandas de un pedido: cuántas puede recoger y desde cuándo
+ * espera la más antigua. Lo usan el mapa de mesas (backend) y las pantallas del celular.
+ */
+export function summarizePreparation(
+  tickets: readonly Pick<KitchenTicketDto, 'status' | 'createdAt'>[],
+): PreparationSummary {
+  let readyTickets = 0;
+  let preparingSince: string | null = null;
+  for (const ticket of tickets) {
+    if (ticket.status === KitchenTicketStatus.READY) readyTickets += 1;
+    const inKitchen =
+      ticket.status === KitchenTicketStatus.NEW || ticket.status === KitchenTicketStatus.PREPARING;
+    if (inKitchen && (preparingSince === null || ticket.createdAt < preparingSince)) {
+      preparingSince = ticket.createdAt;
+    }
+  }
+  return { readyTickets, preparingSince };
 }
 
 /** Cronómetro `mm:ss`, o `h:mm:ss` a partir de una hora. Valores negativos cuentan como 0. */
