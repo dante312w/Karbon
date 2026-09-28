@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { isPermission, type Permission } from '@karbon/types';
+import { toPermissions } from '@karbon/types';
 import { createHash, randomBytes } from 'node:crypto';
 import type { AuthenticatedUser } from '../../common/auth/authenticated-user.js';
 import type { EnvironmentVariables } from '../../config/env.validation.js';
@@ -63,9 +63,7 @@ export class TokenService {
       username: payload.username,
       roleId: payload.rid,
       roleCode: payload.rc,
-      permissions: payload.perms.filter((permission): permission is Permission =>
-        isPermission(permission),
-      ),
+      permissions: toPermissions(payload.perms),
       sessionId: payload.sid,
     };
   }

@@ -1,7 +1,7 @@
 import { useMoney, useTerminology } from '@karbon/client';
 import { type TableDto, TableShape } from '@karbon/types';
 import { cn, TABLE_STATUS_META, tableStatusLabel } from '@karbon/ui';
-import { elapsedLabel } from '@karbon/utils';
+import { elapsedLabel, summarizeTable } from '@karbon/utils';
 import { ChefHatIcon, Link2Icon, MartiniIcon, UsersIcon } from 'lucide-react';
 
 const OCCUPIED_TRACK = 'minmax(7.5rem, 1fr)';
@@ -67,10 +67,7 @@ function TableCard({
   const money = useMoney();
   const terms = useTerminology();
   const meta = TABLE_STATUS_META[table.status];
-  const total = table.activeOrders.reduce((sum, order) => sum + order.total, 0);
-  const guests = table.activeOrders.reduce((sum, order) => sum + (order.guests ?? 0), 0);
-  const pendingTickets = table.activeOrders.reduce((sum, order) => sum + order.pendingTickets, 0);
-  const oldest = table.activeOrders.map((order) => order.createdAt).sort()[0];
+  const { total, guests, pendingTickets, openedAt } = summarizeTable(table);
   const PrepIcon = terms.mode === 'BAR' ? MartiniIcon : ChefHatIcon;
 
   return (
@@ -109,8 +106,8 @@ function TableCard({
           <UsersIcon className="size-3.5" />
           {guests > 0 ? `${guests}/${table.capacity}` : table.capacity}
         </span>
-        {oldest ? (
-          <span className="text-muted-foreground tabular-nums">{elapsedLabel(oldest, now)}</span>
+        {openedAt ? (
+          <span className="text-muted-foreground tabular-nums">{elapsedLabel(openedAt, now)}</span>
         ) : null}
       </div>
       {total > 0 ? (

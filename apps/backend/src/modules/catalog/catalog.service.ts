@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { type CategoryDto, ErrorCode, type ProductDto, type RecipeItemDto } from '@karbon/types';
 import type { AuthenticatedUser } from '../../common/auth/authenticated-user.js';
-import { conflict, notFound } from '../../common/errors/domain-error.js';
+import { badRequest, conflict, notFound } from '../../common/errors/domain-error.js';
 import { containsInsensitive } from '../../common/http/pagination.js';
 import { minorToDecimal } from '../../common/money.js';
 import { StorageService } from '../../common/storage/storage.service.js';
@@ -187,7 +187,7 @@ export class CatalogService {
     await this.getProduct(productId);
     const ids = dto.items.map((item) => item.ingredientId);
     if (new Set(ids).size !== ids.length) {
-      throw conflict(ErrorCode.VALIDATION_FAILED, 'Un insumo aparece más de una vez en la receta');
+      throw badRequest('Un insumo aparece más de una vez en la receta');
     }
     await this.prisma.$transaction(async (tx) => {
       const found = await tx.ingredient.count({ where: { id: { in: ids }, deletedAt: null } });

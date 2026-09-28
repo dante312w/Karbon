@@ -8,7 +8,7 @@ import {
 } from '@karbon/types';
 import { STATION_LABEL } from '@karbon/utils';
 import { createConnection } from 'node:net';
-import { DomainError, notFound } from '../../common/errors/domain-error.js';
+import { DomainError, invalid, notFound } from '../../common/errors/domain-error.js';
 import type { Printer } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { TICKET_INCLUDE, toTicketDtoWithOrder } from '../orders/orders.mapper.js';
@@ -122,10 +122,9 @@ export class PrintingService implements OnModuleInit {
     const printer = await this.prisma.printer.findUnique({ where: { id: printerId } });
     if (!printer?.isActive) throw notFound('La impresora');
     if (printer.connection !== PrinterConnection.NETWORK || !printer.address) {
-      throw new DomainError(
+      throw invalid(
         ErrorCode.PRINTER_NOT_SUPPORTED,
         'Esta impresora se atiende desde la app de escritorio (USB o controlador de Windows)',
-        HttpStatus.UNPROCESSABLE_ENTITY,
       );
     }
     return printer;

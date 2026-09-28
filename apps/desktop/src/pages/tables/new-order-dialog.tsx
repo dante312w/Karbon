@@ -54,6 +54,7 @@ export function NewOrderDialog({
     },
   );
 
+  const canSubmit = !create.isPending && (table !== null || label.trim().length > 0);
   const title = table
     ? `Abrir ${table.name}`
     : terms.mode === 'BAR'
@@ -79,7 +80,7 @@ export function NewOrderDialog({
             </Button>
             <Button
               size="lg"
-              disabled={create.isPending || (!table && label.trim().length === 0)}
+              disabled={!canSubmit}
               onClick={() => {
                 create.mutate(undefined);
               }}
@@ -102,7 +103,7 @@ export function NewOrderDialog({
                     setLabel(event.target.value);
                   }}
                   onKeyDown={(event) => {
-                    if (event.key === 'Enter' && label.trim()) create.mutate(undefined);
+                    if (event.key === 'Enter' && canSubmit) create.mutate(undefined);
                   }}
                 />
               )}

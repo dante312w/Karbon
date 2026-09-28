@@ -26,6 +26,10 @@ export interface KarbonProviderProps {
   children: ReactNode;
 }
 
+function cachePrefix(storageKey: string): string {
+  return `${storageKey}.cache`;
+}
+
 function createClient(baseUrl: string, storageKey: string, cache: string): KarbonContextValue {
   const sessions = createLocalSessionStore(storageKey);
   const http = new HttpClient(baseUrl, sessions);
@@ -48,13 +52,9 @@ function createClient(baseUrl: string, storageKey: string, cache: string): Karbo
       callback({ token: sessions.get()?.accessToken });
     },
   });
-  discardStaleCaches(`${storageKey}.cache`, cache);
+  discardStaleCaches(cachePrefix(storageKey), cache);
   if (sessions.get()) hydrateCache(queryClient, cache);
   return { baseUrl, http, api: createApi(http), sessions, socket, queryClient };
-}
-
-function cacheKey(storageKey: string, version: string): string {
-  return `${storageKey}.cache.${version}`;
 }
 
 export function KarbonProvider({
@@ -63,7 +63,7 @@ export function KarbonProvider({
   cacheVersion,
   children,
 }: KarbonProviderProps) {
-  const cache = cacheKey(storageKey, cacheVersion);
+  const cache = `${cachePrefix(storageKey)}.${cacheVersion}`;
   const [client] = useState(() => createClient(baseUrl, storageKey, cache));
 
   useEffect(() => bindRealtimeCache(client.socket, client.queryClient), [client]);

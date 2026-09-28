@@ -44,13 +44,14 @@ function RequirePermission({
   return session.user.permissions.includes(permission) ? (
     children
   ) : (
-    <Navigate to={landingPath(session.user.permissions)} replace />
+    <Navigate to={landingPath(session.user.permissions) ?? '/ingresar'} replace />
   );
 }
 
 function Home() {
   const session = useSession();
-  return <Navigate to={session ? landingPath(session.user.permissions) : '/ingresar'} replace />;
+  const home = session ? landingPath(session.user.permissions) : null;
+  return <Navigate to={home ?? '/ingresar'} replace />;
 }
 
 const guarded = (permission: Permission, page: ReactNode): ReactNode => (

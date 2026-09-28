@@ -1,14 +1,13 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
   type BusinessMode,
-  ErrorCode,
   type RestaurantSettingsDto,
   SocketEvent,
   SystemRole,
 } from '@karbon/types';
 import { getTerminology, SUPPORTED_CURRENCIES } from '@karbon/utils';
 import type { AuthenticatedUser } from '../../common/auth/authenticated-user.js';
-import { DomainError } from '../../common/errors/domain-error.js';
+import { badRequest } from '../../common/errors/domain-error.js';
 import { StorageService } from '../../common/storage/storage.service.js';
 import type { RestaurantSettings } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
@@ -71,13 +70,13 @@ export class SettingsService {
     const warning = dto.kdsWarningMinutes ?? current.kdsWarningMinutes;
     const critical = dto.kdsCriticalMinutes ?? current.kdsCriticalMinutes;
     if (warning >= critical) {
-      throw this.invalid('El umbral amarillo del KDS debe ser menor que el rojo');
+      throw badRequest('El umbral amarillo del KDS debe ser menor que el rojo');
     }
     if (dto.currency && !SUPPORTED_CURRENCIES.includes(dto.currency)) {
-      throw this.invalid(`Moneda no soportada. Opciones: ${SUPPORTED_CURRENCIES.join(', ')}`);
+      throw badRequest(`Moneda no soportada. Opciones: ${SUPPORTED_CURRENCIES.join(', ')}`);
     }
     if (dto.timezone && !isValidTimezone(dto.timezone)) {
-      throw this.invalid('Zona horaria inválida');
+      throw badRequest('Zona horaria inválida');
     }
 
     const before = toSettingsDto(current);
@@ -148,9 +147,5 @@ export class SettingsService {
     const dto = toSettingsDto(settings);
     this.events.broadcast(SocketEvent.SETTINGS_UPDATED, { settings: dto });
     return dto;
-  }
-
-  private invalid(message: string): DomainError {
-    return new DomainError(ErrorCode.VALIDATION_FAILED, message, HttpStatus.BAD_REQUEST);
   }
 }

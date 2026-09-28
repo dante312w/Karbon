@@ -6,6 +6,7 @@ import {
   SocketRoom,
   userRoom,
 } from '@karbon/types';
+import { OPEN_TICKET_STATUSES } from '@karbon/utils';
 import { notFound } from '../../common/errors/domain-error.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { FloorService } from '../floor/floor.service.js';
@@ -32,15 +33,7 @@ export class KitchenService {
       where: {
         ...(query.station ? { station: query.station } : {}),
         OR: [
-          {
-            status: {
-              in: [
-                KitchenTicketStatus.NEW,
-                KitchenTicketStatus.PREPARING,
-                KitchenTicketStatus.READY,
-              ],
-            },
-          },
+          { status: { in: [...OPEN_TICKET_STATUSES] } },
           ...(query.includeDelivered === false
             ? []
             : [

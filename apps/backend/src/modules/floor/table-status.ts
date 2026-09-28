@@ -1,25 +1,9 @@
-import {
-  KitchenTicketStatus,
-  OrderStatus,
-  TableStatus,
-  type KitchenTicketStatus as TicketStatus,
-  type OrderStatus as OrderStatusValue,
-} from '@karbon/types';
+import { type KitchenTicketStatus, OrderStatus, TableStatus } from '@karbon/types';
+import { isOrderActive, isTicketOpen } from '@karbon/utils';
 
 export interface ActiveOrderSnapshot {
-  status: OrderStatusValue;
-  tickets: { status: TicketStatus }[];
-}
-
-const ACTIVE_ORDER: readonly OrderStatusValue[] = [OrderStatus.OPEN, OrderStatus.BILL_REQUESTED];
-const IN_PREPARATION: readonly TicketStatus[] = [
-  KitchenTicketStatus.NEW,
-  KitchenTicketStatus.PREPARING,
-  KitchenTicketStatus.READY,
-];
-
-export function isActiveOrder(status: OrderStatusValue): boolean {
-  return ACTIVE_ORDER.includes(status);
+  status: OrderStatus;
+  tickets: { status: KitchenTicketStatus }[];
 }
 
 /**
@@ -30,7 +14,7 @@ export function deriveTableStatus(
   current: TableStatus,
   orders: readonly ActiveOrderSnapshot[],
 ): TableStatus {
-  const active = orders.filter((order) => isActiveOrder(order.status));
+  const active = orders.filter((order) => isOrderActive(order.status));
   if (active.length === 0) {
     return current === TableStatus.PAID || current === TableStatus.RESERVED
       ? current
@@ -39,7 +23,7 @@ export function deriveTableStatus(
   if (active.some((order) => order.status === OrderStatus.BILL_REQUESTED))
     return TableStatus.WAITING_BILL;
   const preparing = active.some((order) =>
-    order.tickets.some((ticket) => IN_PREPARATION.includes(ticket.status)),
+    order.tickets.some((ticket) => isTicketOpen(ticket.status)),
   );
   return preparing ? TableStatus.WAITING_FOOD : TableStatus.OCCUPIED;
 }

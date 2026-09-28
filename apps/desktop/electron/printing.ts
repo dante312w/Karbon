@@ -82,13 +82,7 @@ export async function savePdf(
 
   const window = await renderHidden(request.html);
   try {
-    const pageSize = request.paperWidthMm
-      ? {
-          width: request.paperWidthMm / MM_PER_INCH,
-          height: (await contentHeightMm(window.webContents)) / MM_PER_INCH,
-        }
-      : ('A4' as const);
-    const pdf = await window.webContents.printToPDF({ printBackground: true, pageSize });
+    const pdf = await window.webContents.printToPDF({ printBackground: true, pageSize: 'A4' });
     await writeFile(target.filePath, pdf);
     return target.filePath;
   } finally {

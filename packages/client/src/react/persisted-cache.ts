@@ -23,17 +23,29 @@ function isPersisted(queryKey: QueryKey): boolean {
   return queryKey.length === 1 && PERSISTED_ROOTS.has(String(queryKey[0]));
 }
 
+/**
+ * Con el almacenamiento bloqueado (modo privado, políticas del navegador) la caché simplemente
+ * no se guarda: la app sigue funcionando en línea.
+ */
+function withStorage<T>(action: (storage: Storage) => T, fallback: T): T {
+  try {
+    return action(window.localStorage);
+  } catch {
+    return fallback;
+  }
+}
+
 /** Carga la caché guardada antes del primer render (sin parpadeo de "cargando"). */
 export function hydrateCache(queryClient: QueryClient, storageKey: string): void {
+  const raw = withStorage((storage) => storage.getItem(storageKey), null);
+  if (!raw) return;
   try {
-    const raw = localStorage.getItem(storageKey);
-    if (!raw) return;
     for (const entry of JSON.parse(raw) as PersistedEntry[]) {
       if (isPersisted(entry.queryKey))
         queryClient.setQueryData(entry.queryKey, entry.data, { updatedAt: entry.updatedAt });
     }
   } catch {
-    localStorage.removeItem(storageKey);
+    clearPersistedCache(storageKey);
   }
 }
 
@@ -50,11 +62,9 @@ export function persistCache(queryClient: QueryClient, storageKey: string): () =
         data: query.state.data,
         updatedAt: query.state.dataUpdatedAt,
       }));
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(entries));
-    } catch {
-      // Almacenamiento lleno o bloqueado: la app sigue funcionando en línea.
-    }
+    withStorage((storage) => {
+      storage.setItem(storageKey, JSON.stringify(entries));
+    }, undefined);
   };
   const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
     // El evento tipa la consulta de forma genérica; solo se usa su clave.
@@ -70,7 +80,9 @@ export function persistCache(queryClient: QueryClient, storageKey: string): () =
 }
 
 export function clearPersistedCache(storageKey: string): void {
-  localStorage.removeItem(storageKey);
+  withStorage((storage) => {
+    storage.removeItem(storageKey);
+  }, undefined);
 }
 
 /**
@@ -78,11 +90,9 @@ export function clearPersistedCache(storageKey: string): void {
  * pueden tener otra forma (p. ej. un campo nuevo) y la pantalla fallaría antes de refrescarlos.
  */
 export function discardStaleCaches(prefix: string, current: string): void {
-  try {
-    for (const key of Object.keys(localStorage)) {
-      if (key.startsWith(prefix) && key !== current) localStorage.removeItem(key);
+  withStorage((storage) => {
+    for (const key of Object.keys(storage)) {
+      if (key.startsWith(prefix) && key !== current) storage.removeItem(key);
     }
-  } catch {
-    // Almacenamiento bloqueado: no hay nada guardado que pueda estar desactualizado.
-  }
+  }, undefined);
 }

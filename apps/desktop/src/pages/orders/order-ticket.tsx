@@ -1,7 +1,7 @@
 import { useMoney, useTerminology } from '@karbon/client';
 import { type OrderDto, type OrderItemDto, OrderItemStatus } from '@karbon/types';
 import { cn, KITCHEN_TICKET_STATUS_LABEL } from '@karbon/ui';
-import { STATION_LABEL } from '@karbon/utils';
+import { isTicketOpen, STATION_LABEL } from '@karbon/utils';
 import { ShoppingBasketIcon } from 'lucide-react';
 
 /** Líneas del pedido y totales. Las líneas sin enviar se resaltan hasta mandarlas a preparar. */
@@ -17,9 +17,7 @@ export function OrderTicket({
   const money = useMoney();
   const terms = useTerminology();
   const items = [...order.items].sort((a, b) => a.sortOrder - b.sortOrder);
-  const activeTickets = order.tickets.filter(
-    (ticket) => ticket.status !== 'DELIVERED' && ticket.status !== 'CANCELLED',
-  );
+  const activeTickets = order.tickets.filter((ticket) => isTicketOpen(ticket.status));
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

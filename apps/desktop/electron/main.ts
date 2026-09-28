@@ -7,7 +7,6 @@ import {
   IpcChannel,
   type PrintHtmlRequest,
   type SavePdfRequest,
-  type ServerStatus,
 } from '../shared/bridge';
 import { listPrinters, printHtml, savePdf } from './printing';
 import { ServerSupervisor } from './server/supervisor';
@@ -134,8 +133,6 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IpcChannel.APP_INFO, (): DesktopAppInfo => ({
     appVersion: app.getVersion(),
     electronVersion: process.versions.electron,
-    chromeVersion: process.versions.chrome,
-    platform: process.platform,
     serverUrl,
     autoStart: app.getLoginItemSettings().openAtLogin,
   }));
@@ -143,11 +140,6 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IpcChannel.PRINT_HTML, (_event, request: PrintHtmlRequest) => printHtml(request));
   ipcMain.handle(IpcChannel.SAVE_PDF, (event, request: SavePdfRequest) =>
     savePdf(request, BrowserWindow.fromWebContents(event.sender)),
-  );
-  ipcMain.handle(
-    IpcChannel.SERVER_STATUS,
-    (): ServerStatus =>
-      supervisor?.status ?? { state: 'running', message: null, waiterAppUrls: [] },
   );
   ipcMain.handle(IpcChannel.SET_AUTO_START, (_event, enabled: boolean) => {
     app.setLoginItemSettings({ openAtLogin: enabled, args: ['--hidden'] });

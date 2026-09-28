@@ -3,19 +3,18 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   type DashboardDto,
   type DateRangeQuery,
-  ErrorCode,
-  OrderItemStatus,
   OrderStatus,
   PaymentStatus,
   Permission,
 } from '@karbon/types';
 import { IsOptional, Matches } from 'class-validator';
 import { RequirePermissions } from '../../common/auth/decorators.js';
-import { invalid } from '../../common/errors/domain-error.js';
-import { num } from '../../common/mapping.js';
+import { badRequest } from '../../common/errors/domain-error.js';
 import { decimalToMinor } from '../../common/money.js';
 import { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { InventoryModule } from '../inventory/inventory.module.js';
+import { StockService } from '../inventory/stock.service.js';
 import { SettingsService } from '../settings/settings.service.js';
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -51,6 +50,7 @@ export class ReportsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
+    private readonly stock: StockService,
   ) {}
 
   async dashboard(query: DateRangeDto): Promise<DashboardDto> {
@@ -59,11 +59,9 @@ export class ReportsService {
     const currency = settings.currency;
     const from = query.from ?? localDate(timezone);
     const to = query.to ?? from;
-    if (to < from)
-      throw invalid(ErrorCode.VALIDATION_FAILED, 'La fecha final es anterior a la inicial');
+    if (to < from) throw badRequest('La fecha final es anterior a la inicial');
     const days = (Date.parse(to) - Date.parse(from)) / 86_400_000;
-    if (days > MAX_RANGE_DAYS)
-      throw invalid(ErrorCode.VALIDATION_FAILED, 'El rango máximo es de un año');
+    if (days > MAX_RANGE_DAYS) throw badRequest('El rango máximo es de un año');
 
     const [bounds] = await this.prisma.$queryRaw<Range[]>`
       SELECT (${from}::date)::timestamp AT TIME ZONE ${timezone} AS "start",
@@ -137,19 +135,12 @@ export class ReportsService {
           SELECT COALESCE(SUM(oi.unit_cost * oi.quantity), 0) AS cost
             FROM order_items oi JOIN orders o ON o.id = oi.order_id
            WHERE o.status = 'PAID' AND o.closed_at >= ${start} AND o.closed_at < ${end}
-             AND oi.status <> ${OrderItemStatus.CANCELLED}::order_item_status`,
+             AND oi.status <> 'CANCELLED'`,
       this.prisma.expense.aggregate({
         where: { incurredAt: { gte: start, lt: end } },
         _sum: { amount: true },
       }),
-      this.prisma.ingredient.findMany({
-        where: {
-          isActive: true,
-          deletedAt: null,
-          stock: { lte: this.prisma.ingredient.fields.minStock },
-        },
-        orderBy: { name: 'asc' },
-      }),
+      this.stock.lowStock(),
     ]);
 
     const salesTotal = minor(summary._sum.total);
@@ -199,13 +190,7 @@ export class ReportsService {
         method: row.method,
         total: minor(row._sum.amount),
       })),
-      criticalInventory: critical.map((ingredient) => ({
-        ingredientId: ingredient.id,
-        name: ingredient.name,
-        stock: num(ingredient.stock),
-        minStock: num(ingredient.minStock),
-        unit: ingredient.unit,
-      })),
+      criticalInventory: critical,
     };
   }
 }
@@ -227,6 +212,7 @@ export class ReportsController {
 }
 
 @Module({
+  imports: [InventoryModule],
   controllers: [ReportsController],
   providers: [ReportsService],
 })

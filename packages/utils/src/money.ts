@@ -69,7 +69,7 @@ export function splitTaxFromGross(
 
 /**
  * Reparte `total` en partes proporcionales a `weights` sin perder ni crear centavos:
- * el residuo se asigna a las partes con mayor fracción descartada. Base de "dividir cuenta".
+ * el residuo se asigna a las partes con mayor fracción descartada.
  */
 export function allocate(total: MinorUnits, weights: readonly number[]): MinorUnits[] {
   assertMinorUnits(total);
@@ -96,17 +96,6 @@ export function allocate(total: MinorUnits, weights: readonly number[]): MinorUn
     remainder -= step;
   }
   return parts;
-}
-
-/** Reparte `total` en `count` partes iguales (la diferencia de centavos va a las primeras). */
-export function splitEvenly(total: MinorUnits, count: number): MinorUnits[] {
-  if (!Number.isInteger(count) || count < 1) {
-    throw new RangeError('La cuenta se divide en al menos 1 parte');
-  }
-  return allocate(
-    total,
-    Array.from({ length: count }, () => 1),
-  );
 }
 
 /**

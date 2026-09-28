@@ -1,5 +1,6 @@
 import type { CashSessionSummaryDto } from '@karbon/types';
-import { PAYMENT_METHOD_LABEL } from '@karbon/ui';
+import { PAYMENT_METHOD_LABEL } from '@karbon/utils';
+import { formatDateTime } from '../../lib/format';
 
 /** Reporte de cierre (o corte parcial) para imprimir y archivar. */
 export function CashReport({
@@ -13,10 +14,10 @@ export function CashReport({
 }) {
   const { session } = summary;
   const rows: [string, string][] = [
-    ['Apertura', new Date(session.openedAt).toLocaleString('es-CO')],
+    ['Apertura', formatDateTime(session.openedAt)],
     ['Abrió', session.openedBy.name],
     ...(session.closedAt
-      ? ([['Cierre', new Date(session.closedAt).toLocaleString('es-CO')]] as [string, string][])
+      ? ([['Cierre', formatDateTime(session.closedAt)]] as [string, string][])
       : []),
     ...(session.closedBy ? ([['Cerró', session.closedBy.name]] as [string, string][]) : []),
     ['Base inicial', money(session.openingAmount)],

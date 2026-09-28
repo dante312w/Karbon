@@ -28,7 +28,7 @@ import { toMinorUnits } from '@karbon/utils';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { PackageCheckIcon, PlusIcon, ShoppingCartIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { useState } from 'react';
-import { formatDate, unitLabel } from '../../lib/format';
+import { formatDate, localIsoDate, unitLabel } from '../../lib/format';
 import { useSuppliers } from './use-suppliers';
 
 const STATUS_LABEL: Record<PurchaseStatus, string> = {
@@ -195,7 +195,7 @@ function PurchaseDialog({ onClose }: { onClose: () => void }) {
   });
   const [supplierId, setSupplierId] = useState('');
   const [invoice, setInvoice] = useState('');
-  const [date, setDate] = useState(new Date().toLocaleDateString('sv-SE'));
+  const [date, setDate] = useState(() => localIsoDate());
   const [receiveNow, setReceiveNow] = useState(true);
   const [lines, setLines] = useState<Line[]>([
     { key: 1, ingredientId: '', quantity: '', unitCost: '' },

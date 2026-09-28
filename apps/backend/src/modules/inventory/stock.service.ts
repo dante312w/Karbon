@@ -1,10 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import { InventoryMovementType, type LowStockAlert, SocketEvent } from '@karbon/types';
+import {
+  InventoryMovementType,
+  type LowStockAlert,
+  OrderItemStatus,
+  SocketEvent,
+} from '@karbon/types';
 import { notFound } from '../../common/errors/domain-error.js';
 import { num } from '../../common/mapping.js';
 import { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import type { Db, Tx } from '../../prisma/prisma.types.js';
+import type { Tx } from '../../prisma/prisma.types.js';
 import { EVENT_ROOMS, EventsService } from '../realtime/events.service.js';
 
 export interface MovementInput {
@@ -78,7 +83,11 @@ export class StockService {
   /** Descuenta los insumos de las recetas de un pedido pagado. Devuelve los insumos afectados. */
   async applySale(tx: Tx, orderId: string, orderNumber: number, userId: string): Promise<string[]> {
     const items = await tx.orderItem.findMany({
-      where: { orderId, status: { not: 'CANCELLED' }, product: { trackInventory: true } },
+      where: {
+        orderId,
+        status: { not: OrderItemStatus.CANCELLED },
+        product: { trackInventory: true },
+      },
       select: {
         quantity: true,
         product: { select: { recipeItems: { select: { ingredientId: true, quantity: true } } } },
@@ -141,11 +150,9 @@ export class StockService {
     return pending.map((row) => row.ingredientId);
   }
 
-  async lowStock(
-    db: Db = this.prisma,
-    ingredientIds?: readonly string[],
-  ): Promise<LowStockAlert[]> {
-    const ingredients = await db.ingredient.findMany({
+  /** Insumos activos en o bajo su mínimo (todos, o solo los indicados). */
+  async lowStock(ingredientIds?: readonly string[]): Promise<LowStockAlert[]> {
+    const ingredients = await this.prisma.ingredient.findMany({
       where: {
         isActive: true,
         deletedAt: null,
@@ -159,13 +166,14 @@ export class StockService {
       name: ingredient.name,
       stock: num(ingredient.stock),
       minStock: num(ingredient.minStock),
+      unit: ingredient.unit,
     }));
   }
 
   /** Notifica cambios de existencias (después de confirmar la transacción). */
   async publish(ingredientIds: readonly string[]): Promise<void> {
     if (ingredientIds.length === 0) return;
-    const lowStock = await this.lowStock(this.prisma, ingredientIds);
+    const lowStock = await this.lowStock(ingredientIds);
     this.events.publish(
       SocketEvent.INVENTORY_UPDATED,
       { ingredientIds: [...ingredientIds], lowStock },

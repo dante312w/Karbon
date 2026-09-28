@@ -12,7 +12,9 @@ import {
 import {
   FiscalDocumentType,
   type OrderDto,
+  OrderStatus,
   PaymentMethod,
+  PaymentStatus,
   Permission,
   type PaymentResultDto,
 } from '@karbon/types';
@@ -25,10 +27,10 @@ import {
   Field,
   Input,
   notifyError,
-  PAYMENT_METHOD_LABEL,
   Select,
   toast,
 } from '@karbon/ui';
+import { FISCAL_DOCUMENT_LABEL, PAYMENT_METHOD_LABEL } from '@karbon/utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   BanknoteIcon,
@@ -57,12 +59,13 @@ const METHOD_ICON: Record<PaymentMethod, LucideIcon> = {
   QR: QrCodeIcon,
 };
 
-const DOCUMENT_LABEL: Partial<Record<FiscalDocumentType, string>> = {
-  RECEIPT: 'Tiquete de venta',
-  POS_EQUIVALENT: 'Documento equivalente POS',
-  INVOICE: 'Factura de venta',
-  ELECTRONIC_INVOICE: 'Factura electrónica',
-};
+/** La nota crédito no se emite al cobrar: corrige un documento ya emitido. */
+const SALE_DOCUMENTS = [
+  FiscalDocumentType.RECEIPT,
+  FiscalDocumentType.POS_EQUIVALENT,
+  FiscalDocumentType.INVOICE,
+  FiscalDocumentType.ELECTRONIC_INVOICE,
+] as const;
 
 /** Cobro de un pedido: uno o varios pagos (mixto), cambio, propina y comprobante al terminar. */
 export function PaymentDialog({
@@ -148,10 +151,14 @@ export function PaymentDialog({
     },
   );
 
-  const completed = order.status === 'PAID';
-  const activePayments = (payments.data ?? []).filter((payment) => payment.status === 'COMPLETED');
+  const completed = order.status === OrderStatus.PAID;
+  const activePayments = (payments.data ?? []).filter(
+    (payment) => payment.status === PaymentStatus.COMPLETED,
+  );
+  // Un pedido en $0 (cortesía o descuento total) se cierra con un pago de 0.
+  const closesFree = order.pendingAmount === 0;
   const change = method === PaymentMethod.CASH ? Math.max(0, tendered - amount) : 0;
-  const invalidAmount = amount <= 0 || amount > order.pendingAmount;
+  const invalidAmount = amount > order.pendingAmount || (amount <= 0 && !closesFree);
   const insufficient = method === PaymentMethod.CASH && tendered < amount;
 
   return (
@@ -364,7 +371,11 @@ export function PaymentDialog({
                   pay.mutate(undefined);
                 }}
               >
-                {pay.isPending ? 'Registrando…' : `Cobrar ${money(amount)}`}
+                {pay.isPending
+                  ? 'Registrando…'
+                  : closesFree
+                    ? 'Cerrar pedido sin cobro'
+                    : `Cobrar ${money(amount)}`}
               </Button>
             </section>
           </div>
@@ -405,23 +416,25 @@ function CompletedPanel({
       ? { id: order.customerId, name: order.customerName }
       : null,
   );
-  const [busy, setBusy] = useState(false);
-
-  const withInvoice = async (action: (invoiceId: string) => Promise<unknown>): Promise<void> => {
-    setBusy(true);
-    try {
+  /** Emite el documento (o recupera el ya emitido) y lo imprime o exporta. */
+  const output = useApiMutation(
+    async (action: (invoiceId: string) => Promise<unknown>) => {
       const invoice = await api.invoices.issue(order.id, {
         documentType,
         customerId: customer?.id ?? null,
       });
       await action(invoice.id);
-      toast.success(`${DOCUMENT_LABEL[documentType] ?? 'Documento'} ${invoice.fullNumber}`);
-    } catch (error) {
-      notifyError(error);
-    } finally {
-      setBusy(false);
-    }
-  };
+      return invoice;
+    },
+    [queryKeys.invoices],
+    {
+      onSuccess: (invoice) => {
+        toast.success(`${FISCAL_DOCUMENT_LABEL[documentType]} ${invoice.fullNumber}`);
+      },
+      onError: notifyError,
+    },
+  );
+  const busy = output.isPending;
 
   return (
     <div className="flex flex-col items-center gap-5 py-2 text-center">
@@ -448,9 +461,9 @@ function CompletedPanel({
                   setDocumentType(event.target.value as FiscalDocumentType);
                 }}
               >
-                {Object.entries(DOCUMENT_LABEL).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
+                {SALE_DOCUMENTS.map((type) => (
+                  <option key={type} value={type}>
+                    {FISCAL_DOCUMENT_LABEL[type]}
                   </option>
                 ))}
               </Select>
@@ -470,7 +483,7 @@ function CompletedPanel({
               disabled={busy}
               autoFocus
               onClick={() => {
-                void withInvoice((invoiceId) =>
+                output.mutate((invoiceId) =>
                   printer.print({ kind: 'invoice', invoiceId }, { openDrawer: Boolean(change) }),
                 );
               }}
@@ -482,7 +495,7 @@ function CompletedPanel({
               size="lg"
               disabled={busy}
               onClick={() => {
-                void withInvoice((invoiceId) => printer.printA4({ kind: 'invoice', invoiceId }));
+                output.mutate((invoiceId) => printer.printA4({ kind: 'invoice', invoiceId }));
               }}
             >
               <FileTextIcon /> Hoja A4
@@ -492,7 +505,7 @@ function CompletedPanel({
               size="lg"
               disabled={busy}
               onClick={() => {
-                void withInvoice((invoiceId) =>
+                output.mutate((invoiceId) =>
                   printer.savePdf({ kind: 'invoice', invoiceId }, `pedido-${order.number}.pdf`),
                 );
               }}

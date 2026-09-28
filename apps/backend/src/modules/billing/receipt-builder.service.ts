@@ -5,11 +5,12 @@ import {
   type ReceiptDocument,
   type TaxBreakdownLine,
 } from '@karbon/types';
-import { calculateOrderTotals, practicalUnit } from '@karbon/utils';
+import { FISCAL_DOCUMENT_LABEL } from '@karbon/utils';
 import { notFound } from '../../common/errors/domain-error.js';
 import { iso, num } from '../../common/mapping.js';
 import { decimalToMinor } from '../../common/money.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { orderTotals } from '../orders/order-totals.js';
 import { toSettingsDto } from '../settings/settings.mapper.js';
 import { SettingsService } from '../settings/settings.service.js';
 
@@ -36,11 +37,6 @@ export class ReceiptBuilder {
     private readonly settings: SettingsService,
   ) {}
 
-  async taxNames(): Promise<Map<number, string>> {
-    const taxes = await this.prisma.tax.findMany();
-    return new Map(taxes.map((tax) => [num(tax.rate), tax.name]));
-  }
-
   /** Desglose de impuestos por tarifa, con el mismo cálculo que los totales del pedido. */
   async breakdownForOrder(orderId: string): Promise<TaxBreakdownLine[]> {
     const settings = await this.settings.get();
@@ -48,19 +44,7 @@ export class ReceiptBuilder {
       where: { id: orderId },
       include: { items: { where: { status: { not: OrderItemStatus.CANCELLED } } } },
     });
-    const totals = calculateOrderTotals(
-      order.items.map((item) => ({
-        unitPrice: decimalToMinor(item.unitPrice, settings.currency),
-        quantity: item.quantity,
-        taxRate: num(item.taxRate),
-        discount: decimalToMinor(item.discount, settings.currency),
-      })),
-      {
-        pricesIncludeTax: settings.pricesIncludeTax,
-        tipPercent: num(order.tipPercent),
-        tipRoundingUnit: practicalUnit(settings.currency),
-      },
-    );
+    const totals = orderTotals(order.items, order.tipPercent, settings);
     const names = await this.taxNames();
     return totals.taxBreakdown.map((entry) => ({
       taxName: names.get(entry.rate) ?? `Impuesto ${entry.rate} %`,
@@ -90,7 +74,7 @@ export class ReceiptBuilder {
       : await this.breakdownForOrder(order.id);
     const customer = order.customer;
     return {
-      title: invoice ? this.titleFor(invoice.documentType) : 'Precuenta',
+      title: invoice ? FISCAL_DOCUMENT_LABEL[invoice.documentType] : 'Precuenta',
       business: {
         name: settings.name,
         legalName: settings.legalName,
@@ -147,18 +131,8 @@ export class ReceiptBuilder {
     };
   }
 
-  private titleFor(documentType: string): string {
-    switch (documentType) {
-      case 'INVOICE':
-        return 'Factura de venta';
-      case 'ELECTRONIC_INVOICE':
-        return 'Factura electrónica de venta';
-      case 'POS_EQUIVALENT':
-        return 'Documento equivalente POS';
-      case 'CREDIT_NOTE':
-        return 'Nota crédito';
-      default:
-        return 'Tiquete de venta';
-    }
+  private async taxNames(): Promise<Map<number, string>> {
+    const taxes = await this.prisma.tax.findMany();
+    return new Map(taxes.map((tax) => [num(tax.rate), tax.name]));
   }
 }

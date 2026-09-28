@@ -1,4 +1,4 @@
-import { useApi, useMoney, useOrderMutation, useTables } from '@karbon/client';
+import { useApi, useApiMutation, useMoney, useOrderMutation, useTables } from '@karbon/client';
 import { OrderItemStatus, type OrderDto } from '@karbon/types';
 import {
   Button,
@@ -162,21 +162,18 @@ export function DuplicateOrderDialog({ order, onClose }: { order: OrderDto; onCl
   const navigate = useNavigate();
   const tables = useFreeTables(null);
   const [label, setLabel] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  const duplicate = async (target: { tableId: string } | { label: string }): Promise<void> => {
-    setBusy(true);
-    try {
-      const created = await api.orders.duplicate(order.id, target);
-      toast.success(`Pedido #${created.number} creado`);
-      onClose();
-      void navigate(`/pedidos/${created.id}`);
-    } catch (error) {
-      notifyError(error);
-    } finally {
-      setBusy(false);
-    }
-  };
+  const duplicate = useApiMutation(
+    (target: { tableId: string } | { label: string }) => api.orders.duplicate(order.id, target),
+    [],
+    {
+      onSuccess: (created) => {
+        toast.success(`Pedido #${created.number} creado`);
+        onClose();
+        void navigate(`/pedidos/${created.id}`);
+      },
+      onError: notifyError,
+    },
+  );
 
   return (
     <Dialog
@@ -201,9 +198,9 @@ export function DuplicateOrderDialog({ order, onClose }: { order: OrderDto; onCl
                 }}
               />
               <Button
-                disabled={busy || !label.trim()}
+                disabled={duplicate.isPending || !label.trim()}
                 onClick={() => {
-                  void duplicate({ label: label.trim() });
+                  duplicate.mutate({ label: label.trim() });
                 }}
               >
                 Crear
@@ -218,9 +215,9 @@ export function DuplicateOrderDialog({ order, onClose }: { order: OrderDto; onCl
               key={table.id}
               variant="outline"
               size="lg"
-              disabled={busy}
+              disabled={duplicate.isPending}
               onClick={() => {
-                void duplicate({ tableId: table.id });
+                duplicate.mutate({ tableId: table.id });
               }}
             >
               {table.name}

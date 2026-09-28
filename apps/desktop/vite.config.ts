@@ -36,7 +36,7 @@ function contentSecurityPolicy(): Plugin {
 export default defineConfig({
   // Identifica el build: la caché de datos que guardó otra versión se descarta al abrir.
   define: { __KARBON_BUILD__: JSON.stringify(Date.now().toString(36)) },
-  // Rutas relativas: Electron carga el build por file:// y el backend lo sirve bajo un subpath.
+  // Rutas relativas: el mismo build lo sirven Electron (app://karbon) y el backend bajo /app/.
   base: './',
   // Recursos de marca compartidos con la PWA (logo, favicon).
   publicDir: '../../packages/ui/assets',

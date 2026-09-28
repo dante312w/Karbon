@@ -1,5 +1,13 @@
 import { queryKeys, useApi, useApiMutation, useHasPermission, useSession } from '@karbon/client';
-import { type Permission, Permission as P, type RoleDto, type UserDto } from '@karbon/types';
+import {
+  type Permission,
+  Permission as P,
+  PIN_MAX_LENGTH,
+  PIN_PATTERN,
+  ROLE_CODE_PATTERN,
+  type RoleDto,
+  type UserDto,
+} from '@karbon/types';
 import {
   Badge,
   Button,
@@ -21,9 +29,6 @@ import { KeyRoundIcon, PencilIcon, PlusIcon } from 'lucide-react';
 import { useState } from 'react';
 import { formatDateTime } from '../../lib/format';
 import { Section } from './section';
-
-const PIN_PATTERN = /^\d{4,6}$/;
-const ROLE_CODE_PATTERN = /^[A-Z][A-Z0-9_]{1,39}$/;
 
 export function UsersSection() {
   const api = useApi();
@@ -150,7 +155,7 @@ export function UsersSection() {
       {canRoles ? (
         <Section
           title="Roles y permisos"
-          description="Los roles de sistema (Administrador, Caja, Mesero, Cocina/Barra) se pueden ajustar; crea roles propios para casos especiales."
+          description="Los roles de sistema (Administrador, Caja, Mesero, Cocina/Barra) tienen permisos fijos; crea roles propios para ajustar permisos."
           actions={
             <Button
               variant="outline"
@@ -361,7 +366,7 @@ function UserDialog({
                 id={id}
                 inputMode="numeric"
                 autoComplete="off"
-                maxLength={6}
+                maxLength={PIN_MAX_LENGTH}
                 value={pin}
                 disabled={removePin}
                 onChange={(event) => {
@@ -393,7 +398,8 @@ function RoleDialog({ role, onClose }: { role: RoleDto | null; onClose: () => vo
   const [name, setName] = useState(role?.name ?? '');
   const [description, setDescription] = useState(role?.description ?? '');
   const [permissions, setPermissions] = useState<Permission[]>(role?.permissions ?? []);
-  const locked = !canWrite || role?.code === 'ADMIN';
+  // Los roles de sistema los define el código (el seed los resincroniza): solo se consultan.
+  const locked = !canWrite || role?.isSystem === true;
   const save = useApiMutation(
     () =>
       role
@@ -435,8 +441,11 @@ function RoleDialog({ role, onClose }: { role: RoleDto | null; onClose: () => vo
       <DialogContent
         className="w-[min(96vw,52rem)]"
         title={role ? role.name : 'Nuevo rol'}
-        {...(role?.code === 'ADMIN'
-          ? { description: 'El administrador siempre tiene todos los permisos.' }
+        {...(role?.isSystem
+          ? {
+              description:
+                'Rol de sistema: sus permisos son fijos. Crea un rol propio para ajustarlos.',
+            }
           : {})}
         footer={
           locked ? null : (

@@ -1,11 +1,10 @@
 /** Claves de caché de React Query: una sola fuente para consultas e invalidaciones. */
 export const queryKeys = {
   settings: ['settings'] as const,
-  me: ['me'] as const,
   pinUsers: ['pin-users'] as const,
+  setupStatus: ['setup-status'] as const,
   areas: ['areas'] as const,
   tables: ['tables'] as const,
-  reservations: ['reservations'] as const,
   categories: ['categories'] as const,
   products: ['products'] as const,
   recipe: (productId: string) => ['recipe', productId] as const,

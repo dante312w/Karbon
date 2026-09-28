@@ -1,4 +1,4 @@
-import { isPermission, type Permission, type RoleDto, type UserDto } from '@karbon/types';
+import { type RoleDto, toPermissions, type UserDto } from '@karbon/types';
 import type { Role, User } from '../../generated/prisma/client.js';
 import { isoOrNull, timestamps } from '../../common/mapping.js';
 
@@ -8,9 +8,7 @@ export function toRoleDto(role: Role): RoleDto {
     code: role.code,
     name: role.name,
     description: role.description,
-    permissions: role.permissions.filter((permission): permission is Permission =>
-      isPermission(permission),
-    ),
+    permissions: toPermissions(role.permissions),
     isSystem: role.isSystem,
     ...timestamps(role),
   };

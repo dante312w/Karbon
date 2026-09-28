@@ -1,5 +1,4 @@
-import { useOutbox } from '@karbon/client';
-import type { OutboxEntry } from '@karbon/client';
+import { type OutboxEntry, useOutbox } from '@karbon/client';
 import { Button, cn, Dialog, DialogContent, toast } from '@karbon/ui';
 import { CloudOffIcon, RefreshCwIcon, Trash2Icon } from 'lucide-react';
 import { useState } from 'react';

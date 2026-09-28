@@ -5,16 +5,10 @@ import type {
   TableDto,
   TableOrderSummary,
 } from '@karbon/types';
-import { KitchenTicketStatus } from '@karbon/types';
-import type {
-  DiningTable,
-  FloorElement,
-  Prisma,
-  Reservation,
-} from '../../generated/prisma/client.js';
+import { ACTIVE_ORDER_STATUSES, isTicketOpen } from '@karbon/utils';
+import type { FloorElement, Prisma, Reservation } from '../../generated/prisma/client.js';
 import { decimalToMinor } from '../../common/money.js';
 import { iso, timestamps } from '../../common/mapping.js';
-import { ACTIVE_ORDER_STATUSES } from './floor.constants.js';
 
 export const TABLE_INCLUDE = {
   orders: {
@@ -28,12 +22,6 @@ export const TABLE_INCLUDE = {
 } satisfies Prisma.DiningTableInclude;
 
 export type TableWithOrders = Prisma.DiningTableGetPayload<{ include: typeof TABLE_INCLUDE }>;
-
-const PENDING_TICKET: readonly string[] = [
-  KitchenTicketStatus.NEW,
-  KitchenTicketStatus.PREPARING,
-  KitchenTicketStatus.READY,
-];
 
 export const AREA_INCLUDE = {
   elements: { orderBy: [{ posY: 'asc' }, { posX: 'asc' }] },
@@ -65,9 +53,8 @@ export function toAreaDto(area: AreaWithElements): AreaDto {
   };
 }
 
-export function toTableDto(table: TableWithOrders | DiningTable, currency: string): TableDto {
-  const orders = 'orders' in table ? table.orders : [];
-  const activeOrders: TableOrderSummary[] = orders.map((order) => ({
+export function toTableDto(table: TableWithOrders, currency: string): TableDto {
+  const activeOrders: TableOrderSummary[] = table.orders.map((order) => ({
     id: order.id,
     number: order.number,
     status: order.status,
@@ -75,7 +62,7 @@ export function toTableDto(table: TableWithOrders | DiningTable, currency: strin
     guests: order.guests,
     waiterId: order.waiterId,
     waiterName: order.waiter.name,
-    pendingTickets: order.tickets.filter((ticket) => PENDING_TICKET.includes(ticket.status)).length,
+    pendingTickets: order.tickets.filter((ticket) => isTicketOpen(ticket.status)).length,
     createdAt: iso(order.createdAt),
   }));
   return {

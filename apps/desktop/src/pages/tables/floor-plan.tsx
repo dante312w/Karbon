@@ -1,7 +1,7 @@
 import { useMoney, useTerminology } from '@karbon/client';
 import { type FloorElementDto, FloorElementKind, type TableDto, TableShape } from '@karbon/types';
 import { cn, TABLE_STATUS_META, tableStatusLabel, toast } from '@karbon/ui';
-import { elapsedLabel } from '@karbon/utils';
+import { elapsedLabel, summarizeTable } from '@karbon/utils';
 import {
   BanknoteIcon,
   ChefHatIcon,
@@ -320,13 +320,11 @@ function TableGlyph({
   const round = table.shape === TableShape.ROUND;
   const cx = rect.x + rect.width / 2;
   const cy = rect.y + rect.height / 2;
-  const total = table.activeOrders.reduce((sum, order) => sum + order.total, 0);
-  const pending = table.activeOrders.reduce((sum, order) => sum + order.pendingTickets, 0);
-  const oldest = table.activeOrders.map((order) => order.createdAt).sort()[0];
+  const { total, pendingTickets: pending, openedAt } = summarizeTable(table);
   const detail = mergedInto
     ? `con ${mergedInto.name}`
-    : oldest
-      ? elapsedLabel(oldest, now)
+    : openedAt
+      ? elapsedLabel(openedAt, now)
       : `${String(table.capacity)} pers.`;
   const fontSize = fitFontSize(table.name, rect.width);
   const amount = total > 0 ? money(total) : null;

@@ -12,16 +12,20 @@ import {
   KitchenTicketStatus,
   type KitchenStation,
 } from '@karbon/types';
-import { effectiveStation } from '@karbon/utils';
+import {
+  ACTIVE_ORDER_STATUSES,
+  allocate,
+  effectiveStation,
+  OPEN_TICKET_STATUSES,
+} from '@karbon/utils';
 import type { AuthenticatedUser } from '../../common/auth/authenticated-user.js';
-import { conflict, invalid, notFound } from '../../common/errors/domain-error.js';
+import { badRequest, conflict, invalid, notFound } from '../../common/errors/domain-error.js';
 import { dateRange, pageArgs, paginated } from '../../common/http/pagination.js';
-import { minorToDecimal } from '../../common/money.js';
+import { decimalToMinor, minorToDecimal } from '../../common/money.js';
 import { Prisma, type Order } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import type { Tx } from '../../prisma/prisma.types.js';
 import { AuditService } from '../audit/audit.service.js';
-import { ACTIVE_ORDER_STATUSES } from '../floor/floor.constants.js';
 import { FloorService } from '../floor/floor.service.js';
 import { LicenseService } from '../license/license.service.js';
 import { DomainEventsService } from '../realtime/domain-events.service.js';
@@ -29,6 +33,7 @@ import { ConfigCatalogService } from '../settings/catalog-config.service.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { OrderStore, requirePermission } from './order-store.service.js';
 import { assertOrderEditable, normalizeNotes } from './order-rules.js';
+import { lineTotal } from './order-totals.js';
 import type {
   AddItemsDto,
   CancelDto,
@@ -206,7 +211,7 @@ export class OrdersService {
       const quantity = dto.quantity ?? item.quantity;
       const discount =
         dto.discount === undefined ? item.discount : minorToDecimal(dto.discount, currency);
-      const total = await this.store.lineTotal(item.unitPrice, quantity, discount);
+      const total = lineTotal(item.unitPrice, quantity, discount, currency);
       await tx.orderItem.update({
         where: { id: itemId },
         data: {
@@ -247,8 +252,7 @@ export class OrdersService {
         return {};
       }
       requirePermission(user, Permission.ORDERS_CANCEL);
-      if (!dto.reason)
-        throw invalid(ErrorCode.VALIDATION_FAILED, 'Indica el motivo de la anulación');
+      if (!dto.reason) throw badRequest('Indica el motivo de la anulación');
       await tx.orderItem.update({
         where: { id: itemId },
         data: {
@@ -406,21 +410,16 @@ export class OrdersService {
         const item = byId.get(line.itemId);
         if (!item) throw notFound('Alguno de los productos a dividir');
         if (line.quantity > item.quantity) {
-          throw invalid(
-            ErrorCode.VALIDATION_FAILED,
-            `Solo hay ${item.quantity} de ${item.productName}`,
-          );
+          throw badRequest(`Solo hay ${item.quantity} de ${item.productName}`);
         }
         return { item, quantity: line.quantity };
       });
       const movingUnits = moving.reduce((sum, line) => sum + line.quantity, 0);
       const totalUnits = items.reduce((sum, item) => sum + item.quantity, 0);
       if (movingUnits >= totalUnits) {
-        throw invalid(
-          ErrorCode.VALIDATION_FAILED,
-          'El pedido original debe conservar al menos un producto',
-        );
+        throw badRequest('El pedido original debe conservar al menos un producto');
       }
+      const currency = await this.settings.currency();
 
       const created = await tx.order.create({
         data: {
@@ -438,13 +437,20 @@ export class OrdersService {
           await tx.orderItem.update({ where: { id: item.id }, data: { orderId: created.id } });
           continue;
         }
+        // El descuento de la línea se reparte en proporción a las unidades de cada cuenta.
         const remaining = item.quantity - quantity;
+        const [keptDiscount = 0, movedDiscount = 0] = allocate(
+          decimalToMinor(item.discount, currency),
+          [remaining, quantity],
+        );
+        const kept = minorToDecimal(keptDiscount, currency);
+        const moved = minorToDecimal(movedDiscount, currency);
         await tx.orderItem.update({
           where: { id: item.id },
           data: {
             quantity: remaining,
-            discount: new Prisma.Decimal(0),
-            total: await this.store.lineTotal(item.unitPrice, remaining, new Prisma.Decimal(0)),
+            discount: kept,
+            total: lineTotal(item.unitPrice, remaining, kept, currency),
           },
         });
         await tx.orderItem.create({
@@ -458,7 +464,8 @@ export class OrdersService {
             quantity,
             taxRate: item.taxRate,
             unitCost: item.unitCost,
-            total: await this.store.lineTotal(item.unitPrice, quantity, new Prisma.Decimal(0)),
+            discount: moved,
+            total: lineTotal(item.unitPrice, quantity, moved, currency),
             notes: item.notes,
             sortOrder: item.sortOrder,
           },
@@ -524,12 +531,7 @@ export class OrdersService {
         },
       });
       await tx.kitchenTicket.updateMany({
-        where: {
-          orderId,
-          status: {
-            in: [KitchenTicketStatus.NEW, KitchenTicketStatus.PREPARING, KitchenTicketStatus.READY],
-          },
-        },
+        where: { orderId, status: { in: [...OPEN_TICKET_STATUSES] } },
         data: { status: KitchenTicketStatus.CANCELLED, cancelledAt: new Date() },
       });
       await this.audit.log(
@@ -607,6 +609,7 @@ export class OrdersService {
     }
 
     const defaultRate = await this.config.defaultTaxRate(tx);
+    const currency = await this.settings.currency();
     const pending = options.mergePending
       ? await tx.orderItem.findMany({
           where: { orderId: order.id, status: OrderItemStatus.PENDING },
@@ -629,7 +632,7 @@ export class OrdersService {
           where: { id: match.id },
           data: {
             quantity: match.quantity,
-            total: await this.store.lineTotal(match.unitPrice, match.quantity, match.discount),
+            total: lineTotal(match.unitPrice, match.quantity, match.discount, currency),
           },
         });
         continue;
@@ -644,7 +647,7 @@ export class OrdersService {
           quantity: input.quantity,
           taxRate: product.tax?.rate ?? defaultRate,
           unitCost: product.cost,
-          total: await this.store.lineTotal(product.price, input.quantity, new Prisma.Decimal(0)),
+          total: lineTotal(product.price, input.quantity, new Prisma.Decimal(0), currency),
           notes,
           sortOrder,
         },

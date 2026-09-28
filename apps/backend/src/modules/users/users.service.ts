@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ErrorCode, type RoleDto, type UserDto } from '@karbon/types';
 import type { AuthenticatedUser } from '../../common/auth/authenticated-user.js';
-import { conflict, invalid, notFound } from '../../common/errors/domain-error.js';
+import { conflict, notFound } from '../../common/errors/domain-error.js';
 import { hashSecret } from '../../common/security/secret-hasher.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -53,7 +53,7 @@ export class UsersService {
   async updateUser(id: string, dto: UpdateUserDto, actor: AuthenticatedUser): Promise<UserDto> {
     await this.requireUser(id);
     if (id === actor.id && dto.isActive === false) {
-      throw invalid(ErrorCode.CONFLICT, 'No puedes desactivar tu propio usuario');
+      throw conflict(ErrorCode.CONFLICT, 'No puedes desactivar tu propio usuario');
     }
     if (dto.roleId) await this.requireRole(dto.roleId);
     const [passwordHash, pinHash] = await Promise.all([
@@ -101,7 +101,7 @@ export class UsersService {
   }
 
   async deleteUser(id: string, actor: AuthenticatedUser): Promise<void> {
-    if (id === actor.id) throw invalid(ErrorCode.CONFLICT, 'No puedes eliminar tu propio usuario');
+    if (id === actor.id) throw conflict(ErrorCode.CONFLICT, 'No puedes eliminar tu propio usuario');
     await this.requireUser(id);
     await this.prisma.$transaction(async (tx) => {
       await tx.user.update({ where: { id }, data: { isActive: false, deletedAt: new Date() } });

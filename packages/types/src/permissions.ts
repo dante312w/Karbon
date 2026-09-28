@@ -105,6 +105,7 @@ export function isPermission(value: string): value is Permission {
   return (ALL_PERMISSIONS as readonly string[]).includes(value);
 }
 
-export function hasPermission(granted: readonly string[], required: Permission): boolean {
-  return granted.includes(required);
+/** Descarta códigos que ya no existen (roles guardados con permisos de otra versión). */
+export function toPermissions(values: readonly string[]): Permission[] {
+  return values.filter(isPermission);
 }

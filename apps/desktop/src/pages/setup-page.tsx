@@ -1,5 +1,5 @@
-import { useApi, useAuthActions } from '@karbon/client';
-import { BusinessMode } from '@karbon/types';
+import { queryKeys, useApi, useApiMutation, useAuthActions } from '@karbon/client';
+import { BusinessMode, PIN_MAX_LENGTH, PIN_PATTERN, USERNAME_PATTERN } from '@karbon/types';
 import { Button, cn, Field, Input, notifyError, Spinner, Switch } from '@karbon/ui';
 import { getTerminology } from '@karbon/utils';
 import { useQuery } from '@tanstack/react-query';
@@ -10,7 +10,6 @@ import { BrandMark } from '../components/brand-mark';
 import { landingPath } from '../lib/navigation';
 
 const STEPS = ['Negocio', 'Administrador', 'Listo'] as const;
-const USERNAME = /^[a-zA-Z0-9._-]{3,60}$/;
 
 /** Asistente de primer arranque: nombre, modo restaurante/bar y cuenta de administrador. */
 export default function SetupPage() {
@@ -18,7 +17,7 @@ export default function SetupPage() {
   const navigate = useNavigate();
   const { start } = useAuthActions();
   const status = useQuery({
-    queryKey: ['setup-status'],
+    queryKey: queryKeys.setupStatus,
     queryFn: api.system.setupStatus,
     retry: false,
   });
@@ -31,7 +30,26 @@ export default function SetupPage() {
   const [confirmation, setConfirmation] = useState('');
   const [adminPin, setAdminPin] = useState('');
   const [loadDemoData, setLoadDemoData] = useState(true);
-  const [busy, setBusy] = useState(false);
+  const finish = useApiMutation(
+    () =>
+      api.system.completeSetup({
+        restaurantName: restaurantName.trim(),
+        businessMode,
+        adminName: adminName.trim(),
+        adminUsername: adminUsername.trim(),
+        adminPassword,
+        adminPin: adminPin || null,
+        loadDemoData,
+      }),
+    [],
+    {
+      onSuccess: (response) => {
+        const session = start(response);
+        void navigate(landingPath(session.user.permissions) ?? '/ingresar', { replace: true });
+      },
+      onError: notifyError,
+    },
+  );
 
   if (status.isPending) {
     return (
@@ -45,32 +63,10 @@ export default function SetupPage() {
   const businessValid = restaurantName.trim().length >= 2;
   const adminValid =
     adminName.trim().length >= 2 &&
-    USERNAME.test(adminUsername) &&
+    USERNAME_PATTERN.test(adminUsername) &&
     adminPassword.length >= 8 &&
     adminPassword === confirmation &&
-    (adminPin === '' || /^\d{4,6}$/.test(adminPin));
-
-  const finish = async (): Promise<void> => {
-    setBusy(true);
-    try {
-      const session = start(
-        await api.system.completeSetup({
-          restaurantName: restaurantName.trim(),
-          businessMode,
-          adminName: adminName.trim(),
-          adminUsername: adminUsername.trim(),
-          adminPassword,
-          adminPin: adminPin || null,
-          loadDemoData,
-        }),
-      );
-      void navigate(landingPath(session.user.permissions), { replace: true });
-    } catch (error) {
-      notifyError(error);
-    } finally {
-      setBusy(false);
-    }
-  };
+    (adminPin === '' || PIN_PATTERN.test(adminPin));
 
   return (
     <div className="grid min-h-dvh place-items-center bg-muted/40 p-6">
@@ -174,7 +170,7 @@ export default function SetupPage() {
             <Field
               label="Usuario"
               className="col-span-2"
-              {...(USERNAME.test(adminUsername)
+              {...(USERNAME_PATTERN.test(adminUsername)
                 ? {}
                 : { error: '3 a 60 letras, números, punto o guion' })}
             >
@@ -227,7 +223,7 @@ export default function SetupPage() {
                 <Input
                   id={id}
                   inputMode="numeric"
-                  maxLength={6}
+                  maxLength={PIN_MAX_LENGTH}
                   value={adminPin}
                   onChange={(event) => {
                     setAdminPin(event.target.value.replace(/\D/g, ''));
@@ -265,7 +261,7 @@ export default function SetupPage() {
         <div className="flex justify-between gap-2">
           <Button
             variant="ghost"
-            disabled={step === 0 || busy}
+            disabled={step === 0 || finish.isPending}
             onClick={() => {
               setStep(step - 1);
             }}
@@ -284,12 +280,12 @@ export default function SetupPage() {
           ) : (
             <Button
               size="lg"
-              disabled={busy}
+              disabled={finish.isPending}
               onClick={() => {
-                void finish();
+                finish.mutate(undefined);
               }}
             >
-              {busy ? 'Preparando…' : 'Empezar a vender'}
+              {finish.isPending ? 'Preparando…' : 'Empezar a vender'}
             </Button>
           )}
         </div>

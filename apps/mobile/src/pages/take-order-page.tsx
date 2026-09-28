@@ -20,12 +20,13 @@ import {
   DialogContent,
   Field,
   Input,
-  NotesEditor,
+  ItemNotesDialog,
   notifyError,
   ORDER_TYPE_LABEL,
   QuantityStepper,
   toast,
 } from '@karbon/ui';
+import { normalizeSearch } from '@karbon/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeftIcon,
@@ -39,13 +40,6 @@ import { useDeferredValue, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { useCart } from '../lib/cart';
 import { vibrate } from '../lib/haptics';
-
-function normalize(text: string): string {
-  return text
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLowerCase();
-}
 
 /**
  * Toma de pedido en el celular: se arma el carrito sin conexión y se envía de una vez.
@@ -71,7 +65,7 @@ export default function TakeOrderPage() {
 
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const term = normalize(useDeferredValue(search.trim()));
+  const term = normalizeSearch(useDeferredValue(search));
   const [noting, setNoting] = useState<ProductDto | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
   const [label, setLabel] = useState('');
@@ -89,7 +83,7 @@ export default function TakeOrderPage() {
     (product) =>
       product.isActive &&
       (term
-        ? normalize(product.name).includes(term)
+        ? normalizeSearch(product.name).includes(term)
         : categoryId === null || product.categoryId === categoryId),
   );
 
@@ -252,14 +246,16 @@ export default function TakeOrderPage() {
       ) : null}
 
       {noting ? (
-        <NoteDialog
-          product={noting}
+        <ItemNotesDialog
+          title={noting.name}
+          description={money(noting.price)}
           suggestions={terms.quickNotes}
+          confirmLabel={(quantity) => `Agregar · ${money(noting.price * quantity)}`}
           onClose={() => {
             setNoting(null);
           }}
-          onAdd={(quantity, notes) => {
-            cart.add(noting, quantity, notes);
+          onConfirm={(quantity, notes) => {
+            cart.add(noting, quantity, notes ?? '');
           }}
         />
       ) : null}
@@ -309,7 +305,7 @@ export default function TakeOrderPage() {
               </Field>
               {terms.mode === 'BAR' ? null : (
                 <div className="flex flex-wrap gap-2">
-                  {[OrderType.DINE_IN, OrderType.TAKEAWAY, OrderType.DELIVERY].map((option) => (
+                  {Object.values(OrderType).map((option) => (
                     <Chip
                       key={option}
                       active={type === option}
@@ -368,49 +364,5 @@ export default function TakeOrderPage() {
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
-
-function NoteDialog({
-  product,
-  suggestions,
-  onClose,
-  onAdd,
-}: {
-  product: ProductDto;
-  suggestions: readonly string[];
-  onClose: () => void;
-  onAdd: (quantity: number, notes: string) => void;
-}) {
-  const money = useMoney();
-  const [quantity, setQuantity] = useState(1);
-  const [notes, setNotes] = useState('');
-  return (
-    <Dialog
-      open
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-    >
-      <DialogContent
-        title={product.name}
-        description={money(product.price)}
-        footer={
-          <Button
-            size="lg"
-            className="w-full"
-            onClick={() => {
-              onAdd(quantity, notes);
-              onClose();
-            }}
-          >
-            Agregar · {money(product.price * quantity)}
-          </Button>
-        }
-      >
-        <QuantityStepper value={quantity} onChange={setQuantity} className="self-center" />
-        <NotesEditor value={notes} onChange={setNotes} suggestions={suggestions} />
-      </DialogContent>
-    </Dialog>
   );
 }

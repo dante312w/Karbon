@@ -10,7 +10,7 @@ import {
   type SupplierDto,
 } from '@karbon/types';
 import type { AuthenticatedUser } from '../../common/auth/authenticated-user.js';
-import { conflict, invalid, notFound } from '../../common/errors/domain-error.js';
+import { badRequest, conflict, notFound } from '../../common/errors/domain-error.js';
 import {
   dateRange,
   containsInsensitive,
@@ -161,11 +161,9 @@ export class InventoryService {
       let delta: Prisma.Decimal;
       if (dto.type === 'ADJUSTMENT') {
         delta = new Prisma.Decimal(dto.quantity).sub(current.stock);
-        if (delta.isZero())
-          throw invalid(ErrorCode.VALIDATION_FAILED, 'El conteo coincide con el sistema');
+        if (delta.isZero()) throw badRequest('El conteo coincide con el sistema');
       } else {
-        if (dto.quantity <= 0)
-          throw invalid(ErrorCode.VALIDATION_FAILED, 'La cantidad debe ser mayor que cero');
+        if (dto.quantity <= 0) throw badRequest('La cantidad debe ser mayor que cero');
         delta = new Prisma.Decimal(dto.quantity).mul(SIGN[dto.type]);
       }
       await this.stock.applyMovement(tx, {

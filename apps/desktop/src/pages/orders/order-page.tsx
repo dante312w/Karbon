@@ -1,6 +1,7 @@
 import {
   useApi,
   useHasPermission,
+  useMoney,
   useOrder,
   useOrderMutation,
   useTerminology,
@@ -17,11 +18,13 @@ import {
   Badge,
   Button,
   EmptyState,
+  ItemNotesDialog,
   notifyError,
   ORDER_STATUS_LABEL,
   Spinner,
   toast,
 } from '@karbon/ui';
+import { isOrderActive } from '@karbon/utils';
 import {
   ArrowLeftIcon,
   ArrowRightLeftIcon,
@@ -40,7 +43,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { ConfirmDialog } from '../../components/confirm-dialog';
 import { formatTime } from '../../lib/format';
 import { useReceiptPrinter } from '../../lib/printing';
-import { AddItemDialog, ItemEditorDialog } from './item-dialogs';
+import { ItemEditorDialog } from './item-dialogs';
 import {
   DuplicateOrderDialog,
   MoveOrderDialog,
@@ -85,6 +88,7 @@ export default function OrderPage() {
 
 function OrderWorkspace({ order }: { order: OrderDto }) {
   const api = useApi();
+  const money = useMoney();
   const terms = useTerminology();
   const navigate = useNavigate();
   const printer = useReceiptPrinter();
@@ -98,9 +102,7 @@ function OrderWorkspace({ order }: { order: OrderDto }) {
     move: useHasPermission(Permission.TABLES_OPERATE),
     create: useHasPermission(Permission.ORDERS_CREATE),
   };
-  const editable =
-    (order.status === OrderStatus.OPEN || order.status === OrderStatus.BILL_REQUESTED) &&
-    can.update;
+  const editable = isOrderActive(order.status) && can.update;
   const pendingCount = order.items
     .filter((item) => item.status === OrderItemStatus.PENDING)
     .reduce((sum, item) => sum + item.quantity, 0);
@@ -128,19 +130,30 @@ function OrderWorkspace({ order }: { order: OrderDto }) {
       onError: notifyError,
     },
   );
+  const cancel = useOrderMutation(
+    order.id,
+    (current, reason: string) => api.orders.cancel(order.id, { version: current.version, reason }),
+    {
+      onSuccess: () => {
+        toast.success('Pedido cancelado');
+        void navigate('/mesas');
+      },
+    },
+  );
+  const canSend = editable && can.send && pendingCount > 0;
+  const canPay = editable && can.pay && hasItems;
 
   // Atajos del POS: F8 envía, F9 cobra.
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'F8' && pendingCount > 0 && can.send && !send.isPending) send.mutate();
-      if (event.key === 'F9' && hasItems && can.pay && order.pendingAmount > 0)
-        setModal({ kind: 'pay' });
+      if (event.key === 'F8' && canSend && !send.isPending) send.mutate();
+      if (event.key === 'F9' && canPay) setModal({ kind: 'pay' });
     };
     window.addEventListener('keydown', onKey);
     return () => {
       window.removeEventListener('keydown', onKey);
     };
-  }, [pendingCount, hasItems, can.send, can.pay, order.pendingAmount, send]);
+  }, [canSend, canPay, send]);
 
   const printPrebill = (): void => {
     void printer.print({ kind: 'order', orderId: order.id }).catch(notifyError);
@@ -153,7 +166,6 @@ function OrderWorkspace({ order }: { order: OrderDto }) {
       <section className="flex min-w-0 flex-1 flex-col p-4">
         {editable ? (
           <ProductCatalog
-            disabled={false}
             onAdd={(product) => {
               add.mutate({ productId: product.id, quantity: 1, notes: null });
             }}
@@ -280,7 +292,7 @@ function OrderWorkspace({ order }: { order: OrderDto }) {
 
         {editable ? (
           <footer className="grid grid-cols-2 gap-2 border-t p-4">
-            {pendingCount > 0 && can.send ? (
+            {canSend ? (
               <Button
                 size="touch"
                 className="col-span-2"
@@ -309,7 +321,7 @@ function OrderWorkspace({ order }: { order: OrderDto }) {
                 size="lg"
                 variant={pendingCount > 0 ? 'secondary' : 'default'}
                 className={order.status === OrderStatus.OPEN && can.bill ? '' : 'col-span-2'}
-                disabled={!hasItems}
+                disabled={!canPay}
                 onClick={() => {
                   setModal({ kind: 'pay' });
                 }}
@@ -322,8 +334,11 @@ function OrderWorkspace({ order }: { order: OrderDto }) {
       </aside>
 
       {modal?.kind === 'add' ? (
-        <AddItemDialog
-          product={modal.product}
+        <ItemNotesDialog
+          title={modal.product.name}
+          description={money(modal.product.price)}
+          suggestions={terms.quickNotes}
+          confirmLabel={(quantity) => `Agregar · ${money(modal.product.price * quantity)}`}
           onClose={close}
           onConfirm={(quantity, notes) => {
             add.mutate({ productId: modal.product.id, quantity, notes });
@@ -362,11 +377,7 @@ function OrderWorkspace({ order }: { order: OrderDto }) {
         confirmLabel="Cancelar pedido"
         destructive
         requireReason
-        onConfirm={async (reason) => {
-          await api.orders.cancel(order.id, { version: order.version, reason });
-          toast.success('Pedido cancelado');
-          void navigate('/mesas');
-        }}
+        onConfirm={(reason) => cancel.mutateAsync(reason)}
       />
     </div>
   );

@@ -18,16 +18,10 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { ReceiptTextIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { formatDateTime } from '../../lib/format';
+import { formatDateTime, localIsoDate } from '../../lib/format';
 
 type Status = NonNullable<OrderListQuery['status']>;
 const PAGE_SIZE = 25;
-
-function localDate(offsetDays = 0): string {
-  const date = new Date();
-  date.setDate(date.getDate() + offsetDays);
-  return date.toLocaleDateString('sv-SE');
-}
 
 /** Historial de pedidos: activos, pagados y cancelados con filtro por fechas. */
 export default function OrdersPage() {
@@ -35,8 +29,12 @@ export default function OrdersPage() {
   const money = useMoney();
   const navigate = useNavigate();
   const [status, setStatus] = useState<Status>('ACTIVE');
-  const [from, setFrom] = useState(localDate(-1));
-  const [to, setTo] = useState(localDate());
+  const [from, setFrom] = useState(() => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return localIsoDate(yesterday);
+  });
+  const [to, setTo] = useState(() => localIsoDate());
   const [page, setPage] = useState(1);
 
   const query: OrderListQuery = {
