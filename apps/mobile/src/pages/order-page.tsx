@@ -6,19 +6,18 @@ import {
   useOrderMutation,
   useTerminology,
 } from '@karbon/client';
-import { KitchenTicketStatus, OrderItemStatus, OrderStatus, Permission } from '@karbon/types';
+import { OrderItemStatus, OrderStatus, Permission } from '@karbon/types';
 import {
   Badge,
   Button,
   cn,
   EmptyState,
-  KITCHEN_TICKET_STATUS_LABEL,
   notifyError,
   ORDER_STATUS_LABEL,
   Spinner,
   toast,
 } from '@karbon/ui';
-import { isOrderActive, STATION_LABEL } from '@karbon/utils';
+import { isOrderActive } from '@karbon/utils';
 import {
   ArrowLeftIcon,
   HandCoinsIcon,
@@ -28,6 +27,7 @@ import {
   Trash2Icon,
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
+import { TicketProgress } from '../components/ticket-progress';
 
 /** Pedido desde el celular: qué se pidió, cómo va en cocina/barra y acciones del mesero. */
 export default function OrderPage() {
@@ -84,7 +84,6 @@ export default function OrderPage() {
   const pendingCount = items
     .filter((item) => item.status === OrderItemStatus.PENDING)
     .reduce((sum, item) => sum + item.quantity, 0);
-  const tickets = data.tickets.filter((ticket) => ticket.status !== KitchenTicketStatus.CANCELLED);
 
   return (
     <div className="flex flex-1 flex-col pb-28">
@@ -113,27 +112,7 @@ export default function OrderPage() {
         </Badge>
       </div>
 
-      {tickets.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5 bg-background px-3 pb-3">
-          {tickets.map((ticket) => (
-            <span
-              key={ticket.id}
-              className={cn(
-                'rounded-full px-2 py-0.5 text-[11px] font-semibold',
-                ticket.status === KitchenTicketStatus.READY
-                  ? 'bg-primary text-primary-foreground'
-                  : ticket.status === KitchenTicketStatus.DELIVERED
-                    ? 'bg-muted text-muted-foreground'
-                    : 'bg-status-waiting-food/20',
-              )}
-            >
-              Ronda {ticket.sequence}
-              {terms.mode === 'BAR' ? '' : ` · ${STATION_LABEL[ticket.station]}`} ·{' '}
-              {KITCHEN_TICKET_STATUS_LABEL[ticket.status]}
-            </span>
-          ))}
-        </div>
-      ) : null}
+      <TicketProgress order={data} />
 
       <ul className="flex flex-col divide-y bg-background">
         {items.map((item) => {

@@ -44,6 +44,7 @@ const ACTION_LABEL: Record<string, string> = {
   'order.discount': 'Descuento aplicado',
   'order.move': 'Pedido movido de mesa',
   'order.split': 'Cuenta dividida',
+  'order.auto_deliver': 'Entregas cerradas al cobrar',
   'payment.void': 'Pago anulado',
   'invoice.issue': 'Factura emitida',
   'invoice.void': 'Factura anulada',
@@ -104,6 +105,7 @@ const KEY_LABEL: Record<string, string> = {
   expiresAt: 'Vence',
   name: 'Nombre',
   rate: 'Tarifa (%)',
+  tickets: 'Comandas',
 };
 
 /** La bitácora guarda los montos en unidades menores, como el resto de la API. */

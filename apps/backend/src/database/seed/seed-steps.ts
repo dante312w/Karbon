@@ -1,10 +1,10 @@
 import {
   type BusinessMode,
-  DEFAULT_ROLE_PERMISSIONS,
   FiscalDocumentType,
   IdentityDocumentType,
   InventoryMovementType,
   SystemRole,
+  systemRolePermissions,
 } from '@karbon/types';
 import { hashSecret } from '../../common/security/secret-hasher.js';
 import { Prisma } from '../../generated/prisma/client.js';
@@ -37,7 +37,7 @@ export async function seedRoles(tx: Tx, mode: BusinessMode): Promise<Map<SystemR
   for (const code of Object.values(SystemRole)) {
     const data = {
       ...definitions[code],
-      permissions: [...DEFAULT_ROLE_PERMISSIONS[code]],
+      permissions: systemRolePermissions(code, mode),
       isSystem: true,
     };
     const role = await tx.role.upsert({ where: { code }, update: data, create: { code, ...data } });

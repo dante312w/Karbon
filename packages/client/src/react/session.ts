@@ -1,5 +1,6 @@
 import type { LoginResponse, Permission } from '@karbon/types';
-import { useCallback, useSyncExternalStore } from 'react';
+import { canDeliverOrder, canManageOrder } from '@karbon/utils';
+import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import { type StoredSession, toStoredSession } from '../session-store';
 import { useKarbon } from './context';
 
@@ -10,6 +11,24 @@ export function useSession(): StoredSession | null {
 
 export function useHasPermission(permission: Permission): boolean {
   return useSession()?.user.permissions.includes(permission) ?? false;
+}
+
+/**
+ * Propiedad del pedido para el usuario de la sesión: las pantallas solo ofrecen lo que el
+ * servidor aceptaría (la regla es la misma, `canManageOrder`).
+ */
+export function useOrderAccess(): {
+  canManage: (waiterId: string) => boolean;
+  canDeliver: (waiterId: string) => boolean;
+} {
+  const user = useSession()?.user;
+  return useMemo(
+    () => ({
+      canManage: (waiterId: string) => user !== undefined && canManageOrder(user, waiterId),
+      canDeliver: (waiterId: string) => user !== undefined && canDeliverOrder(user, waiterId),
+    }),
+    [user],
+  );
 }
 
 export function useAuthActions() {

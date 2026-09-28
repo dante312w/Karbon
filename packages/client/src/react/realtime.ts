@@ -1,6 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query';
 import {
   type EventEnvelope,
+  type KitchenTicketDto,
   type OrderDto,
   type Paginated,
   SocketEvent,
@@ -39,6 +40,15 @@ export function bindRealtimeCache(socket: KarbonSocket, queryClient: QueryClient
     void queryClient.invalidateQueries({ queryKey: queryKeys.tickets });
   };
 
+  // Lista o entregada: la comanda llega completa y se reemplaza en los tableros donde ya estaba.
+  const onTicket = (envelope: EventEnvelope<SocketEventMap['kitchen.ready']>): void => {
+    if (!fresh(envelope)) return;
+    const { ticket } = envelope.data;
+    queryClient.setQueriesData<KitchenTicketDto[]>({ queryKey: queryKeys.tickets }, (current) =>
+      current?.map((candidate) => (candidate.id === ticket.id ? ticket : candidate)),
+    );
+  };
+
   const onTable = (envelope: EventEnvelope<SocketEventMap['table.changed']>): void => {
     if (!fresh(envelope)) return;
     const { table } = envelope.data;
@@ -55,9 +65,8 @@ export function bindRealtimeCache(socket: KarbonSocket, queryClient: QueryClient
     [SocketEvent.ORDER_CREATED]: onOrder,
     [SocketEvent.ORDER_UPDATED]: onOrder,
     [SocketEvent.TABLE_CHANGED]: onTable,
-    [SocketEvent.KITCHEN_READY]: (envelope: EventEnvelope<SocketEventMap['kitchen.ready']>) => {
-      if (fresh(envelope)) void queryClient.invalidateQueries({ queryKey: queryKeys.tickets });
-    },
+    [SocketEvent.KITCHEN_READY]: onTicket,
+    [SocketEvent.KITCHEN_DELIVERED]: onTicket,
     [SocketEvent.INVENTORY_UPDATED]: (
       envelope: EventEnvelope<SocketEventMap['inventory.updated']>,
     ) => {

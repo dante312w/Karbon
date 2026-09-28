@@ -127,7 +127,10 @@ erDiagram
     int sequence "ronda"
     kitchen_station station
     kitchen_ticket_status status
+    timestamptz started_at
     timestamptz ready_at
+    timestamptz delivered_at
+    uuid delivered_by_id FK "null = el sistema al cobrar"
   }
 ```
 
@@ -289,6 +292,11 @@ Además de claves foráneas y únicas, la migración inicial agrega `CHECK` cons
 - `payments`: en efectivo, lo entregado ≥ monto.
 - `cash_sessions`: `CLOSED` ⇔ `closed_at` presente.
 - `tables`: una mesa no puede unirse a sí misma.
+- `kitchen_tickets`: solo una comanda `DELIVERED` registra `delivered_by_id`.
+
+### Migraciones de datos
+
+Los roles de sistema se crean con el seed, que solo corre en instalaciones nuevas. Cuando una versión agrega permisos, su migración los suma a los roles existentes sin quitar los que ya tenían (p. ej. `20260928202352_waiter_delivery`: `orders:deliver` para todo rol que toma pedidos, `orders:manage_any` para administración y caja, y ambos para la barra si el negocio está en modo bar).
 
 ## Flujo de trabajo con migraciones
 
