@@ -6,8 +6,8 @@ import {
   useKitchenTickets,
   useOrderAccess,
   useProducts,
-  useSettings,
   useTerminology,
+  useUrgencyThresholds,
 } from '@karbon/client';
 import {
   type KitchenStation,
@@ -29,12 +29,7 @@ import {
   useNow,
   playChime,
 } from '@karbon/ui';
-import {
-  DEFAULT_KDS_THRESHOLDS,
-  effectiveStation,
-  enabledStations,
-  STATION_LABEL,
-} from '@karbon/utils';
+import { effectiveStation, enabledStations, STATION_LABEL } from '@karbon/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   BellIcon,
@@ -59,7 +54,6 @@ const COLUMNS = [
 export default function KdsPage() {
   const api = useApi();
   const queryClient = useQueryClient();
-  const settings = useSettings().data;
   const terms = useTerminology();
   const canUpdate = useHasPermission(Permission.KITCHEN_UPDATE);
   const access = useOrderAccess();
@@ -76,9 +70,7 @@ export default function KdsPage() {
     ? (stationPref as KitchenStation)
     : undefined;
   const tickets = useKitchenTickets(station);
-  const thresholds = settings
-    ? { warningMinutes: settings.kdsWarningMinutes, criticalMinutes: settings.kdsCriticalMinutes }
-    : DEFAULT_KDS_THRESHOLDS;
+  const thresholds = useUrgencyThresholds();
 
   // Aviso sonoro cuando llega una comanda que no estaba en pantalla. Al cambiar de estación
   // se vuelve a empezar: las comandas de la otra estación no son nuevas.

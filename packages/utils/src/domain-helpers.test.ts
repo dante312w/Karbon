@@ -14,23 +14,42 @@ function order(overrides: Partial<TableOrderSummary>): TableOrderSummary {
     waiterId: 'w',
     waiterName: 'Camila',
     pendingTickets: 0,
+    readyTickets: 0,
+    preparingSince: null,
+    itemCount: 0,
     createdAt: '2026-09-25T12:00:00.000Z',
     ...overrides,
   };
 }
 
 describe('summarizeTable', () => {
-  it('suma las cuentas abiertas y toma la apertura más antigua', () => {
+  it('suma las cuentas abiertas y toma la apertura y la espera más antiguas', () => {
     const summary = summarizeTable({
       activeOrders: [
-        order({ total: 5_000_000, guests: 2, pendingTickets: 1 }),
-        order({ total: 1_000_000, pendingTickets: 2, createdAt: '2026-09-25T11:30:00.000Z' }),
+        order({
+          total: 5_000_000,
+          guests: 2,
+          pendingTickets: 1,
+          readyTickets: 1,
+          itemCount: 3,
+          preparingSince: '2026-09-25T12:10:00.000Z',
+        }),
+        order({
+          total: 1_000_000,
+          pendingTickets: 2,
+          itemCount: 1,
+          preparingSince: '2026-09-25T12:05:00.000Z',
+          createdAt: '2026-09-25T11:30:00.000Z',
+        }),
       ],
     });
     expect(summary).toEqual({
       total: 6_000_000,
       guests: 2,
       pendingTickets: 3,
+      readyTickets: 1,
+      preparingSince: '2026-09-25T12:05:00.000Z',
+      itemCount: 4,
       openedAt: '2026-09-25T11:30:00.000Z',
     });
   });

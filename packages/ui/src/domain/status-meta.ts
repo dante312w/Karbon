@@ -1,5 +1,5 @@
 import type { KitchenTicketStatus, OrderStatus, OrderType, TableStatus } from '@karbon/types';
-import type { Terminology } from '@karbon/utils';
+import type { Terminology, TicketUrgency } from '@karbon/utils';
 
 export interface StatusMeta {
   label: string;
@@ -47,6 +47,30 @@ export const TABLE_STATUS_META: Readonly<Record<TableStatus, StatusMeta>> = {
     dotClass: 'bg-status-reserved',
     surfaceClass: 'border-status-reserved/60 bg-status-reserved/10',
     color: 'var(--status-reserved)',
+  },
+};
+
+/**
+ * Urgencia de lo que está en cocina. El color nunca va solo: siempre con su texto (y en las
+ * pantallas, con un ícono), para personas con daltonismo o pantallas con reflejo.
+ */
+export const URGENCY_META: Readonly<
+  Record<TicketUrgency, { label: string; dotClass: string; badgeClass: string }>
+> = {
+  normal: {
+    label: 'A tiempo',
+    dotClass: 'bg-urgency-normal',
+    badgeClass: 'border-urgency-normal/50 bg-urgency-normal/15',
+  },
+  warning: {
+    label: 'Demorado',
+    dotClass: 'bg-urgency-warning',
+    badgeClass: 'border-urgency-warning/60 bg-urgency-warning/20',
+  },
+  critical: {
+    label: 'Crítico',
+    dotClass: 'bg-urgency-critical',
+    badgeClass: 'border-urgency-critical/60 bg-urgency-critical/20',
   },
 };
 

@@ -6,9 +6,7 @@ export function localIsoDate(date = new Date()): string {
   return date.toLocaleDateString('sv-SE');
 }
 
-export function formatTime(iso: string, locale = 'es-CO'): string {
-  return new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
-}
+export { formatTime } from '@karbon/utils';
 
 export function formatDateTime(iso: string, locale = 'es-CO'): string {
   return new Date(iso).toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' });

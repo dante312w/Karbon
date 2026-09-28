@@ -16,7 +16,14 @@ export interface TableOrderSummary {
   guests: number | null;
   waiterId: Uuid;
   waiterName: string;
+  /** Comandas aún no entregadas (en cocina o listas). */
   pendingTickets: number;
+  /** Comandas listas esperando que el mesero las lleve a la mesa. */
+  readyTickets: number;
+  /** Envío de la comanda más antigua aún en cocina (Nuevo o Preparando); `null` si no hay. */
+  preparingSince: IsoDateTime | null;
+  /** Unidades pedidas (sin anuladas). */
+  itemCount: number;
   createdAt: IsoDateTime;
 }
 

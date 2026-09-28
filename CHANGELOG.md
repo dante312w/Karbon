@@ -9,6 +9,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); v
 - Plano del salón: cada área se ve desde arriba con sus mesas (redondas, cuadradas o rectangulares, con sus sillas según la capacidad), el color del estado, el tiempo y el total de la cuenta, más barra, cocina, baños, entrada, caja y paredes. La vista de tarjetas sigue disponible.
 - Editor del plano en Configuración → Salón: arrastrar y soltar (o flechas del teclado) celda por celda, sin encimar mesas.
 - Celular del mesero: cada comanda del pedido muestra su estado con texto e ícono ("En cola", "Preparando", "Listo para recoger", "Entregado") y su tiempo en vivo; lo listo se confirma con **Entregado en la mesa**, con opción de deshacer.
+- Mesas en el celular, rediseñadas: contadores que filtran (**Para recoger**, **Preparando**, **Cuenta**, **Libres**), tarjetas táctiles más grandes con ícono y texto de estado, cuenta, tiempo abierto, mesero y, si hay algo en cocina, su tiempo y urgencia ("A tiempo", "Demorado", "Crítico"). Dos columnas desde 320 px y más en tablet.
+- **Mis pedidos**: primero lo que hay que llevar a la mesa, con hora de apertura, cantidad de productos, espera en cocina y un botón para confirmar de una vez todo lo listo.
+- Detalle del pedido en el celular: cada comanda muestra su urgencia y la hora de envío.
 - Permisos nuevos: **Confirmar entregas en la mesa** y **Operar pedidos de otros meseros** (caja y administración).
 
 ### Cambiado
@@ -19,6 +22,8 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); v
 - KDS en pantallas anchas (TV): dos o más comandas por fila en cada columna.
 
 ### Corregido
+
+- Los celulares no recibían los pedidos que abría otro mesero hasta recargar; ahora llegan al instante.
 
 - KDS: el cronómetro de las comandas entregadas seguía contando. Ahora muestra un **tiempo total fijo**, con cuánto tardó en prepararse y en recogerse, y quién la entregó. Deshacer un paso (Listo → Preparando) ya no deja marcas de tiempo viejas.
 
