@@ -11,7 +11,13 @@ import {
   type KitchenStation,
   type RestaurantSettingsDto,
 } from '@karbon/types';
-import { formatMoney, getTerminology, type Terminology } from '@karbon/utils';
+import {
+  DEFAULT_KDS_THRESHOLDS,
+  formatMoney,
+  getTerminology,
+  type Terminology,
+  type UrgencyThresholds,
+} from '@karbon/utils';
 import { useCallback } from 'react';
 import { queryKeys } from '../query-keys';
 import { useApi } from './context';
@@ -49,6 +55,14 @@ export function useMoney(): (amount: number) => string {
 export function useTerminology(): Terminology & { mode: RestaurantSettingsDto['businessMode'] } {
   const mode = useSettings().data?.businessMode ?? BusinessMode.RESTAURANT;
   return { ...getTerminology(mode), mode };
+}
+
+/** Minutos de advertencia y críticos configurados en Negocio (KDS y celulares). */
+export function useUrgencyThresholds(): UrgencyThresholds {
+  const settings = useSettings().data;
+  return settings
+    ? { warningMinutes: settings.kdsWarningMinutes, criticalMinutes: settings.kdsCriticalMinutes }
+    : DEFAULT_KDS_THRESHOLDS;
 }
 
 export function useTables() {

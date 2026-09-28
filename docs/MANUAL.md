@@ -70,6 +70,9 @@ Sin el certificado la app funciona igual en modo básico (HTTP); solo que si se 
 ### Tomar un pedido
 
 - **Mesero (celular):** Mesas → toca la mesa → agrega productos (con notas rápidas como "sin cebolla" o "sin hielo") → **Enviar a cocina/barra**. Si la señal se cae, el pedido queda en cola y se envía solo al volver.
+  - Arriba de las mesas, los contadores **Para recoger**, **Preparando**, **Cuenta** y **Libres** filtran el salón con un toque.
+  - Cada mesa con algo en cocina muestra cuánto lleva y si va **A tiempo**, **Demorado** o **Crítico** (los minutos son los del tablero de cocina).
+  - En **Mis pedidos** aparece primero lo listo para llevar; **Entregado en la mesa** lo confirma todo de una vez.
 - **Caja (PC):** Mesas → mesa → agregar productos, o **Pedido sin mesa** para llevar o domicilio.
 - Se puede agregar más rondas, cambiar cantidades, anular ítems (con motivo), mover el pedido a otra mesa, unir mesas o **dividir la cuenta**.
 

@@ -1,9 +1,10 @@
 import { useOrderAccess, useTerminology, useTicketDelivery } from '@karbon/client';
 import { type KitchenTicketDto, KitchenTicketStatus, type OrderDto } from '@karbon/types';
 import { Button, cn, notifyError, toast, useNow } from '@karbon/ui';
-import { formatElapsed, STATION_LABEL, ticketTiming } from '@karbon/utils';
+import { formatElapsed, formatTime, STATION_LABEL, ticketTiming } from '@karbon/utils';
 import { CheckCheckIcon, ChefHatIcon, ClockIcon, HandPlatterIcon } from 'lucide-react';
 import { vibrate } from '../lib/haptics';
+import { UrgencyBadge } from './prep-status';
 
 const STEP = {
   NEW: { label: 'En cola', icon: ClockIcon, tone: 'bg-muted text-foreground' },
@@ -65,6 +66,9 @@ export function TicketProgress({ order }: { order: OrderDto }) {
         const step = STEP[ticket.status];
         const timing = ticketTiming(ticket, now);
         const where = terms.mode === 'BAR' ? terms.prepArea : STATION_LABEL[ticket.station];
+        const inKitchen =
+          ticket.status === KitchenTicketStatus.NEW ||
+          ticket.status === KitchenTicketStatus.PREPARING;
         const clock =
           ticket.status === KitchenTicketStatus.READY
             ? `hace ${formatElapsed(timing.pickupMs ?? 0)}`
@@ -86,12 +90,18 @@ export function TicketProgress({ order }: { order: OrderDto }) {
               >
                 <step.icon className="size-5" />
               </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold">
-                  {step.label} <span className="font-mono tabular-nums">· {clock}</span>
+              <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
+                {inKitchen ? (
+                  <UrgencyBadge since={ticket.createdAt} now={now} label={step.label} />
+                ) : (
+                  <p className="text-sm font-semibold">
+                    {step.label} <span className="font-mono tabular-nums">· {clock}</span>
+                  </p>
+                )}
+                <p className="w-full truncate text-xs text-muted-foreground">
+                  Ronda {ticket.sequence} · {where} · enviado {formatTime(ticket.createdAt)}
                 </p>
-                <p className="truncate text-xs text-muted-foreground">
-                  Ronda {ticket.sequence} · {where} ·{' '}
+                <p className="w-full truncate text-xs">
                   {ticket.items
                     .filter((item) => item.status !== 'CANCELLED')
                     .map((item) => `${String(item.quantity)}× ${item.productName}`)

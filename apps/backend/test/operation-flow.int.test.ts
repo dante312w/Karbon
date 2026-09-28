@@ -141,8 +141,16 @@ describe('Operación de un turno (integración)', () => {
         (data) => data.order.id === order.id,
       );
       expect(created.order.tickets).toHaveLength(2);
+      // Los meseros también lo reciben: su lista de pedidos se actualiza sin recargar.
+      await waiterProbe.waitFor('order.created', (data) => data.order.id === order.id);
       await refreshTables();
       expect(table('Mesa 2').status).toBe('WAITING_FOOD');
+      const summary = table('Mesa 2').activeOrders[0];
+      expect(summary?.itemCount).toBe(3);
+      expect(summary?.readyTickets).toBe(0);
+      expect(summary?.preparingSince).toBe(
+        [...order.tickets].map((ticket) => ticket.createdAt).sort()[0],
+      );
     });
 
     it('no permite abrir un segundo pedido en una mesa ocupada', async () => {
@@ -207,6 +215,8 @@ describe('Operación de un turno (integración)', () => {
         (data) => data.ticket.id === ticket.id,
       );
       expect(event.ticket.tableName).toBe('Mesa 2');
+      await refreshTables();
+      expect(table('Mesa 2').activeOrders[0]?.readyTickets).toBe(1);
     });
 
     it('retroceder en cocina borra la marca del paso deshecho', async () => {

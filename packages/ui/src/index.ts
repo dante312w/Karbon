@@ -19,6 +19,7 @@ export {
   ORDER_TYPE_LABEL,
   TABLE_STATUS_META,
   tableStatusLabel,
+  URGENCY_META,
 } from './domain/status-meta';
 export { Dialog, DialogContent, type DialogContentProps } from './components/dialog';
 export {
