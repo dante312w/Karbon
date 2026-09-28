@@ -1,6 +1,7 @@
 export * from './money.js';
 export * from './order-totals.js';
 export * from './order-status.js';
+export * from './order-access.js';
 export * from './kds.js';
 export * from './business-mode.js';
 export * from './labels.js';

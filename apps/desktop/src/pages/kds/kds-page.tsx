@@ -4,6 +4,7 @@ import {
   useApiMutation,
   useHasPermission,
   useKitchenTickets,
+  useOrderAccess,
   useProducts,
   useSettings,
   useTerminology,
@@ -46,7 +47,7 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { formatTime } from '../../lib/format';
 import { useLocalState } from '../../lib/use-local-state';
-import { TicketCard } from './ticket-card';
+import { TicketCard, type TicketCommand } from './ticket-card';
 
 const COLUMNS = [
   KitchenTicketStatus.NEW,
@@ -61,6 +62,7 @@ export default function KdsPage() {
   const settings = useSettings().data;
   const terms = useTerminology();
   const canUpdate = useHasPermission(Permission.KITCHEN_UPDATE);
+  const access = useOrderAccess();
   const now = useNow(1_000);
   const stations = enabledStations(terms.mode);
   const [stationPref, setStationPref] = useLocalState<string>('karbon.kds.station', 'ALL');
@@ -104,9 +106,18 @@ export default function KdsPage() {
     };
   }, []);
 
-  const setStatus = useApiMutation(
-    ({ ticket, status }: { ticket: KitchenTicketDto; status: KitchenTicketStatus }) =>
-      api.kitchen.setStatus(ticket.id, status),
+  // Cocina mueve la comanda por su ruta; la entrega (modo bar, caja) va por la del pedido.
+  const runCommand = useApiMutation(
+    async ({ ticket, command }: { ticket: KitchenTicketDto; command: TicketCommand }) => {
+      if (command.kind === 'kitchen') return api.kitchen.setStatus(ticket.id, command.to);
+      const order =
+        command.kind === 'deliver'
+          ? await api.orders.deliverTicket(ticket.orderId, ticket.id)
+          : await api.orders.undeliverTicket(ticket.orderId, ticket.id);
+      const updated = order.tickets.find((candidate) => candidate.id === ticket.id);
+      if (!updated) throw new Error('La comanda ya no pertenece al pedido');
+      return updated;
+    },
     [],
     {
       onSuccess: (updated) => {
@@ -120,6 +131,16 @@ export default function KdsPage() {
       },
     },
   );
+  const cardProps = (ticket: KitchenTicketDto) => ({
+    now,
+    thresholds,
+    canUpdate,
+    canDeliver: access.canDeliver(ticket.waiterId),
+    busy: runCommand.isPending && runCommand.variables.ticket.id === ticket.id,
+    onCommand: (target: KitchenTicketDto, command: TicketCommand) => {
+      runCommand.mutate({ ticket: target, command });
+    },
+  });
 
   const all = tickets.data ?? [];
   const delivered = all
@@ -228,14 +249,8 @@ export default function KdsPage() {
                   <TicketCard
                     key={ticket.id}
                     ticket={ticket}
-                    now={now}
-                    thresholds={thresholds}
                     showStation={!station && stations.length > 1}
-                    canUpdate={canUpdate}
-                    busy={setStatus.isPending && setStatus.variables.ticket.id === ticket.id}
-                    onChangeStatus={(target, next) => {
-                      setStatus.mutate({ ticket: target, status: next });
-                    }}
+                    {...cardProps(ticket)}
                   />
                 ))}
               </div>
@@ -261,14 +276,8 @@ export default function KdsPage() {
                 <TicketCard
                   key={ticket.id}
                   ticket={ticket}
-                  now={now}
-                  thresholds={thresholds}
                   showStation={false}
-                  canUpdate={canUpdate}
-                  busy={setStatus.isPending}
-                  onChangeStatus={(target, next) => {
-                    setStatus.mutate({ ticket: target, status: next });
-                  }}
+                  {...cardProps(ticket)}
                 />
               ))}
             </div>

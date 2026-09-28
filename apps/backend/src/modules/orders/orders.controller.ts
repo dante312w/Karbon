@@ -44,7 +44,10 @@ const IDEMPOTENCY_HEADER = {
 @ApiBearerAuth()
 @Controller('orders')
 export class OrdersController {
-  constructor(private readonly orders: OrdersService) {}
+  constructor(
+    private readonly orders: OrdersService,
+    private readonly kitchen: KitchenService,
+  ) {}
 
   @Get()
   @RequirePermissions(Permission.ORDERS_READ)
@@ -138,6 +141,31 @@ export class OrdersController {
     return this.orders.send(id, dto.version);
   }
 
+  @Post(':id/tickets/:ticketId/deliver')
+  @RequirePermissions(Permission.ORDERS_DELIVER)
+  @ApiOperation({
+    summary:
+      'Confirma que una comanda lista llegó a la mesa (mesero del pedido o quien opera todos)',
+  })
+  deliverTicket(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('ticketId', ParseUUIDPipe) ticketId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<OrderDto> {
+    return this.kitchen.deliver(id, ticketId, user);
+  }
+
+  @Post(':id/tickets/:ticketId/undeliver')
+  @RequirePermissions(Permission.ORDERS_DELIVER)
+  @ApiOperation({ summary: 'Deshace una entrega confirmada por error (vuelve a "Listo")' })
+  undeliverTicket(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('ticketId', ParseUUIDPipe) ticketId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<OrderDto> {
+    return this.kitchen.undoDelivery(id, ticketId, user);
+  }
+
   @Post(':id/request-bill')
   @RequirePermissions(Permission.ORDERS_REQUEST_BILL)
   requestBill(
@@ -204,10 +232,14 @@ export class KitchenController {
 
   @Patch(':id/status')
   @RequirePermissions(Permission.KITCHEN_UPDATE)
+  @ApiOperation({
+    summary: 'Nuevo → Preparando → Listo (o deshacer un paso); la entrega la confirma el mesero',
+  })
   updateStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateTicketStatusDto,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<KitchenTicketDto> {
-    return this.kitchen.updateStatus(id, dto.status);
+    return this.kitchen.updateStatus(id, dto.status, user);
   }
 }

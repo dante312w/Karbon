@@ -55,8 +55,10 @@ Sin el certificado la app funciona igual en modo básico (HTTP); solo que si se 
 
 - En el PC: menú **Cocina** (o **Barra**).
 - En una tablet o TV: abre la dirección que muestra **Configuración → Celulares → Tablero** (termina en `/app/#/kds`) e ingresa con el usuario de cocina/barra.
-- Las comandas llegan solas con sonido. Toca **Preparar** → **Listo** (el mesero recibe el aviso en su celular) → **Entregado**.
+- Las comandas llegan solas con sonido. Toca **Preparar** → **Listo**: el mesero recibe el aviso en su celular.
+- **La entrega la confirma el mesero**: al llevar el plato a la mesa toca **Entregado en la mesa** en su celular, y la comanda sale de la columna Listo. Mientras tanto la tarjeta muestra cuánto lleva **por recoger**. En modo bar, el barman también puede marcar **Entregado** desde el tablero. Si nadie lo confirma, se da por entregado al cobrar la cuenta.
 - Los colores indican el tiempo de espera (verde, amarillo, rojo; los minutos se configuran en Negocio).
+- En **Ver entregados recientes** cada comanda muestra su **tiempo total** (fijo, ya no cuenta), cuánto tardó en prepararse y en recogerse, y quién la entregó.
 - Si se acaba un producto, márcalo como **agotado** desde el tablero: los meseros dejan de verlo disponible.
 
 ## 6. Operación diaria

@@ -42,6 +42,11 @@ export const PERMISSION_GROUPS: readonly {
         label: 'Anular productos enviados y cancelar pedidos',
       },
       { permission: Permission.ORDERS_DISCOUNT, label: 'Aplicar descuentos' },
+      { permission: Permission.ORDERS_DELIVER, label: 'Confirmar entregas en la mesa' },
+      {
+        permission: Permission.ORDERS_MANAGE_ANY,
+        label: 'Operar pedidos de otros meseros',
+      },
     ],
   },
   {
@@ -50,7 +55,7 @@ export const PERMISSION_GROUPS: readonly {
       { permission: Permission.KITCHEN_READ, label: 'Ver tablero de comandas' },
       {
         permission: Permission.KITCHEN_UPDATE,
-        label: 'Cambiar estado de comandas y agotar productos',
+        label: 'Preparar comandas (hasta "Listo") y agotar productos',
       },
     ],
   },
