@@ -91,6 +91,8 @@ Todas las rutas cuelgan de `/api/v1`. "Público" = sin token; "autenticado" = cu
 | `POST /tables/:id/merge` · `POST /tables/:id/unmerge` · `PATCH /tables/:id/status`                           | `tables:operate`                           |
 | `GET/POST /reservations` · `PATCH/DELETE /reservations/:id`                                                  | `reservations:read` / `reservations:write` |
 
+Cada mesa trae en `activeOrders` el resumen de sus cuentas abiertas: total, mesero, `itemCount`, `readyTickets` (comandas listas para recoger) y `preparingSince` (envío de la comanda más antigua aún en cocina). Con eso el celular pinta el mapa sin cargar cada pedido; `table.changed` lo mantiene al día.
+
 ### Catálogo
 
 | Método y ruta                                                         | Permiso                                      |
@@ -189,7 +191,7 @@ socket.on('order.updated', ({ id, occurredAt, data }) => {
 
 | Evento              | Payload (`data`)                               | Cuándo                                                                            |
 | ------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------- |
-| `order.created`     | `{ order: OrderDto }`                          | Se crea un pedido                                                                 |
+| `order.created`     | `{ order: OrderDto }`                          | Se crea un pedido (cocina, caja, administración y meseros)                        |
 | `order.updated`     | `{ order: OrderDto }`                          | Ítems, envío a preparación, avance de comandas, pagos, cancelación                |
 | `kitchen.ready`     | `{ ticket: KitchenTicketDto, waiterId }`       | Una comanda pasa a **Listo** (al mesero que la tomó y a caja)                     |
 | `kitchen.delivered` | `{ ticket: KitchenTicketDto, waiterId }`       | Se confirma o se deshace una entrega (al mesero, cocina, caja y administración)   |

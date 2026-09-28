@@ -21,6 +21,7 @@ export {
   useTables,
   useTaxes,
   useTerminology,
+  useUrgencyThresholds,
 } from './react/queries';
 export { useOutbox } from './react/use-outbox';
 export { useOrderMutation } from './react/use-order-mutation';

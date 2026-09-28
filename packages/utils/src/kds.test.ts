@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatElapsed, getTicketUrgency, ticketTiming } from './kds.js';
+import { formatElapsed, getTicketUrgency, summarizePreparation, ticketTiming } from './kds.js';
 
 const MINUTE = 60_000;
 const T0 = Date.parse('2026-09-28T12:00:00.000Z');
@@ -48,6 +48,27 @@ describe('ticketTiming', () => {
 
   it('cancelada: detenida', () => {
     expect(ticketTiming({ ...base, status: 'CANCELLED' }, T0 + MINUTE).stopped).toBe(true);
+  });
+});
+
+describe('summarizePreparation', () => {
+  it('cuenta lo listo y toma la comanda más antigua aún en cocina', () => {
+    expect(
+      summarizePreparation([
+        { status: 'READY', createdAt: at(0) },
+        { status: 'PREPARING', createdAt: at(5) },
+        { status: 'NEW', createdAt: at(2) },
+        { status: 'DELIVERED', createdAt: at(-10) },
+        { status: 'CANCELLED', createdAt: at(-20) },
+      ]),
+    ).toEqual({ readyTickets: 1, preparingSince: at(2) });
+  });
+
+  it('sin nada en cocina no hay espera', () => {
+    expect(summarizePreparation([{ status: 'DELIVERED', createdAt: at(0) }])).toEqual({
+      readyTickets: 0,
+      preparingSince: null,
+    });
   });
 });
 
