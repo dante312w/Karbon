@@ -252,14 +252,17 @@ export default function KdsPage() {
         >
           {soundOn ? <BellIcon /> : <BellOffIcon />}
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="Pantalla completa"
-          onClick={toggleFullscreen}
-        >
-          {fullscreen ? <MinimizeIcon /> : <MaximizeIcon />}
-        </Button>
+        {/* iPhone no tiene pantalla completa para páginas: ahí no se ofrece. */}
+        {document.fullscreenEnabled ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Pantalla completa"
+            onClick={toggleFullscreen}
+          >
+            {fullscreen ? <MinimizeIcon /> : <MaximizeIcon />}
+          </Button>
+        ) : null}
       </header>
 
       {tickets.isPending ? <Spinner className="m-6" /> : null}

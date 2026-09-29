@@ -11,7 +11,7 @@ import {
   hydrateCache,
   persistCache,
 } from './persisted-cache';
-import { bindRealtimeCache } from './realtime';
+import { bindRealtimeCache, bindResumeSync } from './realtime';
 
 export interface KarbonProviderProps {
   /** Origen del servidor. Vacío = mismo origen (PWA o renderer servidos por el backend). */
@@ -67,6 +67,15 @@ export function KarbonProvider({
   const [client] = useState(() => createClient(baseUrl, storageKey, cache));
 
   useEffect(() => bindRealtimeCache(client.socket, client.queryClient), [client]);
+  useEffect(
+    () =>
+      bindResumeSync({
+        socket: client.socket,
+        queryClient: client.queryClient,
+        hasSession: () => client.sessions.get() !== null,
+      }),
+    [client],
+  );
   useEffect(() => persistCache(client.queryClient, cache), [client, cache]);
 
   useEffect(() => {

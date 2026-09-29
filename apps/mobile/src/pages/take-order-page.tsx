@@ -231,7 +231,7 @@ export default function TakeOrderPage() {
       </ul>
 
       {cart.count > 0 ? (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-background p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-background p-3 pr-[max(0.75rem,env(safe-area-inset-right))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))]">
           <Button
             size="touch"
             className="w-full justify-between"

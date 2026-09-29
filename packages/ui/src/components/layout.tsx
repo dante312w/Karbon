@@ -150,7 +150,7 @@ export function Chip({
     <button
       type="button"
       className={cn(
-        'inline-flex h-9 shrink-0 items-center gap-2 rounded-full border px-4 text-sm font-medium whitespace-nowrap transition-colors',
+        'inline-flex h-9 shrink-0 items-center gap-2 rounded-full border px-4 text-sm font-medium whitespace-nowrap transition-colors pointer-coarse:h-11',
         active
           ? 'border-foreground bg-foreground text-background'
           : 'bg-background hover:bg-accent',
