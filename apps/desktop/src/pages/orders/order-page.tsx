@@ -36,6 +36,7 @@ import {
   CopyIcon,
   HandCoinsIcon,
   PencilIcon,
+  PercentIcon,
   PrinterIcon,
   ReceiptTextIcon,
   SendIcon,
@@ -48,6 +49,7 @@ import { CallWaiterDialog } from '../../components/call-waiter-dialog';
 import { ConfirmDialog } from '../../components/confirm-dialog';
 import { formatTime } from '../../lib/format';
 import { useReceiptPrinter } from '../../lib/printing';
+import { DiscountDialog } from './discount-dialog';
 import { ItemEditorDialog } from './item-dialogs';
 import {
   DuplicateOrderDialog,
@@ -62,7 +64,9 @@ import { ProductCatalog } from './product-catalog';
 type Modal =
   | { kind: 'add'; product: ProductDto }
   | { kind: 'item'; item: OrderItemDto }
-  | { kind: 'move' | 'split' | 'duplicate' | 'details' | 'cancel' | 'pay' | 'call' };
+  | {
+      kind: 'move' | 'split' | 'duplicate' | 'details' | 'cancel' | 'pay' | 'call' | 'discount';
+    };
 
 export default function OrderPage() {
   const { orderId = '' } = useParams();
@@ -108,6 +112,7 @@ function OrderWorkspace({ order }: { order: OrderDto }) {
     move: useHasPermission(Permission.TABLES_OPERATE),
     create: useHasPermission(Permission.ORDERS_CREATE),
     callWaiter: useHasPermission(Permission.CALLS_WAITER),
+    discount: useHasPermission(Permission.ORDERS_DISCOUNT),
   };
   const me = useSession()?.user.id;
   // Cada mesero opera sus pedidos; con `orders:manage_any` (caja, administración), todos.
@@ -267,6 +272,17 @@ function OrderWorkspace({ order }: { order: OrderDto }) {
                 <SplitIcon /> Dividir
               </Button>
             ) : null}
+            {editable && can.discount && hasItems ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setModal({ kind: 'discount' });
+                }}
+              >
+                <PercentIcon /> {order.orderDiscount ? 'Descuento aplicado' : 'Descuento'}
+              </Button>
+            ) : null}
             {can.create && hasItems ? (
               <Button
                 variant="outline"
@@ -381,6 +397,7 @@ function OrderWorkspace({ order }: { order: OrderDto }) {
         />
       ) : null}
       {modal?.kind === 'move' ? <MoveOrderDialog order={order} onClose={close} /> : null}
+      {modal?.kind === 'discount' ? <DiscountDialog order={order} onClose={close} /> : null}
       {modal?.kind === 'call' ? (
         <CallWaiterDialog
           place={{ orderId: order.id }}

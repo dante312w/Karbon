@@ -42,6 +42,8 @@ export interface RestaurantSettingsDto {
   pricesIncludeTax: boolean;
   tipEnabled: boolean;
   tipPercent: Percentage;
+  /** Descuento máximo (línea + pedido) sobre el valor sin descuentos; 100 = sin límite. */
+  maxDiscountPercent: Percentage;
   openingHours: OpeningHoursSlot[];
   receiptHeader: string | null;
   receiptFooter: string | null;

@@ -43,6 +43,7 @@ const ACTION_LABEL: Record<string, string> = {
   'order.cancel': 'Pedido anulado',
   'order.item_cancel': 'Ítem anulado',
   'order.discount': 'Descuento aplicado',
+  'order.discount_removed': 'Descuento quitado',
   'order.move': 'Pedido movido de mesa',
   'order.split': 'Cuenta dividida',
   'order.auto_deliver': 'Entregas cerradas al cobrar',

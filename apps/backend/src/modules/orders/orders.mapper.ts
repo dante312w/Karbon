@@ -1,8 +1,9 @@
-import type { KitchenTicketDto, OrderDto, OrderItemDto } from '@karbon/types';
+import type { KitchenTicketDto, OrderDiscountDto, OrderDto, OrderItemDto } from '@karbon/types';
 import { PaymentStatus } from '@karbon/types';
 import type { OrderItem, Prisma } from '../../generated/prisma/client.js';
 import { iso, isoOrNull, num, timestamps } from '../../common/mapping.js';
 import { decimalToMinor } from '../../common/money.js';
+import { orderDiscountRule } from './order-totals.js';
 
 const TICKET_ITEM_SELECT = {
   id: true,
@@ -21,6 +22,7 @@ export const ORDER_INCLUDE = {
   table: { select: { id: true, name: true } },
   waiter: { select: { id: true, name: true } },
   customer: { select: { id: true, name: true } },
+  orderDiscountBy: { select: { id: true, name: true } },
   items: { orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] },
   tickets: {
     orderBy: [{ sequence: 'asc' }, { station: 'asc' }],
@@ -145,6 +147,7 @@ export function toOrderDto(order: OrderWithRelations, currency: string): OrderDt
     label: order.label,
     notes: order.notes,
     tipPercent: num(order.tipPercent),
+    orderDiscount: toOrderDiscountDto(order, currency),
     items: order.items.map((item) => toItemDto(item, currency)),
     tickets: order.tickets.map((ticket) => toTicketDto(ticket, context)),
     subtotal: decimalToMinor(order.subtotal, currency),
@@ -160,5 +163,17 @@ export function toOrderDto(order: OrderWithRelations, currency: string): OrderDt
     cancelledAt: isoOrNull(order.cancelledAt),
     cancelReason: order.cancelReason,
     ...timestamps(order),
+  };
+}
+
+function toOrderDiscountDto(order: OrderWithRelations, currency: string): OrderDiscountDto | null {
+  const rule = orderDiscountRule(order, currency);
+  if (!rule || !order.orderDiscountReason || !order.orderDiscountAt) return null;
+  return {
+    ...rule,
+    amount: decimalToMinor(order.orderDiscountAmount, currency),
+    reason: order.orderDiscountReason,
+    appliedBy: order.orderDiscountBy,
+    appliedAt: iso(order.orderDiscountAt),
   };
 }

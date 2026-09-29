@@ -37,7 +37,7 @@ Todas las respuestas de error siguen `ApiErrorBody`:
 }
 ```
 
-Códigos (`ErrorCode` en `@karbon/types`): genéricos (`VALIDATION_FAILED`, `UNAUTHENTICATED`, `INVALID_CREDENTIALS`, `REFRESH_TOKEN_INVALID`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `RATE_LIMITED`, `INTERNAL_ERROR`), idempotencia (`IDEMPOTENCY_IN_PROGRESS`, `IDEMPOTENCY_KEY_REUSED`), pedidos (`ORDER_VERSION_CONFLICT`, `ORDER_NOT_EDITABLE`, `ORDER_EMPTY`, `ORDER_HAS_PAYMENTS`, `ITEM_ALREADY_SENT`, `PRODUCT_UNAVAILABLE`, `TABLE_OCCUPIED`, `TABLE_REQUIRED`, `INVALID_STATUS_TRANSITION`), caja (`CASH_SESSION_REQUIRED`, `CASH_SESSION_ALREADY_OPEN`, `PAYMENT_EXCEEDS_BALANCE`, `INSUFFICIENT_TENDERED`), facturación e impresión (`NUMBERING_RANGE_EXHAUSTED`, `FISCAL_PROVIDER_NOT_CONFIGURED`, `PRINTER_UNREACHABLE`, `PRINTER_NOT_SUPPORTED`) y sistema (`SETUP_ALREADY_COMPLETED`, `LICENSE_INVALID` con `402`, `BACKUP_UNAVAILABLE`).
+Códigos (`ErrorCode` en `@karbon/types`): genéricos (`VALIDATION_FAILED`, `UNAUTHENTICATED`, `INVALID_CREDENTIALS`, `REFRESH_TOKEN_INVALID`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `RATE_LIMITED`, `INTERNAL_ERROR`), idempotencia (`IDEMPOTENCY_IN_PROGRESS`, `IDEMPOTENCY_KEY_REUSED`), pedidos (`ORDER_VERSION_CONFLICT`, `ORDER_NOT_EDITABLE`, `ORDER_EMPTY`, `ORDER_HAS_PAYMENTS`, `ITEM_ALREADY_SENT`, `PRODUCT_UNAVAILABLE`, `TABLE_OCCUPIED`, `TABLE_REQUIRED`, `INVALID_STATUS_TRANSITION`, `DISCOUNT_LIMIT_EXCEEDED`), caja (`CASH_SESSION_REQUIRED`, `CASH_SESSION_ALREADY_OPEN`, `PAYMENT_EXCEEDS_BALANCE`, `INSUFFICIENT_TENDERED`), facturación e impresión (`NUMBERING_RANGE_EXHAUSTED`, `FISCAL_PROVIDER_NOT_CONFIGURED`, `PRINTER_UNREACHABLE`, `PRINTER_NOT_SUPPORTED`) y sistema (`SETUP_ALREADY_COMPLETED`, `LICENSE_INVALID` con `402`, `BACKUP_UNAVAILABLE`).
 
 ## Endpoints
 
@@ -118,26 +118,29 @@ Las **notas de un toque** (`NoteOptionDto`) pertenecen a una categoría o son ge
 
 **Propiedad del pedido.** Toda ruta que modifica un pedido (ítems, envío, cuenta, mover, dividir, cancelar, entrega) exige, además del permiso, ser el mesero del pedido o tener `orders:manage_any` (caja y administración por defecto). Si no, `403 FORBIDDEN`. Consultar pedidos no cambia: `orders:read` ve todos.
 
-| Método y ruta                                          | Permiso                          | Descripción                                                     |
-| ------------------------------------------------------ | -------------------------------- | --------------------------------------------------------------- |
-| `GET /orders` · `GET /orders/:id`                      | `orders:read`                    | Historial paginado (`status`, `from`, `to`, `search`) y detalle |
-| `POST /orders`                                         | `orders:create`                  | Mesa, para llevar o domicilio; puede enviarse de inmediato      |
-| `PATCH /orders/:id`                                    | `orders:update`                  | Cliente, comensales, etiqueta, notas y propina                  |
-| `POST /orders/:id/items`                               | `orders:update`                  | Agregar ítems (idempotente)                                     |
-| `PATCH /orders/:id/items/:itemId`                      | `orders:update`                  | Cantidad, notas, descuento (`orders:discount`)                  |
-| `POST /orders/:id/items/:itemId/cancel` · `/duplicate` | `orders:update`                  | Anular (con motivo) o duplicar un ítem                          |
-| `PUT /orders/:id/items/order`                          | `orders:update`                  | Reordenar                                                       |
-| `POST /orders/:id/send`                                | `orders:send`                    | Envía lo pendiente: una comanda por estación (idempotente)      |
-| `POST /orders/:id/request-bill`                        | `orders:request_bill`            | Mesa en "esperando cuenta"                                      |
-| `POST /orders/:id/tickets/:ticketId/deliver`           | `orders:deliver` + propiedad     | Confirma que una comanda **Listo** llegó a la mesa (ver abajo)  |
-| `POST /orders/:id/tickets/:ticketId/undeliver`         | `orders:deliver` + propiedad     | Deshace una entrega confirmada por error (vuelve a **Listo**)   |
-| `POST /orders/:id/move`                                | `tables:operate`                 | Mover a otra mesa libre                                         |
-| `POST /orders/:id/split`                               | `orders:update`                  | Dividir la cuenta por ítems en un pedido nuevo                  |
-| `POST /orders/:id/duplicate`                           | `orders:create`                  | Repetir el pedido                                               |
-| `POST /orders/:id/cancel`                              | `orders:cancel`                  | Anular con motivo (no si tiene pagos)                           |
-| `GET /kitchen/tickets?station=&status=`                | `kitchen:read`                   | Comandas del KDS                                                |
-| `PATCH /kitchen/tickets/:id/status`                    | `kitchen:update`                 | `NEW → PREPARING → READY` (o retroceder un paso)                |
-| `POST /kitchen/tickets/:id/print`                      | `kitchen:update` o `orders:send` | Reimprime la comanda en su impresora                            |
+| Método y ruta                                          | Permiso                          | Descripción                                                          |
+| ------------------------------------------------------ | -------------------------------- | -------------------------------------------------------------------- |
+| `GET /orders` · `GET /orders/:id`                      | `orders:read`                    | Historial paginado (`status`, `from`, `to`, `search`) y detalle      |
+| `POST /orders`                                         | `orders:create`                  | Mesa, para llevar o domicilio; puede enviarse de inmediato           |
+| `PATCH /orders/:id`                                    | `orders:update`                  | Cliente, comensales, etiqueta, notas y propina                       |
+| `POST /orders/:id/items`                               | `orders:update`                  | Agregar ítems (idempotente)                                          |
+| `PATCH /orders/:id/items/:itemId`                      | `orders:update`                  | Cantidad, notas, descuento (`orders:discount`)                       |
+| `POST /orders/:id/items/:itemId/cancel` · `/duplicate` | `orders:update`                  | Anular (con motivo) o duplicar un ítem                               |
+| `PUT /orders/:id/items/order`                          | `orders:update`                  | Reordenar                                                            |
+| `POST /orders/:id/send`                                | `orders:send`                    | Envía lo pendiente: una comanda por estación (idempotente)           |
+| `POST /orders/:id/request-bill`                        | `orders:request_bill`            | Mesa en "esperando cuenta"                                           |
+| `POST /orders/:id/tickets/:ticketId/deliver`           | `orders:deliver` + propiedad     | Confirma que una comanda **Listo** llegó a la mesa (ver abajo)       |
+| `POST /orders/:id/tickets/:ticketId/undeliver`         | `orders:deliver` + propiedad     | Deshace una entrega confirmada por error (vuelve a **Listo**)        |
+| `POST /orders/:id/move`                                | `tables:operate`                 | Mover a otra mesa libre                                              |
+| `POST /orders/:id/split`                               | `orders:update`                  | Dividir la cuenta por ítems en un pedido nuevo                       |
+| `PUT /orders/:id/discount`                             | `orders:discount`                | Descuento sobre el total (porcentaje o valor) o `null` para quitarlo |
+| `POST /orders/:id/duplicate`                           | `orders:create`                  | Repetir el pedido                                                    |
+| `POST /orders/:id/cancel`                              | `orders:cancel`                  | Anular con motivo (no si tiene pagos)                                |
+| `GET /kitchen/tickets?station=&status=`                | `kitchen:read`                   | Comandas del KDS                                                     |
+| `PATCH /kitchen/tickets/:id/status`                    | `kitchen:update`                 | `NEW → PREPARING → READY` (o retroceder un paso)                     |
+| `POST /kitchen/tickets/:id/print`                      | `kitchen:update` o `orders:send` | Reimprime la comanda en su impresora                                 |
+
+**Descuentos** (caja). `PUT /orders/:id/discount` recibe `{ version, discount: { type: 'PERCENT' | 'AMOUNT', value, reason } | null }`: porcentaje con hasta 2 decimales (0 < % ≤ 100) o valor en unidades menores, y un motivo de al menos 3 caracteres. El servidor lo reparte entre las líneas en proporción a su valor (`calculateOrderTotals`, la misma función que usa la vista previa), así cada tarifa de impuesto se calcula sobre lo que se cobra; la propina se calcula después del descuento y un valor fijo mayor que la cuenta la deja en cero. Se rechaza con `422 DISCOUNT_LIMIT_EXCEEDED` si los descuentos (por producto + al pedido) superan `maxDiscountPercent` de la configuración (100 = sin límite; también aplica a `PATCH …/items/:itemId` con `discount`), y con `409 ORDER_HAS_PAYMENTS` si el total quedaría por debajo de lo ya pagado. `OrderDto.orderDiscount` trae tipo, valor, lo que descuenta hoy (`amount`), motivo, quién y cuándo; la bitácora registra `order.discount` (con `previousTotal`, `discountAmount` y `finalTotal`) y `order.discount_removed`. Al dividir la cuenta, un porcentaje pasa a las dos cuentas; con un valor fijo la división responde `409` hasta quitarlo.
 
 **Entrega en la mesa** ([ADR 0012](adr/0012-entrega-confirmada-por-el-mesero.md)). Cocina o barra llevan la comanda hasta **Listo**; pedirle `DELIVERED` al KDS responde `409 INVALID_STATUS_TRANSITION`. La entrega la confirma el mesero del pedido; con `orders:manage_any` (caja, administración y la barra en modo bar) se confirma la de cualquier pedido; si no, `403 FORBIDDEN`. Cada paso guarda su hora y retroceder borra la del paso deshecho, así los cronómetros se calculan siempre con marcas reales. Al cobrar el pedido completo, lo que seguía en **Listo** pasa a **Entregado** sin `deliveredBy` y queda en la bitácora (`order.auto_deliver`).
 
