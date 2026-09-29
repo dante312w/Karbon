@@ -54,6 +54,12 @@ export {
   QuantityStepper,
   type QuantityStepperProps,
 } from './components/order-inputs';
+export {
+  StaffCallCard,
+  type StaffCallCardProps,
+  StaffCallDialog,
+  type StaffCallDialogProps,
+} from './components/staff-calls';
 export { ErrorScreen, Toaster } from './components/feedback';
 export { errorMessage, notifyError, toast } from './components/notify';
 export { PERMISSION_GROUPS } from './domain/permission-labels';

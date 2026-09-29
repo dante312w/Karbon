@@ -141,6 +141,18 @@ Las **notas de un toque** (`NoteOptionDto`) pertenecen a una categoría o son ge
 
 **Entrega en la mesa** ([ADR 0012](adr/0012-entrega-confirmada-por-el-mesero.md)). Cocina o barra llevan la comanda hasta **Listo**; pedirle `DELIVERED` al KDS responde `409 INVALID_STATUS_TRANSITION`. La entrega la confirma el mesero del pedido; con `orders:manage_any` (caja, administración y la barra en modo bar) se confirma la de cualquier pedido; si no, `403 FORBIDDEN`. Cada paso guarda su hora y retroceder borra la del paso deshecho, así los cronómetros se calculan siempre con marcas reales. Al cobrar el pedido completo, lo que seguía en **Listo** pasa a **Entregado** sin `deliveredBy` y queda en la bitácora (`order.auto_deliver`).
 
+### Llamados internos
+
+| Método y ruta                       | Permiso                                               | Qué hace                                                |
+| ----------------------------------- | ----------------------------------------------------- | ------------------------------------------------------- |
+| `GET /staff-calls`                  | `calls:*`, `orders:deliver` o `payments:create`       | Abiertos que hice o que puedo atender                   |
+| `POST /staff-calls`                 | `calls:waiter` (al mesero) o `calls:cashier` (a caja) | Llamar; repetir uno abierto insiste en él (`callCount`) |
+| `POST /staff-calls/:id/acknowledge` | `orders:deliver` (mesero) o `payments:create` (caja)  | "Voy": lo toma; si ya lo tomó otro, `409` con su nombre |
+| `POST /staff-calls/:id/resolve`     | Quien lo atiende o quien llamó                        | Atendido                                                |
+| `POST /staff-calls/:id/cancel`      | Solo quien llamó                                      | Ya no hace falta                                        |
+
+`CreateStaffCallRequest`: `{ target: 'WAITER' | 'CASHIER', reason, orderId?, tableId?, message? }`. Motivos: al mesero `TABLE_ATTENTION` (requiere mesa o pedido) y `COME_OVER`; a caja `CHARGE_TABLE` (requiere mesa o pedido), `ACCOUNT_HELP` y `CUSTOMER_ATTENTION`. Un motivo de otro destino responde `400`. El servidor deduce el mesero destinatario (el del pedido o el de la cuenta abierta de la mesa; si no hay uno solo, todos). Al cobrar el pedido completo sus `CHARGE_TABLE` quedan atendidos, y al cerrar la caja se cancelan los abiertos ([ADR 0013](adr/0013-llamados-internos-persistidos.md)).
+
 ### Caja, pagos y facturación
 
 | Método y ruta                                                                                     | Permiso                                                                                                     |
@@ -201,13 +213,15 @@ socket.on('order.updated', ({ id, occurredAt, data }) => {
 
 ### Eventos
 
-| Evento              | Payload (`data`)                               | Cuándo                                                                            |
-| ------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------- |
-| `order.created`     | `{ order: OrderDto }`                          | Se crea un pedido (cocina, caja, administración y meseros)                        |
-| `order.updated`     | `{ order: OrderDto }`                          | Ítems, envío a preparación, avance de comandas, pagos, cancelación                |
-| `kitchen.ready`     | `{ ticket: KitchenTicketDto, waiterId }`       | Una comanda pasa a **Listo** (al mesero que la tomó y a caja)                     |
-| `kitchen.delivered` | `{ ticket: KitchenTicketDto, waiterId }`       | Se confirma o se deshace una entrega (al mesero, cocina, caja y administración)   |
-| `table.changed`     | `{ table: TableDto }`                          | Cambia el estado de una mesa, se une o se mueve un pedido                         |
-| `inventory.updated` | `{ ingredientIds, lowStock: LowStockAlert[] }` | Movimientos de inventario (ventas, compras, ajustes)                              |
-| `cash.closed`       | `{ session: CashSessionDto }`                  | Se cierra un turno de caja                                                        |
-| `settings.updated`  | `{ settings: RestaurantSettingsDto }`          | Cambia la configuración (p. ej. restaurante ↔ bar): todas las terminales recargan |
+| Evento               | Payload (`data`)                               | Cuándo                                                                            |
+| -------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------- |
+| `order.created`      | `{ order: OrderDto }`                          | Se crea un pedido (cocina, caja, administración y meseros)                        |
+| `order.updated`      | `{ order: OrderDto }`                          | Ítems, envío a preparación, avance de comandas, pagos, cancelación                |
+| `kitchen.ready`      | `{ ticket: KitchenTicketDto, waiterId }`       | Una comanda pasa a **Listo** (al mesero que la tomó y a caja)                     |
+| `kitchen.delivered`  | `{ ticket: KitchenTicketDto, waiterId }`       | Se confirma o se deshace una entrega (al mesero, cocina, caja y administración)   |
+| `table.changed`      | `{ table: TableDto }`                          | Cambia el estado de una mesa, se une o se mueve un pedido                         |
+| `inventory.updated`  | `{ ingredientIds, lowStock: LowStockAlert[] }` | Movimientos de inventario (ventas, compras, ajustes)                              |
+| `cash.closed`        | `{ session: CashSessionDto }`                  | Se cierra un turno de caja                                                        |
+| `settings.updated`   | `{ settings: RestaurantSettingsDto }`          | Cambia la configuración (p. ej. restaurante ↔ bar): todas las terminales recargan |
+| `staff_call.created` | `{ call: StaffCallDto, alert }`                | Llamado nuevo: a meseros o a caja según el destino, y a quien llamó               |
+| `staff_call.updated` | `{ call: StaffCallDto, alert }`                | Insistencia (`alert: true`), "Voy", atendido o cancelado (`alert: false`)         |

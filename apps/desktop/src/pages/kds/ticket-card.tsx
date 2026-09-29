@@ -1,14 +1,22 @@
-import { type KitchenTicketDto, KitchenTicketStatus } from '@karbon/types';
+import { type KitchenTicketDto, KitchenTicketStatus, type StaffCallDto } from '@karbon/types';
 import { Button, cn } from '@karbon/ui';
 import {
   formatElapsed,
   getTicketUrgency,
   STATION_LABEL,
+  staffCallStatusText,
   ticketTiming,
   type TicketUrgency,
   type UrgencyThresholds,
 } from '@karbon/utils';
-import { CheckIcon, ChefHatIcon, HandPlatterIcon, type LucideIcon, Undo2Icon } from 'lucide-react';
+import {
+  BellRingIcon,
+  CheckIcon,
+  ChefHatIcon,
+  HandPlatterIcon,
+  type LucideIcon,
+  Undo2Icon,
+} from 'lucide-react';
 import { formatTime } from '../../lib/format';
 
 const URGENCY_CLASS: Record<TicketUrgency, { border: string; header: string }> = {
@@ -99,6 +107,8 @@ export function TicketCard({
   canDeliver,
   busy,
   onCommand,
+  call,
+  onCallWaiter,
 }: {
   ticket: KitchenTicketDto;
   now: number;
@@ -108,6 +118,10 @@ export function TicketCard({
   canDeliver: boolean;
   busy: boolean;
   onCommand: (ticket: KitchenTicketDto, command: TicketCommand) => void;
+  /** Llamado abierto de esta terminal al mesero del pedido. */
+  call: StaffCallDto | null;
+  /** Sin permiso para llamar al mesero no se muestra el botón. */
+  onCallWaiter?: () => void;
 }) {
   // Los tiempos salen de las marcas reales: una comanda entregada no depende de `now`.
   const timing = ticketTiming(ticket, now);
@@ -117,6 +131,8 @@ export function TicketCard({
   const style = URGENCY_CLASS[urgency];
   const delivered = ticket.status === KitchenTicketStatus.DELIVERED;
   const actions = actionsFor(ticket.status, { update: canUpdate, deliver: canDeliver });
+  const callable =
+    onCallWaiter !== undefined && (inKitchen || ticket.status === KitchenTicketStatus.READY);
 
   return (
     // shrink-0: con muchas comandas la columna hace scroll en lugar de aplastar las tarjetas
@@ -181,7 +197,13 @@ export function TicketCard({
         <p className="mx-3 mb-2 rounded bg-muted px-2 py-1 text-sm">{ticket.notes}</p>
       ) : null}
       <TicketSummary ticket={ticket} timing={timing} />
-      {actions.length > 0 ? (
+      {call ? (
+        <p className="mx-3 mb-2 flex items-center gap-1.5 rounded bg-muted px-2 py-1 text-sm font-medium">
+          <BellRingIcon className="size-4" aria-hidden />
+          Llamaste a {call.targetUser?.name ?? 'los meseros'} · {staffCallStatusText(call)}
+        </p>
+      ) : null}
+      {actions.length > 0 || callable ? (
         <footer className="mt-auto flex flex-wrap gap-2 border-t p-2">
           {actions.map((action) => (
             <Button
@@ -197,6 +219,16 @@ export function TicketCard({
               <action.icon /> {action.label}
             </Button>
           ))}
+          {callable ? (
+            <Button
+              size="md"
+              variant="outline"
+              aria-label={`${call ? 'Insistir al mesero' : 'Llamar al mesero'} de ${ticket.tableName ?? `#${String(ticket.orderNumber)}`}`}
+              onClick={onCallWaiter}
+            >
+              <BellRingIcon /> {call ? 'Insistir' : 'Llamar mesero'}
+            </Button>
+          ) : null}
         </footer>
       ) : null}
     </article>
