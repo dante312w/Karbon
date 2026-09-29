@@ -6,6 +6,9 @@ import {
   useKitchenTickets,
   useOrderAccess,
   useProducts,
+  useSession,
+  useStaffCallActions,
+  useStaffCalls,
   useTerminology,
   useUrgencyThresholds,
 } from '@karbon/client';
@@ -14,6 +17,9 @@ import {
   type KitchenTicketDto,
   KitchenTicketStatus,
   Permission,
+  type StaffCallDto,
+  StaffCallReason,
+  StaffCallTarget,
 } from '@karbon/types';
 import {
   Button,
@@ -26,10 +32,16 @@ import {
   notifyError,
   Spinner,
   Switch,
+  toast,
   useNow,
   playChime,
 } from '@karbon/ui';
-import { effectiveStation, enabledStations, STATION_LABEL } from '@karbon/utils';
+import {
+  effectiveStation,
+  enabledStations,
+  outgoingStaffCalls,
+  STATION_LABEL,
+} from '@karbon/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   BellIcon,
@@ -39,7 +51,7 @@ import {
   MinimizeIcon,
   SoupIcon,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatTime } from '../../lib/format';
 import { useLocalState } from '../../lib/use-local-state';
 import { TicketCard, type TicketCommand } from './ticket-card';
@@ -123,6 +135,39 @@ export default function KdsPage() {
       },
     },
   );
+  // Llamar al mesero desde la comanda (dudas, "pasa por aquí"): se ve en la tarjeta si ya fue.
+  const me = useSession()?.user.id ?? '';
+  const canCallWaiter = useHasPermission(Permission.CALLS_WAITER);
+  const staffCalls = useStaffCalls().data;
+  const callActions = useStaffCallActions({ onError: notifyError });
+  const callByOrder = useMemo(
+    () =>
+      new Map(
+        outgoingStaffCalls(staffCalls ?? [], me)
+          .filter((call): call is StaffCallDto & { orderId: string } => call.orderId !== null)
+          .map((call) => [call.orderId, call]),
+      ),
+    [staffCalls, me],
+  );
+  const callWaiter = (ticket: KitchenTicketDto): void => {
+    callActions.create.mutate(
+      {
+        target: StaffCallTarget.WAITER,
+        reason: StaffCallReason.COME_OVER,
+        orderId: ticket.orderId,
+      },
+      {
+        onSuccess: (call) => {
+          toast.success(
+            call.callCount > 1
+              ? `Se insistió a ${ticket.waiterName}`
+              : `Llamaste a ${ticket.waiterName}`,
+          );
+        },
+      },
+    );
+  };
+
   const cardProps = (ticket: KitchenTicketDto) => ({
     now,
     thresholds,
@@ -132,6 +177,14 @@ export default function KdsPage() {
     onCommand: (target: KitchenTicketDto, command: TicketCommand) => {
       runCommand.mutate({ ticket: target, command });
     },
+    call: callByOrder.get(ticket.orderId) ?? null,
+    ...(canCallWaiter
+      ? {
+          onCallWaiter: () => {
+            callWaiter(ticket);
+          },
+        }
+      : {}),
   });
 
   const all = tickets.data ?? [];

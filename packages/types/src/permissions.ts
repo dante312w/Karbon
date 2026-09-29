@@ -37,6 +37,11 @@ export const Permission = {
   KITCHEN_READ: 'kitchen:read',
   KITCHEN_UPDATE: 'kitchen:update',
 
+  /** Llamar al mesero de una mesa (o a todos) desde cocina, barra o caja. */
+  CALLS_WAITER: 'calls:waiter',
+  /** Llamar a caja desde el celular del mesero. */
+  CALLS_CASHIER: 'calls:cashier',
+
   PAYMENTS_CREATE: 'payments:create',
   PAYMENTS_VOID: 'payments:void',
   CASH_READ: 'cash:read',
@@ -83,6 +88,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Readonly<Record<SystemRole, readonly Perm
     P.ORDERS_DELIVER,
     P.ORDERS_MANAGE_ANY,
     P.KITCHEN_READ,
+    P.CALLS_WAITER,
     P.PAYMENTS_CREATE,
     P.CASH_READ,
     P.CASH_OPEN,
@@ -105,9 +111,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Readonly<Record<SystemRole, readonly Perm
     P.ORDERS_REQUEST_BILL,
     P.ORDERS_DELIVER,
     P.KITCHEN_READ,
+    P.CALLS_CASHIER,
     P.CUSTOMERS_READ,
   ],
-  [SystemRole.KITCHEN]: [P.KITCHEN_READ, P.KITCHEN_UPDATE],
+  [SystemRole.KITCHEN]: [P.KITCHEN_READ, P.KITCHEN_UPDATE, P.CALLS_WAITER],
 };
 
 /**

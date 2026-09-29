@@ -1,14 +1,21 @@
 let context: AudioContext | null = null;
 
+const NOTES: Readonly<Record<'new' | 'alert' | 'call', readonly number[]>> = {
+  new: [880, 1320],
+  alert: [330],
+  // Llamados internos: tres tonos, distinto de "comanda lista" para reconocerlo sin mirar.
+  call: [1047, 1319, 1047],
+};
+
 /**
  * Aviso sonoro corto generado con Web Audio (sin archivos de audio). Dos tonos para comandas
- * nuevas; uno grave para anulaciones.
+ * nuevas, uno grave para anulaciones y tres para llamados del equipo.
  */
-export function playChime(kind: 'new' | 'alert' = 'new'): void {
+export function playChime(kind: keyof typeof NOTES = 'new'): void {
   try {
     context ??= new AudioContext();
     const audio = context;
-    const notes = kind === 'new' ? [880, 1320] : [330];
+    const notes = NOTES[kind];
     notes.forEach((frequency, index) => {
       const oscillator = audio.createOscillator();
       const gain = audio.createGain();

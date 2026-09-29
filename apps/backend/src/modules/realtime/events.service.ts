@@ -23,6 +23,9 @@ export const EVENT_ROOMS = {
   kitchenDelivered: [SocketRoom.KITCHEN, SocketRoom.CASHIER, SocketRoom.ADMIN],
   inventoryUpdated: [SocketRoom.ADMIN],
   cashClosed: [SocketRoom.ADMIN, SocketRoom.CASHIER],
+  /** Llamados internos: más la sala propia de quien llamó, que agrega quien publica. */
+  staffCallWaiter: [SocketRoom.WAITERS],
+  staffCallCashier: [SocketRoom.CASHIER],
 } as const;
 
 /**

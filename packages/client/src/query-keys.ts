@@ -13,6 +13,7 @@ export const queryKeys = {
   order: (id: string) => ['orders', 'detail', id] as const,
   activeOrders: ['orders', 'active'] as const,
   tickets: ['kitchen-tickets'] as const,
+  staffCalls: ['staff-calls'] as const,
   cash: ['cash'] as const,
   expenses: ['cash', 'expenses'] as const,
   invoices: ['invoices'] as const,

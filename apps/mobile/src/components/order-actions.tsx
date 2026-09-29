@@ -34,6 +34,7 @@ import { freeTables, mergeCandidates, mergedChildren } from '@karbon/utils';
 import {
   ArrowRightLeftIcon,
   BanIcon,
+  ConciergeBellIcon,
   Link2Icon,
   Link2OffIcon,
   type LucideIcon,
@@ -42,8 +43,9 @@ import {
 } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { CallCashierDialog } from './call-cashier-dialog';
 
-type View = 'menu' | 'details' | 'move' | 'merge' | 'unmerge' | 'split' | 'cancel';
+type View = 'menu' | 'details' | 'move' | 'merge' | 'unmerge' | 'split' | 'cancel' | 'call';
 
 function Sheet({
   title,
@@ -115,6 +117,7 @@ export function OrderActions({ order, onClose }: { order: OrderDto; onClose: () 
     update: useHasPermission(Permission.ORDERS_UPDATE),
     operate: useHasPermission(Permission.TABLES_OPERATE),
     cancel: useHasPermission(Permission.ORDERS_CANCEL),
+    callCashier: useHasPermission(Permission.CALLS_CASHIER),
   };
   const table = tables.find((candidate) => candidate.id === order.tableId) ?? null;
   const children = table ? mergedChildren(table, tables) : [];
@@ -145,6 +148,14 @@ export function OrderActions({ order, onClose }: { order: OrderDto; onClose: () 
       return <SplitSheet order={order} onClose={onClose} />;
     case 'cancel':
       return <CancelSheet order={order} onClose={onClose} onBack={back} />;
+    case 'call':
+      return (
+        <CallCashierDialog
+          orderId={order.id}
+          description={order.tableName ?? `Pedido #${String(order.number)}`}
+          onClose={onClose}
+        />
+      );
     case 'menu':
       return (
         <Sheet
@@ -152,6 +163,16 @@ export function OrderActions({ order, onClose }: { order: OrderDto; onClose: () 
           description={`#${String(order.number)}`}
           onClose={onClose}
         >
+          {can.callCashier ? (
+            <MenuButton
+              icon={ConciergeBellIcon}
+              label="Llamar a caja"
+              hint="Para cobrar la mesa o pedir ayuda con la cuenta"
+              onClick={() => {
+                setView('call');
+              }}
+            />
+          ) : null}
           {can.update ? (
             <MenuButton
               icon={PencilIcon}

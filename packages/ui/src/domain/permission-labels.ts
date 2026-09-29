@@ -60,6 +60,16 @@ export const PERMISSION_GROUPS: readonly {
     ],
   },
   {
+    title: 'Llamados',
+    permissions: [
+      {
+        permission: Permission.CALLS_WAITER,
+        label: 'Llamar al mesero (desde cocina, barra o caja)',
+      },
+      { permission: Permission.CALLS_CASHIER, label: 'Llamar a caja (desde el celular)' },
+    ],
+  },
+  {
     title: 'Caja',
     permissions: [
       { permission: Permission.PAYMENTS_CREATE, label: 'Cobrar' },
