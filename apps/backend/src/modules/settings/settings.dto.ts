@@ -64,6 +64,7 @@ export class UpdateSettingsDto implements UpdateSettingsRequest {
   @IsOptional() @IsBoolean() pricesIncludeTax?: boolean;
   @IsOptional() @IsBoolean() tipEnabled?: boolean;
   @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) @Max(100) tipPercent?: number;
+  @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) @Max(100) maxDiscountPercent?: number;
 
   @IsOptional()
   @IsArray()

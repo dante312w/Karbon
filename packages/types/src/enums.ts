@@ -82,6 +82,10 @@ export const KitchenTicketStatus = createEnum([
 ]);
 export type KitchenTicketStatus = EnumValue<typeof KitchenTicketStatus>;
 
+/** Descuento sobre el total del pedido: porcentaje o valor fijo. */
+export const DiscountType = createEnum(['PERCENT', 'AMOUNT']);
+export type DiscountType = EnumValue<typeof DiscountType>;
+
 /** A quién va un llamado interno: al mesero (desde cocina, barra o caja) o a caja (desde el mesero). */
 export const StaffCallTarget = createEnum(['WAITER', 'CASHIER']);
 export type StaffCallTarget = EnumValue<typeof StaffCallTarget>;

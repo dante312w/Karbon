@@ -18,7 +18,7 @@ import {
   Spinner,
   toast,
 } from '@karbon/ui';
-import { formatTime, isOrderActive } from '@karbon/utils';
+import { describeOrderDiscount, formatTime, isOrderActive } from '@karbon/utils';
 import {
   ArrowLeftIcon,
   ChevronRightIcon,
@@ -195,6 +195,18 @@ export default function OrderPage() {
       <dl className="grid grid-cols-2 gap-y-0.5 border-y bg-background px-3 py-3 text-sm">
         <dt className="text-muted-foreground">Subtotal</dt>
         <dd className="text-right tabular-nums">{money(data.subtotal)}</dd>
+        {data.discountTotal > 0 ? (
+          <>
+            <dt className="text-muted-foreground">Descuentos</dt>
+            <dd className="text-right tabular-nums">−{money(data.discountTotal)}</dd>
+          </>
+        ) : null}
+        {data.orderDiscount ? (
+          <p className="col-span-2 text-xs text-primary">
+            Caja aplicó {describeOrderDiscount(data.orderDiscount, money)} ·{' '}
+            {data.orderDiscount.reason}
+          </p>
+        ) : null}
         <dt className="text-muted-foreground">Impuestos</dt>
         <dd className="text-right tabular-nums">{money(data.taxTotal)}</dd>
         {data.tipAmount > 0 ? (

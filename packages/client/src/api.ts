@@ -80,6 +80,7 @@ import type {
   RestaurantSettingsDto,
   RoleDto,
   ServerInfo,
+  SetOrderDiscountRequest,
   SetRecipeRequest,
   SetTableStatusRequest,
   SetupStatusDto,
@@ -267,6 +268,8 @@ export function createApi(http: HttpClient) {
       undeliverTicket: (id: string, ticketId: string) =>
         http.post<OrderDto>(`/orders/${id}/tickets/${ticketId}/undeliver`),
       move: (id: string, body: MoveOrderRequest) => http.post<OrderDto>(`/orders/${id}/move`, body),
+      setDiscount: (id: string, body: SetOrderDiscountRequest) =>
+        http.put<OrderDto>(`/orders/${id}/discount`, body),
       split: (id: string, body: SplitOrderRequest) =>
         http.post<OrderDto>(`/orders/${id}/split`, body),
       duplicate: (id: string, body: DuplicateOrderRequest) =>
