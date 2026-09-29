@@ -10,6 +10,7 @@ import { hashSecret } from '../../common/security/secret-hasher.js';
 import { Prisma } from '../../generated/prisma/client.js';
 import type { Tx } from '../../prisma/prisma.types.js';
 import {
+  DEFAULT_GENERAL_NOTES,
   DEFAULT_TAXES,
   DEMO_CUSTOMER,
   DEMO_DATASETS,
@@ -74,6 +75,11 @@ export async function seedBaseConfiguration(
         rangeTo: 999_999_999,
         nextNumber: 1,
       },
+    });
+  }
+  if ((await tx.categoryNoteOption.count()) === 0) {
+    await tx.categoryNoteOption.createMany({
+      data: DEFAULT_GENERAL_NOTES[mode].map((label, sortOrder) => ({ label, sortOrder })),
     });
   }
 }
@@ -178,7 +184,14 @@ export async function seedDemoData(
   const categoryIds = new Map<string, string>();
   for (const [sortOrder, category] of dataset.categories.entries()) {
     const created = await tx.category.create({
-      data: { name: category.name, color: category.color, sortOrder },
+      data: {
+        name: category.name,
+        color: category.color,
+        sortOrder,
+        noteOptions: {
+          create: category.notes.map((label, noteOrder) => ({ label, sortOrder: noteOrder })),
+        },
+      },
     });
     categoryIds.set(category.key, created.id);
   }

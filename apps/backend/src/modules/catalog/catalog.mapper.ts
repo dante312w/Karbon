@@ -1,5 +1,11 @@
-import type { CategoryDto, ProductDto, RecipeItemDto } from '@karbon/types';
-import type { Category, Ingredient, Product, RecipeItem } from '../../generated/prisma/client.js';
+import type { CategoryDto, NoteOptionDto, ProductDto, RecipeItemDto } from '@karbon/types';
+import type {
+  Category,
+  CategoryNoteOption,
+  Ingredient,
+  Product,
+  RecipeItem,
+} from '../../generated/prisma/client.js';
 import { num, timestamps } from '../../common/mapping.js';
 import { decimalToMinor } from '../../common/money.js';
 
@@ -14,6 +20,17 @@ export function toCategoryDto(category: Category): CategoryDto {
     sortOrder: category.sortOrder,
     isActive: category.isActive,
     ...timestamps(category),
+  };
+}
+
+export function toNoteOptionDto(option: CategoryNoteOption): NoteOptionDto {
+  return {
+    id: option.id,
+    categoryId: option.categoryId,
+    label: option.label,
+    sortOrder: option.sortOrder,
+    isActive: option.isActive,
+    ...timestamps(option),
   };
 }
 
