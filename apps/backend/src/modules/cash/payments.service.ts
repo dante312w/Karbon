@@ -21,6 +21,7 @@ import { StockService } from '../inventory/stock.service.js';
 import { OrderStore } from '../orders/order-store.service.js';
 import { assertOrderEditable } from '../orders/order-rules.js';
 import { SettingsService } from '../settings/settings.service.js';
+import { StaffCallsService } from '../staff-calls/staff-calls.service.js';
 import type { CreatePaymentDto, VoidPaymentDto } from './cash.dto.js';
 import { toPaymentDto } from './cash.mapper.js';
 import { CashService } from './cash.service.js';
@@ -37,6 +38,7 @@ export class PaymentsService {
     private readonly stock: StockService,
     private readonly settings: SettingsService,
     private readonly audit: AuditService,
+    private readonly staffCalls: StaffCallsService,
   ) {}
 
   async listForOrder(orderId: string): Promise<PaymentDto[]> {
@@ -119,6 +121,7 @@ export class PaymentsService {
     this.store.publishUpdated(dtoOut);
     await this.floor.publishTables([order.tableId]);
     await this.stock.publish(ingredientIds);
+    if (dtoOut.status === OrderStatus.PAID) await this.staffCalls.resolveChargeCalls(orderId, user);
     return { order: dtoOut, change: changeMinor, completed };
   }
 

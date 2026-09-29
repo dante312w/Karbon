@@ -21,6 +21,7 @@ import {
 } from '@karbon/ui';
 import { elapsedLabel, mergeCandidates, mergedChildren } from '@karbon/utils';
 import {
+  BellRingIcon,
   CalendarClockIcon,
   ChevronRightIcon,
   DoorOpenIcon,
@@ -30,6 +31,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
+import { CallWaiterDialog } from '../../components/call-waiter-dialog';
 
 /** Detalle de una mesa: sus cuentas abiertas y las operaciones de salón. */
 export function TablePanel({
@@ -51,8 +53,10 @@ export function TablePanel({
   const navigate = useNavigate();
   const canOperate = useHasPermission(Permission.TABLES_OPERATE);
   const canCreate = useHasPermission(Permission.ORDERS_CREATE);
+  const canCallWaiter = useHasPermission(Permission.CALLS_WAITER);
   const session = useSession();
   const [merging, setMerging] = useState<string[] | null>(null);
+  const [callingWaiter, setCallingWaiter] = useState(false);
 
   const invalidate = [queryKeys.tables];
   const setStatus = useApiMutation(
@@ -204,6 +208,17 @@ export function TablePanel({
             </section>
 
             <section className="mt-auto flex flex-col gap-2">
+              {canCallWaiter && hasOrders ? (
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={() => {
+                    setCallingWaiter(true);
+                  }}
+                >
+                  <BellRingIcon /> Llamar al mesero
+                </Button>
+              ) : null}
               {!hasOrders && canCreate ? (
                 <Button
                   size="touch"
@@ -265,6 +280,17 @@ export function TablePanel({
                 </div>
               ) : null}
             </section>
+            {callingWaiter ? (
+              <CallWaiterDialog
+                place={{ tableId: table.id }}
+                description={`${table.name} · ${[
+                  ...new Set(table.activeOrders.map((order) => order.waiterName)),
+                ].join(', ')}`}
+                onClose={() => {
+                  setCallingWaiter(false);
+                }}
+              />
+            ) : null}
           </>
         )}
       </DialogContent>

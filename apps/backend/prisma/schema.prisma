@@ -114,6 +114,32 @@ enum KitchenTicketStatus {
   @@map("kitchen_ticket_status")
 }
 
+enum StaffCallTarget {
+  WAITER
+  CASHIER
+
+  @@map("staff_call_target")
+}
+
+enum StaffCallReason {
+  TABLE_ATTENTION
+  COME_OVER
+  CHARGE_TABLE
+  ACCOUNT_HELP
+  CUSTOMER_ATTENTION
+
+  @@map("staff_call_reason")
+}
+
+enum StaffCallStatus {
+  PENDING
+  ACKNOWLEDGED
+  RESOLVED
+  CANCELLED
+
+  @@map("staff_call_status")
+}
+
 enum PaymentMethod {
   CASH
   CARD
@@ -289,6 +315,10 @@ model User {
   purchases           Purchase[]
   invoicesIssued      Invoice[]
   reservationsCreated Reservation[]
+  staffCallsCreated   StaffCall[]         @relation("StaffCallCreatedBy")
+  staffCallsReceived  StaffCall[]         @relation("StaffCallTargetUser")
+  staffCallsAnswered  StaffCall[]         @relation("StaffCallAcknowledgedBy")
+  staffCallsClosed    StaffCall[]         @relation("StaffCallClosedBy")
 
   @@index([roleId])
   @@map("users")
@@ -472,6 +502,7 @@ model DiningTable {
   mergedTables DiningTable[] @relation("TableMerge")
   orders       Order[]
   reservations Reservation[]
+  staffCalls   StaffCall[]
 
   @@unique([areaId, name])
   @@index([status])
@@ -797,6 +828,7 @@ model Order {
   payments           Payment[]
   invoices           Invoice[]
   inventoryMovements InventoryMovement[]
+  staffCalls         StaffCall[]
 
   @@index([status, createdAt])
   @@index([tableId, status])
@@ -869,6 +901,44 @@ model KitchenTicket {
   @@index([station, status, createdAt])
   @@index([status, createdAt])
   @@map("kitchen_tickets")
+}
+
+/// Llamado interno: cocina o caja llaman al mesero; el mesero llama a caja. Queda abierto hasta
+/// que alguien lo atiende. Un índice único parcial sobre `dedupe_key` evita duplicar un llamado
+/// abierto: repetirlo cuenta como insistencia (`call_count`).
+model StaffCall {
+  id               String          @id @default(uuid(7)) @db.Uuid
+  target           StaffCallTarget
+  reason           StaffCallReason
+  status           StaffCallStatus @default(PENDING)
+  message          String?         @db.VarChar(140)
+  tableId          String?         @map("table_id") @db.Uuid
+  orderId          String?         @map("order_id") @db.Uuid
+  /// Mesero al que va (el del pedido); null = a todos los meseros o a caja.
+  targetUserId     String?         @map("target_user_id") @db.Uuid
+  createdById      String          @map("created_by_id") @db.Uuid
+  acknowledgedById String?         @map("acknowledged_by_id") @db.Uuid
+  /// Quién lo cerró; null con closed_at = lo cerró el sistema (cobro o cierre de caja).
+  closedById       String?         @map("closed_by_id") @db.Uuid
+  dedupeKey        String          @map("dedupe_key") @db.VarChar(200)
+  callCount        Int             @default(1) @map("call_count")
+  lastCalledAt     DateTime        @default(now()) @map("last_called_at") @db.Timestamptz(3)
+  acknowledgedAt   DateTime?       @map("acknowledged_at") @db.Timestamptz(3)
+  closedAt         DateTime?       @map("closed_at") @db.Timestamptz(3)
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  table          DiningTable? @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  order          Order?       @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  targetUser     User?        @relation("StaffCallTargetUser", fields: [targetUserId], references: [id], onDelete: SetNull)
+  createdBy      User         @relation("StaffCallCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  acknowledgedBy User?        @relation("StaffCallAcknowledgedBy", fields: [acknowledgedById], references: [id], onDelete: SetNull)
+  closedBy       User?        @relation("StaffCallClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
+
+  @@unique([dedupeKey], map: "staff_calls_open_dedupe_key", where: raw("status = ANY (ARRAY['PENDING'::staff_call_status, 'ACKNOWLEDGED'::staff_call_status])"))
+  @@index([status, target])
+  @@index([createdAt])
+  @@map("staff_calls")
 }
 
 // ════════════════════════════════════════════════════════════════════════════

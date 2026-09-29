@@ -4,6 +4,7 @@ import type { CashSessionDto } from './entities/cash.js';
 import type { RestaurantSettingsDto } from './entities/settings.js';
 import type { TableDto } from './entities/floor.js';
 import type { KitchenTicketDto, OrderDto } from './entities/orders.js';
+import type { StaffCallDto } from './entities/staff-calls.js';
 
 /** Nombres de eventos Socket.io emitidos por el servidor. */
 export const SocketEvent = {
@@ -17,6 +18,10 @@ export const SocketEvent = {
   CASH_CLOSED: 'cash.closed',
   /** Cambió la configuración (p. ej. modo restaurante ↔ bar): todas las terminales recargan. */
   SETTINGS_UPDATED: 'settings.updated',
+  /** Llamado interno nuevo (al mesero o a caja). */
+  STAFF_CALL_CREATED: 'staff_call.created',
+  /** Alguien insistió, respondió ("Voy"), lo atendió o lo canceló. */
+  STAFF_CALL_UPDATED: 'staff_call.updated',
 } as const;
 export type SocketEvent = (typeof SocketEvent)[keyof typeof SocketEvent];
 
@@ -81,6 +86,12 @@ export interface SettingsUpdatedData {
   settings: RestaurantSettingsDto;
 }
 
+export interface StaffCallEventData {
+  call: StaffCallDto;
+  /** `true` si quien lo recibe debe sonar (llamado nuevo o insistencia), no en respuestas. */
+  alert: boolean;
+}
+
 export interface SocketEventMap {
   [SocketEvent.ORDER_CREATED]: OrderEventData;
   [SocketEvent.ORDER_UPDATED]: OrderEventData;
@@ -90,6 +101,8 @@ export interface SocketEventMap {
   [SocketEvent.INVENTORY_UPDATED]: InventoryUpdatedData;
   [SocketEvent.CASH_CLOSED]: CashClosedData;
   [SocketEvent.SETTINGS_UPDATED]: SettingsUpdatedData;
+  [SocketEvent.STAFF_CALL_CREATED]: StaffCallEventData;
+  [SocketEvent.STAFF_CALL_UPDATED]: StaffCallEventData;
 }
 
 /** Tipado para `Server`/`Socket` de socket.io en backend y clientes. */

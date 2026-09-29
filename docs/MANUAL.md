@@ -90,6 +90,12 @@ Sin el certificado la app funciona igual en modo básico (HTTP); solo que si se 
 
 ### Durante el turno
 
+- **Llamados entre áreas:**
+  - **Cocina o barra → mesero:** en la comanda, **Llamar mesero** le suena al mesero de ese pedido. Tocar **Insistir** vuelve a sonar.
+  - **Caja → mesero:** desde el pedido o la mesa, **Llamar mesero** ("La mesa necesita atención" o "Que venga un momento"). En **Llamados** (arriba a la derecha) también se puede llamar a todos los meseros.
+  - **Mesero → caja:** en el celular, el botón de la campanilla (arriba) o **⋮ → Llamar a caja** dentro del pedido ("Necesito cobrar", "Ayuda con una cuenta", "Un cliente necesita a caja").
+  - Quien recibe el llamado lo ve arriba de la pantalla con sonido y vibración: **Voy** avisa a los demás que ya va alguien y **Atendido** lo cierra. Quien llamó ve "Va Laura" y puede retirarlo con **Ya no hace falta**.
+  - Los "necesito cobrar" se cierran solos al cobrar la cuenta, y al cerrar la caja se cancelan los que quedaron abiertos.
 - **Ingresos / retiros** de efectivo y **gastos** desde Caja.
 - **Inventario**: registra compras (actualizan el costo promedio), entradas, salidas, mermas y ajustes por conteo. Las alertas avisan qué insumos están bajo el mínimo.
 

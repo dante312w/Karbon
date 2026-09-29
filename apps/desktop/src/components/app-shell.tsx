@@ -11,6 +11,7 @@ import { useEffect, useRef } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { type NavItem, navItems } from '../lib/navigation';
 import { BrandMark } from './brand-mark';
+import { StaffCallsBell } from './staff-calls-bell';
 
 export function AppShell() {
   const session = useSession();
@@ -64,6 +65,7 @@ export function AppShell() {
               />
               {connected ? 'En línea' : 'Reconectando…'}
             </span>
+            <StaffCallsBell />
             <ThemeToggle />
             <span className="hidden text-sm text-muted-foreground sm:inline">
               {session?.user.name} · {session?.user.role.name}
