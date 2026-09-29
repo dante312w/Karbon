@@ -9,6 +9,7 @@ import type {
 } from '../common.js';
 import type {
   CashMovementType,
+  DiscountType,
   FiscalDocumentType,
   IdentityDocumentType,
   InventoryMovementType,
@@ -72,6 +73,18 @@ export interface UpdateOrderItemRequest extends VersionedRequest {
   quantity?: number;
   notes?: string | null;
   discount?: MinorUnits;
+}
+
+export interface OrderDiscountInput {
+  type: DiscountType;
+  /** Porcentaje con hasta 2 decimales (PERCENT) o valor en unidades menores (AMOUNT). */
+  value: number;
+  reason: string;
+}
+
+/** Aplica, cambia o quita (`null`) el descuento sobre el total del pedido. */
+export interface SetOrderDiscountRequest extends VersionedRequest {
+  discount: OrderDiscountInput | null;
 }
 
 export interface CancelRequest extends VersionedRequest {

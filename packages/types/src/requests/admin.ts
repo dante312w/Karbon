@@ -62,6 +62,7 @@ export interface UpdateSettingsRequest {
   pricesIncludeTax?: boolean;
   tipEnabled?: boolean;
   tipPercent?: Percentage;
+  maxDiscountPercent?: Percentage;
   openingHours?: OpeningHoursSlot[];
   receiptHeader?: string | null;
   receiptFooter?: string | null;

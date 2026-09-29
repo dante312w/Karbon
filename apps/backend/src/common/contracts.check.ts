@@ -24,6 +24,7 @@ export type EnumContractChecks = [
   Assert<Equals<Db.OrderItemStatus, Contracts.OrderItemStatus>>,
   Assert<Equals<Db.KitchenStation, Contracts.KitchenStation>>,
   Assert<Equals<Db.KitchenTicketStatus, Contracts.KitchenTicketStatus>>,
+  Assert<Equals<Db.DiscountType, Contracts.DiscountType>>,
   Assert<Equals<Db.StaffCallTarget, Contracts.StaffCallTarget>>,
   Assert<Equals<Db.StaffCallReason, Contracts.StaffCallReason>>,
   Assert<Equals<Db.StaffCallStatus, Contracts.StaffCallStatus>>,

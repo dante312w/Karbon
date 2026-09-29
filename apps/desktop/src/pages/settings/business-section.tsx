@@ -155,6 +155,7 @@ function IdentitySection({ settings }: { settings: RestaurantSettingsDto }) {
   const [pricesIncludeTax, setPricesIncludeTax] = useState(settings.pricesIncludeTax);
   const [tipEnabled, setTipEnabled] = useState(settings.tipEnabled);
   const [tipPercent, setTipPercent] = useState(String(settings.tipPercent));
+  const [maxDiscount, setMaxDiscount] = useState(String(settings.maxDiscountPercent));
   const [warning, setWarning] = useState(String(settings.kdsWarningMinutes));
   const [critical, setCritical] = useState(String(settings.kdsCriticalMinutes));
   const set = (key: keyof typeof form, value: string): void => {
@@ -209,6 +210,7 @@ function IdentitySection({ settings }: { settings: RestaurantSettingsDto }) {
                 pricesIncludeTax,
                 tipEnabled,
                 tipPercent: Number(tipPercent) || 0,
+                maxDiscountPercent: Math.min(100, Math.max(0, Number(maxDiscount) || 0)),
                 kdsWarningMinutes: Number(warning) || 10,
                 kdsCriticalMinutes: Number(critical) || 20,
               });
@@ -347,6 +349,24 @@ function IdentitySection({ settings }: { settings: RestaurantSettingsDto }) {
                 disabled={!tipEnabled}
                 onChange={(event) => {
                   setTipPercent(event.target.value);
+                }}
+              />
+            )}
+          </Field>
+          <Field
+            label="Descuento máximo (%)"
+            hint="Tope para caja: descuentos por producto y al pedido. 100 = sin límite."
+            className="w-56"
+          >
+            {(id) => (
+              <Input
+                id={id}
+                type="number"
+                min={0}
+                max={100}
+                value={maxDiscount}
+                onChange={(event) => {
+                  setMaxDiscount(event.target.value);
                 }}
               />
             )}

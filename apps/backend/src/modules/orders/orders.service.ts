@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   BusinessMode,
+  DiscountType,
   ErrorCode,
   OrderItemStatus,
   type OrderDto,
@@ -15,12 +16,15 @@ import {
 import {
   ACTIVE_ORDER_STATUSES,
   allocate,
+  type CalculatedTotals,
   effectiveStation,
+  exceedsDiscountLimit,
   OPEN_TICKET_STATUSES,
 } from '@karbon/utils';
 import type { AuthenticatedUser } from '../../common/auth/authenticated-user.js';
 import { badRequest, conflict, invalid, notFound } from '../../common/errors/domain-error.js';
 import { dateRange, pageArgs, paginated } from '../../common/http/pagination.js';
+import { num } from '../../common/mapping.js';
 import { decimalToMinor, minorToDecimal } from '../../common/money.js';
 import { Prisma, type Order } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
@@ -44,6 +48,7 @@ import type {
   OrderItemInputDto,
   OrderQueryDto,
   ReorderItemsDto,
+  SetOrderDiscountDto,
   SplitOrderDto,
   UpdateItemDto,
   UpdateOrderDto,
@@ -54,6 +59,8 @@ interface MutationResult {
   /** Mesas afectadas además de la del pedido (mover, dividir). */
   tableIds?: (string | null)[];
   sentTicketIds?: string[];
+  /** Validación y auditoría con los totales ya recalculados, dentro de la misma transacción. */
+  afterTotals?: (totals: CalculatedTotals) => Promise<void>;
 }
 
 @Injectable()
@@ -221,20 +228,155 @@ export class OrdersService {
           ...(dto.notes === undefined ? {} : { notes: normalizeNotes(dto.notes) }),
         },
       });
-      if (dto.discount !== undefined) {
-        await this.audit.log(
-          {
-            userId: user.id,
-            action: 'order.discount',
-            entity: 'order',
-            entityId: orderId,
-            metadata: { itemId, discount: dto.discount },
-          },
-          tx,
-        );
-      }
-      return {};
+      if (dto.discount === undefined) return {};
+      const previousTotal = decimalToMinor(order.total, currency);
+      return {
+        afterTotals: async (totals) => {
+          await this.assertDiscountAllowed(tx, orderId, totals);
+          await this.audit.log(
+            {
+              userId: user.id,
+              action: 'order.discount',
+              entity: 'order',
+              entityId: orderId,
+              metadata: {
+                scope: 'item',
+                itemId,
+                discount: dto.discount,
+                previousTotal,
+                finalTotal: totals.total,
+              },
+            },
+            tx,
+          );
+        },
+      };
     });
+  }
+
+  /**
+   * Descuento sobre el total (caja): porcentaje o valor fijo, con motivo; `null` lo quita. El
+   * servidor lo reparte entre las líneas al recalcular, respeta el máximo configurado y no deja
+   * la cuenta por debajo de lo ya pagado.
+   */
+  setDiscount(
+    orderId: string,
+    dto: SetOrderDiscountDto,
+    user: AuthenticatedUser,
+  ): Promise<OrderDto> {
+    requirePermission(user, Permission.ORDERS_DISCOUNT);
+    return this.mutate(orderId, dto.version, user, async (tx, order) => {
+      assertOrderEditable(order.status);
+      const currency = await this.settings.currency();
+      const previousTotal = decimalToMinor(order.total, currency);
+      const input = dto.discount;
+      if (!input) {
+        if (!order.orderDiscountType) return {};
+        const removed = {
+          type: order.orderDiscountType,
+          value: order.orderDiscountValue?.toNumber() ?? null,
+        };
+        await tx.order.update({
+          where: { id: orderId },
+          data: {
+            orderDiscountType: null,
+            orderDiscountValue: null,
+            orderDiscountReason: null,
+            orderDiscountById: null,
+            orderDiscountAt: null,
+            orderDiscountAmount: 0,
+          },
+        });
+        return {
+          afterTotals: async (totals) => {
+            await this.audit.log(
+              {
+                userId: user.id,
+                action: 'order.discount_removed',
+                entity: 'order',
+                entityId: orderId,
+                metadata: { ...removed, previousTotal, finalTotal: totals.total },
+              },
+              tx,
+            );
+          },
+        };
+      }
+
+      const reason = input.reason.trim();
+      if (reason.length < 3) throw badRequest('Escribe el motivo del descuento');
+      if (input.type === DiscountType.PERCENT && input.value > 100) {
+        throw badRequest('El porcentaje de descuento no puede superar 100');
+      }
+      if (input.type === DiscountType.AMOUNT && !Number.isSafeInteger(input.value)) {
+        throw badRequest('El valor del descuento va en unidades menores (entero)');
+      }
+      await tx.order.update({
+        where: { id: orderId },
+        data: {
+          orderDiscountType: input.type,
+          orderDiscountValue:
+            input.type === DiscountType.PERCENT
+              ? new Prisma.Decimal(input.value)
+              : minorToDecimal(input.value, currency),
+          orderDiscountReason: reason,
+          orderDiscountById: user.id,
+          orderDiscountAt: new Date(),
+        },
+      });
+      return {
+        afterTotals: async (totals) => {
+          await this.assertDiscountAllowed(tx, orderId, totals);
+          await this.audit.log(
+            {
+              userId: user.id,
+              action: 'order.discount',
+              entity: 'order',
+              entityId: orderId,
+              metadata: {
+                scope: 'order',
+                type: input.type,
+                value: input.value,
+                reason,
+                previousTotal,
+                discountAmount: totals.orderDiscountAmount,
+                finalTotal: totals.total,
+              },
+            },
+            tx,
+          );
+        },
+      };
+    });
+  }
+
+  /** Límite configurado y nunca por debajo de lo ya pagado: lo decide el servidor, no la pantalla. */
+  private async assertDiscountAllowed(
+    tx: Tx,
+    orderId: string,
+    totals: CalculatedTotals,
+  ): Promise<void> {
+    const settings = await this.settings.get();
+    const max = num(settings.maxDiscountPercent);
+    if (exceedsDiscountLimit(totals, max)) {
+      throw invalid(
+        ErrorCode.DISCOUNT_LIMIT_EXCEEDED,
+        `Los descuentos no pueden superar el ${String(max)} % de la cuenta`,
+        { maxDiscountPercent: max },
+      );
+    }
+    const paid = await tx.payment.aggregate({
+      where: { orderId, status: PaymentStatus.COMPLETED },
+      _sum: { amount: true },
+    });
+    const paidAmount = paid._sum.amount ? decimalToMinor(paid._sum.amount, settings.currency) : 0;
+    if (totals.total < paidAmount) {
+      throw conflict(
+        ErrorCode.ORDER_HAS_PAYMENTS,
+        'El descuento dejaría la cuenta por debajo de lo ya pagado',
+        { paidAmount },
+      );
+    }
   }
 
   /** Quitar un ítem pendiente lo elimina; anular uno ya enviado exige permiso y motivo. */
@@ -410,6 +552,13 @@ export class OrdersService {
           ErrorCode.ORDER_HAS_PAYMENTS,
           'No se divide un pedido con pagos registrados',
         );
+      // Un porcentaje aplica igual a las dos cuentas; un valor fijo no tiene reparto obvio.
+      if (order.orderDiscountType === DiscountType.AMOUNT) {
+        throw conflict(
+          ErrorCode.CONFLICT,
+          'Quita el descuento en valor fijo antes de dividir la cuenta',
+        );
+      }
 
       const items = await tx.orderItem.findMany({
         where: { orderId, status: { not: OrderItemStatus.CANCELLED } },
@@ -438,6 +587,15 @@ export class OrdersService {
           splitFromId: order.id,
           label: order.label,
           tipPercent: order.tipPercent,
+          ...(order.orderDiscountType === DiscountType.PERCENT
+            ? {
+                orderDiscountType: order.orderDiscountType,
+                orderDiscountValue: order.orderDiscountValue,
+                orderDiscountReason: order.orderDiscountReason,
+                orderDiscountById: order.orderDiscountById,
+                orderDiscountAt: order.orderDiscountAt,
+              }
+            : {}),
         },
       });
       newOrderId = created.id;
@@ -574,7 +732,8 @@ export class OrdersService {
         const locked = await this.store.lock(tx, orderId, version);
         assertCanManageOrder(user, locked.waiterId);
         const outcome = await change(tx, locked);
-        await this.store.recalculate(tx, orderId);
+        const totals = await this.store.recalculate(tx, orderId);
+        await outcome.afterTotals?.(totals);
         await this.floor.refreshStatuses(tx, [locked.tableId, ...(outcome.tableIds ?? [])]);
         return { order: locked, result: outcome };
       },

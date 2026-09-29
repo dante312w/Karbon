@@ -2,13 +2,16 @@ import {
   type AddOrderItemsRequest,
   type CancelRequest,
   type CreateOrderRequest,
+  DiscountType,
   type DuplicateOrderRequest,
   KitchenStation,
   KitchenTicketStatus,
   type MoveOrderRequest,
+  type OrderDiscountInput,
   type OrderItemInput,
   OrderType,
   type ReorderItemsRequest,
+  type SetOrderDiscountRequest,
   type SplitOrderRequest,
   type UpdateOrderItemRequest,
   type UpdateOrderRequest,
@@ -23,16 +26,19 @@ import {
   IsArray,
   IsBoolean,
   IsDateString,
+  IsDefined,
   IsIn,
   IsInt,
   IsNumber,
   IsOptional,
+  IsPositive,
   IsString,
   IsUUID,
   Length,
   Max,
   MaxLength,
   Min,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { PageQueryDto } from '../../common/http/pagination.js';
@@ -96,6 +102,22 @@ export class UpdateItemDto extends VersionDto implements UpdateOrderItemRequest 
   @IsOptional() @IsInt() @Min(1) @Max(999) quantity?: number;
   @IsOptional() @IsString() @MaxLength(255) notes?: string | null;
   @IsOptional() @IsInt() @Min(0) discount?: number;
+}
+
+export class OrderDiscountInputDto implements OrderDiscountInput {
+  @IsIn(Object.values(DiscountType)) type!: DiscountType;
+  /** Porcentaje (hasta 2 decimales) o valor en unidades menores; el servicio valida cada caso. */
+  @IsNumber({ maxDecimalPlaces: 2 }) @IsPositive() value!: number;
+  @IsString() @Length(3, 255) reason!: string;
+}
+
+/** `discount: null` quita el descuento; omitirlo es un error (no se quita por accidente). */
+export class SetOrderDiscountDto extends VersionDto implements SetOrderDiscountRequest {
+  @ValidateIf((dto: SetOrderDiscountDto) => dto.discount !== null)
+  @IsDefined()
+  @ValidateNested()
+  @Type(() => OrderDiscountInputDto)
+  discount!: OrderDiscountInputDto | null;
 }
 
 export class CancelDto extends VersionDto implements CancelRequest {

@@ -114,6 +114,13 @@ enum KitchenTicketStatus {
   @@map("kitchen_ticket_status")
 }
 
+enum DiscountType {
+  PERCENT
+  AMOUNT
+
+  @@map("discount_type")
+}
+
 enum StaffCallTarget {
   WAITER
   CASHIER
@@ -303,6 +310,7 @@ model User {
   auditLogs           AuditLog[]
   ordersServed        Order[]             @relation("OrderWaiter")
   ordersCancelled     Order[]             @relation("OrderCancelledBy")
+  ordersDiscounted    Order[]             @relation("OrderDiscountBy")
   orderItemsCancelled OrderItem[]         @relation("OrderItemCancelledBy")
   ticketsDelivered    KitchenTicket[]     @relation("TicketDeliveredBy")
   paymentsReceived    Payment[]           @relation("PaymentReceivedBy")
@@ -389,6 +397,8 @@ model RestaurantSettings {
   pricesIncludeTax   Boolean      @default(true) @map("prices_include_tax")
   tipEnabled         Boolean      @default(true) @map("tip_enabled")
   tipPercent         Decimal      @default(10) @map("tip_percent") @db.Decimal(5, 2)
+  /// Descuento máximo (línea + pedido) sobre el valor sin descuentos; 100 = sin límite.
+  maxDiscountPercent Decimal      @default(100) @map("max_discount_percent") @db.Decimal(5, 2)
   /// Lista de OpeningHoursSlot (@karbon/types).
   openingHours       Json         @default("[]") @map("opening_hours")
   receiptFooter      String?      @map("receipt_footer") @db.VarChar(500)
@@ -783,42 +793,51 @@ model Customer {
 // ════════════════════════════════════════════════════════════════════════════
 
 model Order {
-  id              String      @id @default(uuid(7)) @db.Uuid
+  id                  String        @id @default(uuid(7)) @db.Uuid
   /// Consecutivo legible (#1234) único en esta sucursal.
-  number          Int         @unique @default(autoincrement())
-  type            OrderType   @default(DINE_IN)
-  status          OrderStatus @default(OPEN)
-  tableId         String?     @map("table_id") @db.Uuid
-  waiterId        String      @map("waiter_id") @db.Uuid
-  customerId      String?     @map("customer_id") @db.Uuid
+  number              Int           @unique @default(autoincrement())
+  type                OrderType     @default(DINE_IN)
+  status              OrderStatus   @default(OPEN)
+  tableId             String?       @map("table_id") @db.Uuid
+  waiterId            String        @map("waiter_id") @db.Uuid
+  customerId          String?       @map("customer_id") @db.Uuid
   /// Sesión de caja en la que se completó el cobro.
-  cashSessionId   String?     @map("cash_session_id") @db.Uuid
+  cashSessionId       String?       @map("cash_session_id") @db.Uuid
   /// Pedido de origen cuando la cuenta se divide por ítems.
-  splitFromId     String?     @map("split_from_id") @db.Uuid
-  guests          Int?
+  splitFromId         String?       @map("split_from_id") @db.Uuid
+  guests              Int?
   /// Nombre de la cuenta cuando no hay mesa (cuenta abierta en barra, pedido para llevar).
-  label           String?     @db.VarChar(60)
-  notes           String?     @db.VarChar(500)
-  subtotal        Decimal     @default(0) @db.Decimal(14, 2)
-  discountTotal   Decimal     @default(0) @map("discount_total") @db.Decimal(14, 2)
-  taxTotal        Decimal     @default(0) @map("tax_total") @db.Decimal(14, 2)
-  tipAmount       Decimal     @default(0) @map("tip_amount") @db.Decimal(14, 2)
+  label               String?       @db.VarChar(60)
+  notes               String?       @db.VarChar(500)
+  subtotal            Decimal       @default(0) @db.Decimal(14, 2)
+  discountTotal       Decimal       @default(0) @map("discount_total") @db.Decimal(14, 2)
+  taxTotal            Decimal       @default(0) @map("tax_total") @db.Decimal(14, 2)
+  tipAmount           Decimal       @default(0) @map("tip_amount") @db.Decimal(14, 2)
   /// Propina aplicada al pedido (se inicializa desde la configuración; el cajero puede cambiarla).
-  tipPercent      Decimal     @default(0) @map("tip_percent") @db.Decimal(5, 2)
-  total           Decimal     @default(0) @db.Decimal(14, 2)
+  tipPercent          Decimal       @default(0) @map("tip_percent") @db.Decimal(5, 2)
+  /// Descuento sobre el total (caja): porcentaje o valor fijo, con motivo. Se reparte entre las
+  /// líneas al recalcular; `order_discount_amount` es lo que descuenta con los productos actuales.
+  orderDiscountType   DiscountType? @map("order_discount_type")
+  orderDiscountValue  Decimal?      @map("order_discount_value") @db.Decimal(14, 2)
+  orderDiscountAmount Decimal       @default(0) @map("order_discount_amount") @db.Decimal(14, 2)
+  orderDiscountReason String?       @map("order_discount_reason") @db.VarChar(255)
+  orderDiscountById   String?       @map("order_discount_by_id") @db.Uuid
+  orderDiscountAt     DateTime?     @map("order_discount_at") @db.Timestamptz(3)
+  total               Decimal       @default(0) @db.Decimal(14, 2)
   /// Concurrencia optimista: dos terminales no pueden pisar la misma versión del pedido.
-  version         Int         @default(0)
-  billRequestedAt DateTime?   @map("bill_requested_at") @db.Timestamptz(3)
-  closedAt        DateTime?   @map("closed_at") @db.Timestamptz(3)
-  cancelledAt     DateTime?   @map("cancelled_at") @db.Timestamptz(3)
-  cancelReason    String?     @map("cancel_reason") @db.VarChar(255)
-  cancelledById   String?     @map("cancelled_by_id") @db.Uuid
-  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  version             Int           @default(0)
+  billRequestedAt     DateTime?     @map("bill_requested_at") @db.Timestamptz(3)
+  closedAt            DateTime?     @map("closed_at") @db.Timestamptz(3)
+  cancelledAt         DateTime?     @map("cancelled_at") @db.Timestamptz(3)
+  cancelReason        String?       @map("cancel_reason") @db.VarChar(255)
+  cancelledById       String?       @map("cancelled_by_id") @db.Uuid
+  createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   table              DiningTable?        @relation(fields: [tableId], references: [id], onDelete: SetNull)
   waiter             User                @relation("OrderWaiter", fields: [waiterId], references: [id], onDelete: Restrict)
   cancelledBy        User?               @relation("OrderCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
+  orderDiscountBy    User?               @relation("OrderDiscountBy", fields: [orderDiscountById], references: [id], onDelete: SetNull)
   customer           Customer?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
   cashSession        CashSession?        @relation(fields: [cashSessionId], references: [id], onDelete: SetNull)
   splitFrom          Order?              @relation("OrderSplit", fields: [splitFromId], references: [id], onDelete: SetNull)
