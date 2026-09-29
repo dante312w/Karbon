@@ -3,6 +3,7 @@ import {
   useHasPermission,
   useMoney,
   useOrderMutation,
+  useProductNoteSuggestions,
   useTerminology,
 } from '@karbon/client';
 import { OrderItemStatus, Permission, type OrderItemDto } from '@karbon/types';
@@ -38,6 +39,7 @@ export function ItemEditorDialog({
   const api = useApi();
   const money = useMoney();
   const terms = useTerminology();
+  const noteSuggestions = useProductNoteSuggestions(item.productId);
   const canDiscount = useHasPermission(Permission.ORDERS_DISCOUNT);
   const canCancel = useHasPermission(Permission.ORDERS_CANCEL);
   const pending = item.status === OrderItemStatus.PENDING;
@@ -189,7 +191,7 @@ export function ItemEditorDialog({
         {pending ? (
           <>
             <QuantityStepper value={quantity} onChange={setQuantity} className="self-center" />
-            <NotesEditor value={notes} onChange={setNotes} suggestions={terms.quickNotes} />
+            <NotesEditor value={notes} onChange={setNotes} suggestions={noteSuggestions} />
           </>
         ) : (
           <p className="rounded-lg bg-muted p-3 text-sm">

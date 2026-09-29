@@ -1,7 +1,10 @@
 import { PartialType } from '@nestjs/swagger';
 import {
   type CreateCategoryRequest,
+  type CreateNoteOptionRequest,
   type CreateProductRequest,
+  type ReorderNoteOptionsRequest,
+  type UpdateNoteOptionRequest,
   KitchenStation,
   type RecipeLineInput,
   type SetRecipeRequest,
@@ -39,6 +42,21 @@ export class CreateCategoryDto implements CreateCategoryRequest {
 
 export class UpdateCategoryDto extends PartialType(CreateCategoryDto) {
   @IsOptional() @IsBoolean() isActive?: boolean;
+}
+
+export class CreateNoteOptionDto implements CreateNoteOptionRequest {
+  @IsOptional() @IsUUID() categoryId?: string | null;
+  @IsString() @Length(1, 60) label!: string;
+}
+
+export class UpdateNoteOptionDto implements UpdateNoteOptionRequest {
+  @IsOptional() @IsString() @Length(1, 60) label?: string;
+  @IsOptional() @IsBoolean() isActive?: boolean;
+}
+
+export class ReorderNoteOptionsDto implements ReorderNoteOptionsRequest {
+  @IsOptional() @IsUUID() categoryId!: string | null;
+  @IsArray() @ArrayMaxSize(100) @IsUUID('all', { each: true }) ids!: string[];
 }
 
 export class CreateProductDto implements CreateProductRequest {

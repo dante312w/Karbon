@@ -520,12 +520,32 @@ model Category {
   updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
 
-  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
-  children Category[] @relation("CategoryTree")
-  products Product[]
+  parent      Category?            @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Category[]           @relation("CategoryTree")
+  products    Product[]
+  noteOptions CategoryNoteOption[]
 
   @@index([parentId, sortOrder])
   @@map("categories")
+}
+
+/// Notas de un toque que el mesero ofrece según la categoría del producto ("Sin cebolla" en
+/// hamburguesas, "Sin hielo" en bebidas). Al pedir se copian como texto en order_items.notes:
+/// editar o borrar una opción no cambia pedidos pasados.
+model CategoryNoteOption {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  /// null = nota general: se ofrece en todos los productos.
+  categoryId String?  @map("category_id") @db.Uuid
+  label      String   @db.VarChar(60)
+  sortOrder  Int      @default(0) @map("sort_order")
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([categoryId, sortOrder])
+  @@map("category_note_options")
 }
 
 model Product {

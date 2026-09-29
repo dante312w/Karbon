@@ -1,3 +1,4 @@
+import { hasNote, ITEM_NOTES_MAX_LENGTH, toggleNote } from '@karbon/utils';
 import { MinusIcon, PlusIcon } from 'lucide-react';
 import { useId, useState } from 'react';
 import { cn } from '../lib/cn';
@@ -62,37 +63,37 @@ export interface NotesEditorProps {
   label?: string;
 }
 
-/** Nota libre + sugerencias de un toque ("sin cebolla", "sin hielo"…). */
+/**
+ * Nota libre + notas de un toque de la categoría del producto ("Sin cebolla", "Sin hielo"…).
+ * Cada toque agrega o quita la nota del texto, que sigue siendo editable a mano.
+ */
 export function NotesEditor({ value, onChange, suggestions, label = 'Notas' }: NotesEditorProps) {
   const id = useId();
-  const parts = value
-    .split(',')
-    .map((part) => part.trim())
-    .filter(Boolean);
-  const toggle = (note: string): void => {
-    const next = parts.includes(note) ? parts.filter((part) => part !== note) : [...parts, note];
-    onChange(next.join(', '));
-  };
   return (
     <div className="flex flex-col gap-2">
       <Label htmlFor={id}>{label}</Label>
-      <div className="flex flex-wrap gap-2">
-        {suggestions.map((note) => (
-          <Chip
-            key={note}
-            active={parts.includes(note)}
-            aria-pressed={parts.includes(note)}
-            onClick={() => {
-              toggle(note);
-            }}
-          >
-            {note}
-          </Chip>
-        ))}
-      </div>
+      {suggestions.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {suggestions.map((note) => {
+            const active = hasNote(value, note);
+            return (
+              <Chip
+                key={note}
+                active={active}
+                aria-pressed={active}
+                onClick={() => {
+                  onChange(toggleNote(value, note));
+                }}
+              >
+                {note}
+              </Chip>
+            );
+          })}
+        </div>
+      ) : null}
       <Textarea
         id={id}
-        maxLength={200}
+        maxLength={ITEM_NOTES_MAX_LENGTH}
         placeholder="Instrucciones especiales"
         value={value}
         onChange={(event) => {

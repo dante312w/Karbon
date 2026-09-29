@@ -661,10 +661,7 @@ describe('Operación de un turno (integración)', () => {
         .find((element) => element.id === created.id);
       expect(moved).toMatchObject({ posX: 2, posY: 6, width: 4 });
 
-      await request(harness.app.getHttpServer())
-        .delete(`/api/v1/floor-elements/${created.id}`)
-        .set('Authorization', `Bearer ${admin.session.accessToken}`)
-        .expect(204);
+      await admin.delete(`/floor-elements/${created.id}`).expect(204);
     });
   });
 
