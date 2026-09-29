@@ -6,7 +6,7 @@ import {
   OrderItemStatus,
 } from '@karbon/types';
 import { cn, KITCHEN_TICKET_STATUS_LABEL, notifyError, toast } from '@karbon/ui';
-import { isTicketOpen, STATION_LABEL } from '@karbon/utils';
+import { describeOrderDiscount, isTicketOpen, STATION_LABEL } from '@karbon/utils';
 import { HandPlatterIcon, ShoppingBasketIcon } from 'lucide-react';
 
 /** Líneas del pedido y totales. Las líneas sin enviar se resaltan hasta mandarlas a preparar. */
@@ -136,6 +136,13 @@ export function OrderTicket({
             <dt className="text-muted-foreground">Descuentos</dt>
             <dd className="text-right tabular-nums">−{money(order.discountTotal)}</dd>
           </>
+        ) : null}
+        {order.orderDiscount ? (
+          <p className="col-span-2 text-xs text-primary">
+            Incluye {describeOrderDiscount(order.orderDiscount, money)} al pedido (
+            {money(order.orderDiscount.amount)}) · {order.orderDiscount.reason}
+            {order.orderDiscount.appliedBy ? ` · ${order.orderDiscount.appliedBy.name}` : ''}
+          </p>
         ) : null}
         <dt className="text-muted-foreground">Impuestos</dt>
         <dd className="text-right tabular-nums">{money(order.taxTotal)}</dd>

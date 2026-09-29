@@ -25,6 +25,7 @@ import {
   OptionalVersionDto,
   OrderQueryDto,
   ReorderItemsDto,
+  SetOrderDiscountDto,
   SplitOrderDto,
   TicketQueryDto,
   UpdateItemDto,
@@ -102,6 +103,19 @@ export class OrdersController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<OrderDto> {
     return this.orders.updateItem(id, itemId, dto, user);
+  }
+
+  @Put(':id/discount')
+  @RequirePermissions(Permission.ORDERS_DISCOUNT)
+  @ApiOperation({
+    summary: 'Aplica, cambia o quita (null) el descuento sobre el total (porcentaje o valor)',
+  })
+  setDiscount(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetOrderDiscountDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<OrderDto> {
+    return this.orders.setDiscount(id, dto, user);
   }
 
   @Post(':id/items/:itemId/cancel')

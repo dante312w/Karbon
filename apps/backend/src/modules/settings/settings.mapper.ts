@@ -33,6 +33,7 @@ export function toSettingsDto(settings: RestaurantSettings): RestaurantSettingsD
     pricesIncludeTax: settings.pricesIncludeTax,
     tipEnabled: settings.tipEnabled,
     tipPercent: num(settings.tipPercent),
+    maxDiscountPercent: num(settings.maxDiscountPercent),
     openingHours: settings.openingHours as OpeningHoursSlot[],
     receiptHeader: settings.receiptHeader,
     receiptFooter: settings.receiptFooter,
