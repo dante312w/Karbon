@@ -17,6 +17,8 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); v
 - Permisos nuevos: **Confirmar entregas en la mesa** y **Operar pedidos de otros meseros** (caja y administración).
 - Notas de un toque por categoría: el administrador define en el Catálogo las notas de cada categoría ("Sin cebolla" en hamburguesas, "Sin hielo" en bebidas) y las generales; las subcategorías heredan las de su categoría madre. Se pueden renombrar, ordenar, apagar y eliminar sin afectar pedidos anteriores.
 - Eliminar una categoría desde el Catálogo (solo si ya no tiene productos ni subcategorías).
+- Llamados entre áreas: cocina, barra y caja llaman al mesero ("La mesa necesita atención", "Que venga un momento") desde la comanda, el pedido o la mesa; el mesero llama a caja ("Necesito cobrar", "Ayuda con una cuenta", "Un cliente necesita a caja"). Quien recibe oye un aviso propio (distinto al de "listo") y el celular vibra; **Voy** muestra a todos quién va. Tocar de nuevo insiste en el mismo llamado sin duplicarlo. Los llamados se guardan: no se pierden si el celular estaba bloqueado o sin red.
+- Permisos nuevos: **Llamar al mesero** (cocina, barra y caja) y **Llamar a caja** (meseros).
 
 ### Cambiado
 

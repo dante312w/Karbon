@@ -1,15 +1,20 @@
 import {
   useAuthActions,
+  useHasPermission,
   useRealtimeConnected,
   useSession,
   useSettings,
   useTerminology,
 } from '@karbon/client';
 import { Button, cn, StatusDot, ThemeToggle } from '@karbon/ui';
-import { LayoutGridIcon, LogOutIcon, ReceiptTextIcon } from 'lucide-react';
+import { Permission } from '@karbon/types';
+import { ConciergeBellIcon, LayoutGridIcon, LogOutIcon, ReceiptTextIcon } from 'lucide-react';
+import { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
+import { CallCashierDialog } from './call-cashier-dialog';
 import { OutboxButton } from './outbox-button';
 import { ReadyNotifier } from './ready-notifier';
+import { StaffCallsBar } from './staff-calls-bar';
 
 const TABS = [
   { to: '/', label: 'Mesas', icon: LayoutGridIcon },
@@ -26,6 +31,8 @@ export function Shell() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const showTabs = TABS.some((tab) => tab.to === pathname);
+  const canCallCashier = useHasPermission(Permission.CALLS_CASHIER);
+  const [callingCashier, setCallingCashier] = useState(false);
 
   return (
     <div className="flex min-h-dvh flex-col bg-muted/40">
@@ -43,6 +50,18 @@ export function Shell() {
           </p>
         </div>
         <OutboxButton />
+        {canCallCashier ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Llamar a caja"
+            onClick={() => {
+              setCallingCashier(true);
+            }}
+          >
+            <ConciergeBellIcon />
+          </Button>
+        ) : null}
         <ThemeToggle />
         <Button
           variant="ghost"
@@ -57,6 +76,7 @@ export function Shell() {
       </header>
 
       <main className={cn('flex flex-1 flex-col', showTabs && 'pb-20')}>
+        <StaffCallsBar />
         <Outlet />
       </main>
 
@@ -84,6 +104,13 @@ export function Shell() {
         </nav>
       ) : null}
       <ReadyNotifier />
+      {callingCashier ? (
+        <CallCashierDialog
+          onClose={() => {
+            setCallingCashier(false);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

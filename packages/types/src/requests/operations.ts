@@ -17,6 +17,8 @@ import type {
   MeasureUnit,
   OrderType,
   PaymentMethod,
+  StaffCallReason,
+  StaffCallTarget,
 } from '../enums.js';
 import type { LowStockAlert } from '../events.js';
 import type { CashSessionDto } from '../entities/cash.js';
@@ -113,6 +115,20 @@ export interface KitchenTicketQuery {
 
 export interface UpdateTicketStatusRequest {
   status: KitchenTicketStatus;
+}
+
+// ─── Llamados internos ──────────────────────────────────────────────────────
+
+/**
+ * Llamar al mesero o a caja. Con `orderId` el servidor deduce la mesa y el mesero del pedido;
+ * con `tableId`, el de su cuenta abierta. Sin ninguno, el llamado va a todos los meseros o a caja.
+ */
+export interface CreateStaffCallRequest {
+  target: StaffCallTarget;
+  reason: StaffCallReason;
+  tableId?: Uuid | null;
+  orderId?: Uuid | null;
+  message?: string | null;
 }
 
 // ─── Caja y pagos ────────────────────────────────────────────────────────────

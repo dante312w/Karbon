@@ -31,6 +31,7 @@ import type {
   CreatePurchaseRequest,
   CreateReservationRequest,
   CreateRoleRequest,
+  CreateStaffCallRequest,
   CreateSupplierRequest,
   CreateTableRequest,
   CreateTaxRequest,
@@ -83,6 +84,7 @@ import type {
   SetTableStatusRequest,
   SetupStatusDto,
   SplitOrderRequest,
+  StaffCallDto,
   SupplierDto,
   TableDto,
   TaxDto,
@@ -290,6 +292,13 @@ export function createApi(http: HttpClient) {
       setStatus: (id: string, status: KitchenTicketStatus) =>
         http.patch<KitchenTicketDto>(`/kitchen/tickets/${id}/status`, { status }),
       reprint: (id: string) => http.post<undefined>(`/kitchen/tickets/${id}/print`),
+    },
+    staffCalls: {
+      list: () => http.get<StaffCallDto[]>('/staff-calls'),
+      create: (body: CreateStaffCallRequest) => http.post<StaffCallDto>('/staff-calls', body),
+      acknowledge: (id: string) => http.post<StaffCallDto>(`/staff-calls/${id}/acknowledge`),
+      resolve: (id: string) => http.post<StaffCallDto>(`/staff-calls/${id}/resolve`),
+      cancel: (id: string) => http.post<StaffCallDto>(`/staff-calls/${id}/cancel`),
     },
     cash: {
       current: () => http.get<CashSessionSummaryDto | null>('/cash-sessions/current'),

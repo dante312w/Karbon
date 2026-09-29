@@ -6,6 +6,7 @@ import {
   useOrder,
   useOrderAccess,
   useOrderMutation,
+  useSession,
   useTerminology,
 } from '@karbon/client';
 import {
@@ -31,6 +32,7 @@ import {
   ArrowLeftIcon,
   ArrowRightLeftIcon,
   BanIcon,
+  BellRingIcon,
   CopyIcon,
   HandCoinsIcon,
   PencilIcon,
@@ -42,6 +44,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
+import { CallWaiterDialog } from '../../components/call-waiter-dialog';
 import { ConfirmDialog } from '../../components/confirm-dialog';
 import { formatTime } from '../../lib/format';
 import { useReceiptPrinter } from '../../lib/printing';
@@ -59,7 +62,7 @@ import { ProductCatalog } from './product-catalog';
 type Modal =
   | { kind: 'add'; product: ProductDto }
   | { kind: 'item'; item: OrderItemDto }
-  | { kind: 'move' | 'split' | 'duplicate' | 'details' | 'cancel' | 'pay' };
+  | { kind: 'move' | 'split' | 'duplicate' | 'details' | 'cancel' | 'pay' | 'call' };
 
 export default function OrderPage() {
   const { orderId = '' } = useParams();
@@ -104,7 +107,9 @@ function OrderWorkspace({ order }: { order: OrderDto }) {
     pay: useHasPermission(Permission.PAYMENTS_CREATE),
     move: useHasPermission(Permission.TABLES_OPERATE),
     create: useHasPermission(Permission.ORDERS_CREATE),
+    callWaiter: useHasPermission(Permission.CALLS_WAITER),
   };
+  const me = useSession()?.user.id;
   // Cada mesero opera sus pedidos; con `orders:manage_any` (caja, administración), todos.
   const owned = useOrderAccess().canManage(order.waiter.id);
   const editable = isOrderActive(order.status) && can.update && owned;
@@ -273,6 +278,17 @@ function OrderWorkspace({ order }: { order: OrderDto }) {
                 <CopyIcon /> Duplicar
               </Button>
             ) : null}
+            {can.callWaiter && isOrderActive(order.status) && order.waiter.id !== me ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setModal({ kind: 'call' });
+                }}
+              >
+                <BellRingIcon /> Llamar mesero
+              </Button>
+            ) : null}
             {hasItems ? (
               <Button variant="outline" size="sm" onClick={printPrebill}>
                 <PrinterIcon /> Precuenta
@@ -365,6 +381,13 @@ function OrderWorkspace({ order }: { order: OrderDto }) {
         />
       ) : null}
       {modal?.kind === 'move' ? <MoveOrderDialog order={order} onClose={close} /> : null}
+      {modal?.kind === 'call' ? (
+        <CallWaiterDialog
+          place={{ orderId: order.id }}
+          description={`${place} · ${order.waiter.name}`}
+          onClose={close}
+        />
+      ) : null}
       {modal?.kind === 'split' ? <SplitOrderDialog order={order} onClose={close} /> : null}
       {modal?.kind === 'duplicate' ? <DuplicateOrderDialog order={order} onClose={close} /> : null}
       {modal?.kind === 'details' ? <OrderDetailsDialog order={order} onClose={close} /> : null}

@@ -6,9 +6,10 @@ import {
   type Paginated,
   SocketEvent,
   type SocketEventMap,
+  type StaffCallDto,
   type TableDto,
 } from '@karbon/types';
-import { isOrderActive } from '@karbon/utils';
+import { isOrderActive, mergeStaffCall } from '@karbon/utils';
 import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { queryKeys } from '../query-keys';
 import { type KarbonSocket, useKarbon } from './context';
@@ -61,12 +62,21 @@ export function bindRealtimeCache(socket: KarbonSocket, queryClient: QueryClient
     });
   };
 
+  const onStaffCall = (envelope: EventEnvelope<SocketEventMap['staff_call.updated']>): void => {
+    if (!fresh(envelope)) return;
+    queryClient.setQueryData<StaffCallDto[]>(queryKeys.staffCalls, (current) =>
+      mergeStaffCall(current, envelope.data.call),
+    );
+  };
+
   const handlers = {
     [SocketEvent.ORDER_CREATED]: onOrder,
     [SocketEvent.ORDER_UPDATED]: onOrder,
     [SocketEvent.TABLE_CHANGED]: onTable,
     [SocketEvent.KITCHEN_READY]: onTicket,
     [SocketEvent.KITCHEN_DELIVERED]: onTicket,
+    [SocketEvent.STAFF_CALL_CREATED]: onStaffCall,
+    [SocketEvent.STAFF_CALL_UPDATED]: onStaffCall,
     [SocketEvent.INVENTORY_UPDATED]: (
       envelope: EventEnvelope<SocketEventMap['inventory.updated']>,
     ) => {

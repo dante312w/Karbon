@@ -140,6 +140,7 @@ sequenceDiagram
 - **Pedido** (`orders`): `OPEN → BILL_REQUESTED → PAID` (o `CANCELLED`); tipos mesa, para llevar y domicilio.
 - **Comandas** (`kitchen_tickets`): cada envío crea una por estación (cocina / barra; en modo bar todo va a barra); el KDS las mueve `NEW → PREPARING → READY` y el mesero del pedido confirma `READY → DELIVERED` ([ADR 0007](adr/0007-comandas-y-cuenta-dividida.md), [ADR 0012](adr/0012-entrega-confirmada-por-el-mesero.md)). Los cronómetros se calculan con las marcas de cada paso (`ticketTiming` en `@karbon/utils`): lo entregado muestra un total fijo.
 - **Propiedad del pedido**: cada mesero opera sus pedidos; `orders:manage_any` opera los de todos (`canManageOrder`, misma regla en backend y pantallas).
+- **Llamados internos** (`staff_calls`): cocina, barra y caja llaman al mesero; el mesero llama a caja. Se guardan en la base y el socket solo avisa; repetir uno abierto insiste en él ([ADR 0013](adr/0013-llamados-internos-persistidos.md)).
 - **Mesa**: estado persistido (`FREE`, `OCCUPIED`, `WAITING_FOOD`, `WAITING_BILL`, `PAID`, `RESERVED`); se pueden unir y mover pedidos entre mesas.
 - **Inventario por receta**: cada venta descuenta `receta × cantidad` de cada insumo con un movimiento inmutable en el kardex; anular un pago lo repone. Costo promedio ponderado al recibir compras.
 - **Caja**: una sola sesión abierta (índice parcial único); esperado = base + efectivo cobrado + ingresos − retiros − gastos en efectivo; el cierre registra el arqueo y la diferencia.

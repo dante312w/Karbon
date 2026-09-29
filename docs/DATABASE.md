@@ -90,6 +90,9 @@ erDiagram
   orders ||--o{ kitchen_tickets : "envía"
   kitchen_tickets |o--o{ order_items : "agrupa"
   orders |o--o{ orders : "dividido de"
+  tables |o--o{ staff_calls : "llamado desde"
+  orders |o--o{ staff_calls : "sobre"
+  users ||--o{ staff_calls : "llama / responde"
   products ||--o{ order_items : "vendido como"
   tables {
     uuid id PK
@@ -262,6 +265,7 @@ erDiagram
 | Pedidos       | `orders`                | Pedidos con totales, versión y trazabilidad de cancelación/división                       |
 |               | `order_items`           | Líneas con snapshot, notas, orden y anulación                                             |
 |               | `kitchen_tickets`       | Comandas por ronda y estación para el KDS                                                 |
+|               | `staff_calls`           | Llamados internos (al mesero o a caja): quién llamó, quién fue y cuándo se cerró          |
 | Caja          | `cash_sessions`         | Turnos de caja con arqueo                                                                 |
 |               | `payments`              | Pagos por método (varios por pedido = mixto o cuenta dividida)                            |
 |               | `cash_movements`        | Ingresos y retiros de efectivo no asociados a ventas                                      |
@@ -273,16 +277,18 @@ erDiagram
 
 ## Índices relevantes
 
-| Consulta frecuente                 | Índice                                                     |
-| ---------------------------------- | ---------------------------------------------------------- |
-| Tablero KDS por estación y estado  | `kitchen_tickets (station, status, created_at)`            |
-| Pedido activo de una mesa          | `orders (table_id, status)`                                |
-| Ventas por mesero / por hora       | `orders (waiter_id, created_at)`, `orders (created_at)`    |
-| Producto más vendido               | `order_items (product_id, created_at)`                     |
-| Kardex de un insumo                | `inventory_movements (ingredient_id, created_at)`          |
-| Arqueo por método de pago          | `payments (cash_session_id, method)`                       |
-| Una sola caja abierta (invariante) | `UNIQUE (status) WHERE status = 'OPEN'` en `cash_sessions` |
-| Búsqueda rápida de clientes        | `customers (phone)`, `customers (name)`                    |
+| Consulta frecuente                 | Índice                                                                             |
+| ---------------------------------- | ---------------------------------------------------------------------------------- |
+| Tablero KDS por estación y estado  | `kitchen_tickets (station, status, created_at)`                                    |
+| Pedido activo de una mesa          | `orders (table_id, status)`                                                        |
+| Ventas por mesero / por hora       | `orders (waiter_id, created_at)`, `orders (created_at)`                            |
+| Producto más vendido               | `order_items (product_id, created_at)`                                             |
+| Kardex de un insumo                | `inventory_movements (ingredient_id, created_at)`                                  |
+| Arqueo por método de pago          | `payments (cash_session_id, method)`                                               |
+| Una sola caja abierta (invariante) | `UNIQUE (status) WHERE status = 'OPEN'` en `cash_sessions`                         |
+| Búsqueda rápida de clientes        | `customers (phone)`, `customers (name)`                                            |
+| Llamados abiertos por destino      | `staff_calls (status, target)`                                                     |
+| Un llamado abierto por motivo      | `UNIQUE (dedupe_key) WHERE status IN ('PENDING', 'ACKNOWLEDGED')` en `staff_calls` |
 
 ## Invariantes garantizados por la base de datos
 
@@ -295,11 +301,12 @@ Además de claves foráneas y únicas, la migración inicial agrega `CHECK` cons
 - `cash_sessions`: `CLOSED` ⇔ `closed_at` presente.
 - `tables`: una mesa no puede unirse a sí misma.
 - `kitchen_tickets`: solo una comanda `DELIVERED` registra `delivered_by_id`.
+- `staff_calls`: cada destino con sus motivos; solo el llamado al mesero apunta a una persona; abierto ⇔ sin `closed_at`; `ACKNOWLEDGED` con `acknowledged_at`; `call_count ≥ 1`.
 - `category_note_options`: texto no vacío y único por categoría sin distinguir mayúsculas (índice único sobre `COALESCE(category_id, …)` y `lower(label)`, así las generales también quedan cubiertas).
 
 ### Migraciones de datos
 
-Los roles de sistema se crean con el seed, que solo corre en instalaciones nuevas. Cuando una versión agrega permisos, su migración los suma a los roles existentes sin quitar los que ya tenían (p. ej. `20260928202352_waiter_delivery`: `orders:deliver` para todo rol que toma pedidos, `orders:manage_any` para administración y caja, y ambos para la barra si el negocio está en modo bar; `20260928230000_waiter_table_operations`: `tables:operate` para el rol Mesero y `orders:manage_any` para todo rol que cobra, que hasta entonces operaba pedidos de cualquiera). `20260928235000_category_note_options` convierte las notas rápidas que antes estaban fijas en el código en notas generales, según el modo del negocio, para que los meseros no noten el cambio hasta que el administrador las organice por categoría.
+Los roles de sistema se crean con el seed, que solo corre en instalaciones nuevas. Cuando una versión agrega permisos, su migración los suma a los roles existentes sin quitar los que ya tenían (p. ej. `20260928202352_waiter_delivery`: `orders:deliver` para todo rol que toma pedidos, `orders:manage_any` para administración y caja, y ambos para la barra si el negocio está en modo bar; `20260928230000_waiter_table_operations`: `tables:operate` para el rol Mesero y `orders:manage_any` para todo rol que cobra, que hasta entonces operaba pedidos de cualquiera). `20260928235000_category_note_options` convierte las notas rápidas que antes estaban fijas en el código en notas generales, según el modo del negocio, para que los meseros no noten el cambio hasta que el administrador las organice por categoría. `20260929144446_staff_calls` da `calls:waiter` a todo rol que prepara o cobra y `calls:cashier` a todo rol que toma pedidos sin cobrar (y ambos al administrador).
 
 ## Flujo de trabajo con migraciones
 

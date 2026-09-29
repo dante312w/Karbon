@@ -25,11 +25,19 @@ describe('permisos RBAC', () => {
     expect(DEFAULT_ROLE_PERMISSIONS.ADMIN).toEqual(ALL_PERMISSIONS);
   });
 
-  it('cocina solo puede ver y actualizar comandas', () => {
+  it('cocina solo puede ver y actualizar comandas y llamar al mesero', () => {
     expect(DEFAULT_ROLE_PERMISSIONS.KITCHEN).toEqual([
       Permission.KITCHEN_READ,
       Permission.KITCHEN_UPDATE,
+      Permission.CALLS_WAITER,
     ]);
+  });
+
+  it('el mesero llama a caja; caja y cocina llaman al mesero', () => {
+    expect(DEFAULT_ROLE_PERMISSIONS.WAITER).toContain(Permission.CALLS_CASHIER);
+    expect(DEFAULT_ROLE_PERMISSIONS.WAITER).not.toContain(Permission.CALLS_WAITER);
+    expect(DEFAULT_ROLE_PERMISSIONS.CASHIER).toContain(Permission.CALLS_WAITER);
+    expect(DEFAULT_ROLE_PERMISSIONS.CASHIER).not.toContain(Permission.CALLS_CASHIER);
   });
 
   it('el mesero no puede cobrar, cancelar pedidos ni manejar caja', () => {
@@ -53,6 +61,7 @@ describe('permisos RBAC', () => {
     expect(systemRolePermissions(SystemRole.KITCHEN, BusinessMode.BAR)).toEqual([
       Permission.KITCHEN_READ,
       Permission.KITCHEN_UPDATE,
+      Permission.CALLS_WAITER,
       Permission.ORDERS_DELIVER,
       Permission.ORDERS_MANAGE_ANY,
     ]);
