@@ -6,7 +6,7 @@ Guía para instalar Karbon en el negocio y operarlo en el día a día. Está pen
 
 - **Un PC con Windows 10 u 11** que será el servidor (idealmente el de la caja). 4 GB de RAM o más.
 - **Router WiFi** al que se conectan el PC, los celulares de los meseros y la tablet de cocina/barra. No hace falta internet.
-- **Celulares Android** con Chrome para los meseros (iPhone con Safari también funciona).
+- **Celulares** para los meseros: Android con Chrome, o iPhone/iPad con Safari (iOS 16.4 o superior).
 - Opcional: impresora térmica de 80 mm (por red o USB) y una tablet o TV para la cocina o la barra.
 
 > Consejo: pide a quien administra el router que **reserve la IP del PC servidor** (DHCP estático). Así la dirección que usan los celulares no cambia.
@@ -40,23 +40,32 @@ Todo está en **Configuración** (solo administradores):
 
 Después carga el **Catálogo** (categorías, productos, precios, imágenes y estación: cocina o barra) y, si vas a controlar inventario, los **insumos** y la **receta** de cada producto.
 
+**Notas de un toque:** en el Catálogo, elige una categoría y toca **Editar notas** para definir las que el mesero marca con un toque al pedir ("Sin cebolla", "Término medio"…). Con **Todas** seleccionado editas las **notas generales**, que se ofrecen en todos los productos. Puedes renombrarlas, ordenarlas con las flechas, apagarlas por un tiempo o eliminarlas; los pedidos ya tomados no cambian. Una categoría se puede eliminar desde su edición cuando ya no tiene productos.
+
 ## 4. Conectar los celulares de los meseros
 
 En el PC abre **Configuración → Celulares**. Con cada celular (conectado a la misma WiFi):
 
 1. **Instala el certificado del local** (una sola vez): en la sección "Conexión segura (HTTPS)" escanea el QR del certificado, descárgalo e instálalo. Android: Ajustes → Seguridad → Instalar certificado CA. iPhone: Ajustes → Perfil descargado → Instalar, y actívalo en Información → Confianza de certificados.
-2. **Abre la app**: escanea el QR con la dirección del servidor (por ejemplo `https://192.168.1.10:3443`) y ábrelo en Chrome.
-3. En Chrome: menú ⋮ → **Instalar aplicación** (o "Agregar a pantalla principal"). Queda como una app más.
+2. **Abre la app**: escanea el QR con la dirección del servidor (por ejemplo `https://192.168.1.10:3443`) y ábrelo en Chrome (Android) o Safari (iPhone/iPad).
+3. **Instálala**:
+   - Android, en Chrome: menú ⋮ → **Instalar aplicación** (o "Agregar a pantalla principal").
+   - iPhone/iPad, en Safari: botón **Compartir** → **Agregar a inicio**. Se abre a pantalla completa, con la barra de estado sobre la franja de color de Karbon, y funciona en vertical y horizontal.
 4. Cada mesero entra tocando su nombre y escribiendo su **PIN**.
+5. En iPhone, **toca la pantalla una vez** al empezar el turno: iOS no deja sonar avisos hasta el primer toque. Desde ahí suenan los "listo para recoger" y los llamados (el iPhone no vibra desde una página web; Android sí).
 
 Sin el certificado la app funciona igual en modo básico (HTTP); solo que si se corta la WiFi hay que esperar a que vuelva para recargarla.
+
+Al bloquear el celular o cambiar de app, iOS pausa Karbon. Al volver, la app se reconecta sola y recarga mesas, pedidos y llamados en un instante; si la WiFi cambió, lo hace apenas vuelve la red. Los pedidos tomados sin conexión quedan en cola y se envían solos.
 
 ## 5. Tablero de cocina o barra (KDS)
 
 - En el PC: menú **Cocina** (o **Barra**).
 - En una tablet o TV: abre la dirección que muestra **Configuración → Celulares → Tablero** (termina en `/app/#/kds`) e ingresa con el usuario de cocina/barra.
-- Las comandas llegan solas con sonido. Toca **Preparar** → **Listo** (el mesero recibe el aviso en su celular) → **Entregado**.
+- Las comandas llegan solas con sonido. Toca **Preparar** → **Listo**: el mesero recibe el aviso en su celular.
+- **La entrega la confirma el mesero**: al llevar el plato a la mesa toca **Entregado en la mesa** en su celular, y la comanda sale de la columna Listo. Mientras tanto la tarjeta muestra cuánto lleva **por recoger**. En modo bar, el barman también puede marcar **Entregado** desde el tablero. Si nadie lo confirma, se da por entregado al cobrar la cuenta.
 - Los colores indican el tiempo de espera (verde, amarillo, rojo; los minutos se configuran en Negocio).
+- En **Ver entregados recientes** cada comanda muestra su **tiempo total** (fijo, ya no cuenta), cuánto tardó en prepararse y en recogerse, y quién la entregó.
 - Si se acaba un producto, márcalo como **agotado** desde el tablero: los meseros dejan de verlo disponible.
 
 ## 6. Operación diaria
@@ -67,18 +76,32 @@ Sin el certificado la app funciona igual en modo básico (HTTP); solo que si se 
 
 ### Tomar un pedido
 
-- **Mesero (celular):** Mesas → toca la mesa → agrega productos (con notas rápidas como "sin cebolla" o "sin hielo") → **Enviar a cocina/barra**. Si la señal se cae, el pedido queda en cola y se envía solo al volver.
+- **Mesero (celular):** Mesas → toca la mesa → agrega productos (con las notas de un toque de su categoría, como "sin cebolla" en hamburguesas o "sin hielo" en bebidas, más texto libre) → **Enviar a cocina/barra**. Si la señal se cae, el pedido queda en cola y se envía solo al volver.
+  - Arriba de las mesas, los contadores **Para recoger**, **Preparando**, **Cuenta** y **Libres** filtran el salón con un toque.
+  - Cada mesa con algo en cocina muestra cuánto lleva y si va **A tiempo**, **Demorado** o **Crítico** (los minutos son los del tablero de cocina).
+  - En **Mis pedidos** aparece primero lo listo para llevar; **Entregado en la mesa** lo confirma todo de una vez.
+  - En el pedido, el botón **⋮** abre las acciones: detalles (personas y notas), **mover** a otra mesa libre, **unir mesas** (las cuentas de la otra mesa pasan a esta, cada una por separado), **separar**, **dividir cuenta** y, con permiso, **cancelar**.
+  - Toca un producto **sin enviar** para cambiar la cantidad o la nota, o quitarlo. Uno ya enviado solo se anula con motivo (con permiso; si no, pídelo a caja).
+  - Cada mesero opera **sus** pedidos: los de otro compañero se ven con un candado. Caja y administración pueden operar todos.
+  - Una mesa **Pagada** se marca libre desde el celular al tocarla.
 - **Caja (PC):** Mesas → mesa → agregar productos, o **Pedido sin mesa** para llevar o domicilio.
 - Se puede agregar más rondas, cambiar cantidades, anular ítems (con motivo), mover el pedido a otra mesa, unir mesas o **dividir la cuenta**.
 
 ### Cobrar
 
 1. El mesero toca **Pedir cuenta** (la mesa pasa a "esperando cuenta") o la caja abre el pedido directamente.
-2. **Cobrar**: elige efectivo (calcula el cambio), tarjeta, transferencia o QR. Para pagos mixtos, registra varios pagos hasta completar el total.
-3. Imprime el **tiquete** o la **factura** (térmica, A4 o PDF). La mesa queda libre y el inventario se descuenta según las recetas.
+2. **Descuento** (opcional, con permiso): en el pedido, **Descuento** → porcentaje o valor fijo, y el motivo ("Cortesía", "Cliente frecuente"…). Antes de aplicarlo se ve el total con descuento. Queda registrado quién lo aplicó y se puede quitar. El administrador fija el **descuento máximo** en Configuración → Negocio (100 = sin límite).
+3. **Cobrar**: elige efectivo (calcula el cambio), tarjeta, transferencia o QR. Para pagos mixtos, registra varios pagos hasta completar el total.
+4. Imprime el **tiquete** o la **factura** (térmica, A4 o PDF). La mesa queda libre y el inventario se descuenta según las recetas.
 
 ### Durante el turno
 
+- **Llamados entre áreas:**
+  - **Cocina o barra → mesero:** en la comanda, **Llamar mesero** le suena al mesero de ese pedido. Tocar **Insistir** vuelve a sonar.
+  - **Caja → mesero:** desde el pedido o la mesa, **Llamar mesero** ("La mesa necesita atención" o "Que venga un momento"). En **Llamados** (arriba a la derecha) también se puede llamar a todos los meseros.
+  - **Mesero → caja:** en el celular, el botón de la campanilla (arriba) o **⋮ → Llamar a caja** dentro del pedido ("Necesito cobrar", "Ayuda con una cuenta", "Un cliente necesita a caja").
+  - Quien recibe el llamado lo ve arriba de la pantalla con sonido y vibración: **Voy** avisa a los demás que ya va alguien y **Atendido** lo cierra. Quien llamó ve "Va Laura" y puede retirarlo con **Ya no hace falta**.
+  - Los "necesito cobrar" se cierran solos al cobrar la cuenta, y al cerrar la caja se cancelan los que quedaron abiertos.
 - **Ingresos / retiros** de efectivo y **gastos** desde Caja.
 - **Inventario**: registra compras (actualizan el costo promedio), entradas, salidas, mermas y ajustes por conteo. Las alertas avisan qué insumos están bajo el mínimo.
 
@@ -108,5 +131,6 @@ Karbon incluye **30 días de prueba**. Para activar la licencia: **Configuració
 | El celular muestra "Sin conexión"                     | Verifica que esté en la WiFi del negocio y que Karbon esté abierto en el PC (ícono en la bandeja)                                 |
 | Cambió la IP del PC y los celulares no conectan       | Reserva la IP en el router; mientras tanto, vuelve a escanear el QR de Configuración → Celulares                                  |
 | La tablet del KDS no suena                            | Toca **Activar sonido** en el tablero (los navegadores bloquean el sonido hasta que se toca la pantalla)                          |
+| El iPhone no suena con los avisos                     | Toca la pantalla una vez con la app abierta y revisa que el interruptor de silencio del iPhone no esté activado                   |
 | La impresora de red no imprime                        | Configuración → Impresoras → **Imprimir prueba**; revisa la IP y que la impresora esté en la misma red                            |
 | El ícono de la bandeja dice "Servidor: con problemas" | Cierra Karbon desde la bandeja (**Salir**) y ábrelo de nuevo; si persiste, envía a soporte la carpeta `%APPDATA%\Karbon POS\logs` |

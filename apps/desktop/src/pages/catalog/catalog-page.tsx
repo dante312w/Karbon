@@ -19,9 +19,18 @@ import {
 } from '@karbon/ui';
 import { STATION_LABEL } from '@karbon/utils';
 import { useQuery } from '@tanstack/react-query';
-import { BookOpenIcon, ImageIcon, PencilIcon, PlusIcon, SearchIcon } from 'lucide-react';
+import {
+  BookOpenIcon,
+  ImageIcon,
+  PencilIcon,
+  PlusIcon,
+  SearchIcon,
+  Trash2Icon,
+} from 'lucide-react';
 import { useDeferredValue, useState } from 'react';
+import { ConfirmDialog } from '../../components/confirm-dialog';
 import { useAssetUrl } from '../../lib/runtime-context';
+import { NoteOptionsDialog, NotesStrip } from './note-options-dialog';
 import { ProductDialog } from './product-dialog';
 
 const SWATCHES = [
@@ -49,6 +58,7 @@ export default function CatalogPage() {
   const [editingCategory, setEditingCategory] = useState<{ category: CategoryDto | null } | null>(
     null,
   );
+  const [editingNotes, setEditingNotes] = useState(false);
   const term = useDeferredValue(search.trim().toLowerCase());
   const categories = useQuery({
     queryKey: [...queryKeys.categories, 'all'],
@@ -58,6 +68,7 @@ export default function CatalogPage() {
     queryKey: [...queryKeys.products, 'all'],
     queryFn: () => api.catalog.products({ includeInactive: true }),
   });
+  const selectedCategory = categories.data?.find((category) => category.id === categoryId) ?? null;
   const categoryName = new Map(
     (categories.data ?? []).map((category) => [category.id, category.name]),
   );
@@ -204,7 +215,7 @@ export default function CatalogPage() {
                 variant="ghost"
                 size="sm"
                 aria-label={`Editar ${category.name}`}
-                className="opacity-0 group-hover:opacity-100"
+                className="opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100"
                 onClick={() => {
                   setEditingCategory({ category });
                 }}
@@ -215,6 +226,12 @@ export default function CatalogPage() {
           ))}
         </aside>
         <section className="flex min-w-0 flex-col gap-3">
+          <NotesStrip
+            category={selectedCategory}
+            onEdit={() => {
+              setEditingNotes(true);
+            }}
+          />
           <label className="relative">
             <span className="sr-only">Buscar producto</span>
             <SearchIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -263,6 +280,17 @@ export default function CatalogPage() {
           onClose={() => {
             setEditingCategory(null);
           }}
+          onDeleted={(id) => {
+            if (categoryId === id) setCategoryId(null);
+          }}
+        />
+      ) : null}
+      {editingNotes ? (
+        <NoteOptionsDialog
+          category={selectedCategory}
+          onClose={() => {
+            setEditingNotes(false);
+          }}
         />
       ) : null}
     </div>
@@ -272,11 +300,14 @@ export default function CatalogPage() {
 function CategoryDialog({
   category,
   onClose,
+  onDeleted,
 }: {
   category: CategoryDto | null;
   onClose: () => void;
+  onDeleted: (id: string) => void;
 }) {
   const api = useApi();
+  const [removing, setRemoving] = useState(false);
   const [name, setName] = useState(category?.name ?? '');
   const [color, setColor] = useState<string>(category?.color ?? SWATCHES[0]);
   const [sortOrder, setSortOrder] = useState(String(category?.sortOrder ?? 0));
@@ -297,6 +328,17 @@ function CategoryDialog({
       onError: notifyError,
     },
   );
+  const remove = useApiMutation(
+    (id: string) => api.catalog.removeCategory(id),
+    [queryKeys.categories, queryKeys.noteOptions],
+    {
+      onSuccess: (_, id) => {
+        toast.success('Categoría eliminada');
+        onDeleted(id);
+        onClose();
+      },
+    },
+  );
   return (
     <Dialog
       open
@@ -308,6 +350,17 @@ function CategoryDialog({
         title={category ? `Editar ${category.name}` : 'Nueva categoría'}
         footer={
           <>
+            {category ? (
+              <Button
+                variant="ghost"
+                className="mr-auto text-destructive"
+                onClick={() => {
+                  setRemoving(true);
+                }}
+              >
+                <Trash2Icon /> Eliminar
+              </Button>
+            ) : null}
             <Button variant="outline" onClick={onClose}>
               Cancelar
             </Button>
@@ -368,7 +421,18 @@ function CategoryDialog({
           )}
         </Field>
         {category ? (
-          <Switch checked={isActive} onCheckedChange={setIsActive} label="Activa" />
+          <>
+            <Switch checked={isActive} onCheckedChange={setIsActive} label="Activa" />
+            <ConfirmDialog
+              open={removing}
+              onOpenChange={setRemoving}
+              title={`Eliminar ${category.name}`}
+              description="Solo se puede si ya no tiene productos ni subcategorías. Sus notas de un toque se eliminan con ella; los pedidos anteriores no cambian."
+              confirmLabel="Eliminar"
+              destructive
+              onConfirm={() => remove.mutateAsync(category.id)}
+            />
+          </>
         ) : null}
       </DialogContent>
     </Dialog>

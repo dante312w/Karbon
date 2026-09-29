@@ -9,6 +9,7 @@ import type {
 } from '../common.js';
 import type {
   CashMovementType,
+  DiscountType,
   FiscalDocumentType,
   IdentityDocumentType,
   InventoryMovementType,
@@ -17,6 +18,8 @@ import type {
   MeasureUnit,
   OrderType,
   PaymentMethod,
+  StaffCallReason,
+  StaffCallTarget,
 } from '../enums.js';
 import type { LowStockAlert } from '../events.js';
 import type { CashSessionDto } from '../entities/cash.js';
@@ -72,6 +75,18 @@ export interface UpdateOrderItemRequest extends VersionedRequest {
   discount?: MinorUnits;
 }
 
+export interface OrderDiscountInput {
+  type: DiscountType;
+  /** Porcentaje con hasta 2 decimales (PERCENT) o valor en unidades menores (AMOUNT). */
+  value: number;
+  reason: string;
+}
+
+/** Aplica, cambia o quita (`null`) el descuento sobre el total del pedido. */
+export interface SetOrderDiscountRequest extends VersionedRequest {
+  discount: OrderDiscountInput | null;
+}
+
 export interface CancelRequest extends VersionedRequest {
   reason: string;
 }
@@ -113,6 +128,20 @@ export interface KitchenTicketQuery {
 
 export interface UpdateTicketStatusRequest {
   status: KitchenTicketStatus;
+}
+
+// ─── Llamados internos ──────────────────────────────────────────────────────
+
+/**
+ * Llamar al mesero o a caja. Con `orderId` el servidor deduce la mesa y el mesero del pedido;
+ * con `tableId`, el de su cuenta abierta. Sin ninguno, el llamado va a todos los meseros o a caja.
+ */
+export interface CreateStaffCallRequest {
+  target: StaffCallTarget;
+  reason: StaffCallReason;
+  tableId?: Uuid | null;
+  orderId?: Uuid | null;
+  message?: string | null;
 }
 
 // ─── Caja y pagos ────────────────────────────────────────────────────────────

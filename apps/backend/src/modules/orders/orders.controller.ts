@@ -25,6 +25,7 @@ import {
   OptionalVersionDto,
   OrderQueryDto,
   ReorderItemsDto,
+  SetOrderDiscountDto,
   SplitOrderDto,
   TicketQueryDto,
   UpdateItemDto,
@@ -44,7 +45,10 @@ const IDEMPOTENCY_HEADER = {
 @ApiBearerAuth()
 @Controller('orders')
 export class OrdersController {
-  constructor(private readonly orders: OrdersService) {}
+  constructor(
+    private readonly orders: OrdersService,
+    private readonly kitchen: KitchenService,
+  ) {}
 
   @Get()
   @RequirePermissions(Permission.ORDERS_READ)
@@ -101,6 +105,19 @@ export class OrdersController {
     return this.orders.updateItem(id, itemId, dto, user);
   }
 
+  @Put(':id/discount')
+  @RequirePermissions(Permission.ORDERS_DISCOUNT)
+  @ApiOperation({
+    summary: 'Aplica, cambia o quita (null) el descuento sobre el total (porcentaje o valor)',
+  })
+  setDiscount(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetOrderDiscountDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<OrderDto> {
+    return this.orders.setDiscount(id, dto, user);
+  }
+
   @Post(':id/items/:itemId/cancel')
   @RequirePermissions(Permission.ORDERS_UPDATE)
   cancelItem(
@@ -118,15 +135,20 @@ export class OrdersController {
     @Param('id', ParseUUIDPipe) id: string,
     @Param('itemId', ParseUUIDPipe) itemId: string,
     @Body() dto: VersionDto,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<OrderDto> {
-    return this.orders.duplicateItem(id, itemId, dto.version);
+    return this.orders.duplicateItem(id, itemId, dto.version, user);
   }
 
   @Put(':id/items/order')
   @RequirePermissions(Permission.ORDERS_UPDATE)
   @ApiOperation({ summary: 'Reordena los ítems del ticket' })
-  reorder(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ReorderItemsDto): Promise<OrderDto> {
-    return this.orders.reorderItems(id, dto);
+  reorder(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReorderItemsDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<OrderDto> {
+    return this.orders.reorderItems(id, dto, user);
   }
 
   @Post(':id/send')
@@ -134,8 +156,37 @@ export class OrdersController {
   @RequirePermissions(Permission.ORDERS_SEND)
   @ApiHeader(IDEMPOTENCY_HEADER)
   @ApiOperation({ summary: 'Envía los ítems pendientes a cocina/barra (una comanda por estación)' })
-  send(@Param('id', ParseUUIDPipe) id: string, @Body() dto: OptionalVersionDto): Promise<OrderDto> {
-    return this.orders.send(id, dto.version);
+  send(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: OptionalVersionDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<OrderDto> {
+    return this.orders.send(id, dto.version, user);
+  }
+
+  @Post(':id/tickets/:ticketId/deliver')
+  @RequirePermissions(Permission.ORDERS_DELIVER)
+  @ApiOperation({
+    summary:
+      'Confirma que una comanda lista llegó a la mesa (mesero del pedido o quien opera todos)',
+  })
+  deliverTicket(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('ticketId', ParseUUIDPipe) ticketId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<OrderDto> {
+    return this.kitchen.deliver(id, ticketId, user);
+  }
+
+  @Post(':id/tickets/:ticketId/undeliver')
+  @RequirePermissions(Permission.ORDERS_DELIVER)
+  @ApiOperation({ summary: 'Deshace una entrega confirmada por error (vuelve a "Listo")' })
+  undeliverTicket(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('ticketId', ParseUUIDPipe) ticketId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<OrderDto> {
+    return this.kitchen.undoDelivery(id, ticketId, user);
   }
 
   @Post(':id/request-bill')
@@ -143,8 +194,9 @@ export class OrdersController {
   requestBill(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: OptionalVersionDto,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<OrderDto> {
-    return this.orders.requestBill(id, dto.version);
+    return this.orders.requestBill(id, dto.version, user);
   }
 
   @Post(':id/move')
@@ -204,10 +256,14 @@ export class KitchenController {
 
   @Patch(':id/status')
   @RequirePermissions(Permission.KITCHEN_UPDATE)
+  @ApiOperation({
+    summary: 'Nuevo → Preparando → Listo (o deshacer un paso); la entrega la confirma el mesero',
+  })
   updateStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateTicketStatusDto,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<KitchenTicketDto> {
-    return this.kitchen.updateStatus(id, dto.status);
+    return this.kitchen.updateStatus(id, dto.status, user);
   }
 }

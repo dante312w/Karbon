@@ -14,6 +14,7 @@ export * from './entities/cash.js';
 export * from './entities/customers.js';
 export * from './entities/settings.js';
 export * from './entities/audit.js';
+export * from './entities/staff-calls.js';
 export * from './requests/admin.js';
 export * from './requests/operations.js';
 export * from './requests/system.js';

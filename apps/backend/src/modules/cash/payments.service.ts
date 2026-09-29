@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   CashSessionStatus,
   ErrorCode,
+  KitchenTicketStatus,
   OrderStatus,
   type PaymentDto,
   PaymentMethod,
@@ -20,6 +21,7 @@ import { StockService } from '../inventory/stock.service.js';
 import { OrderStore } from '../orders/order-store.service.js';
 import { assertOrderEditable } from '../orders/order-rules.js';
 import { SettingsService } from '../settings/settings.service.js';
+import { StaffCallsService } from '../staff-calls/staff-calls.service.js';
 import type { CreatePaymentDto, VoidPaymentDto } from './cash.dto.js';
 import { toPaymentDto } from './cash.mapper.js';
 import { CashService } from './cash.service.js';
@@ -36,6 +38,7 @@ export class PaymentsService {
     private readonly stock: StockService,
     private readonly settings: SettingsService,
     private readonly audit: AuditService,
+    private readonly staffCalls: StaffCallsService,
   ) {}
 
   async listForOrder(orderId: string): Promise<PaymentDto[]> {
@@ -118,6 +121,7 @@ export class PaymentsService {
     this.store.publishUpdated(dtoOut);
     await this.floor.publishTables([order.tableId]);
     await this.stock.publish(ingredientIds);
+    if (dtoOut.status === OrderStatus.PAID) await this.staffCalls.resolveChargeCalls(orderId, user);
     return { order: dtoOut, change: changeMinor, completed };
   }
 
@@ -228,6 +232,7 @@ export class PaymentsService {
       },
     });
     const ingredientIds = await this.stock.applySale(tx, order.id, order.number, user.id);
+    await this.closeReadyTickets(tx, order.id, user);
     if (order.customerId) {
       await tx.customer.update({
         where: { id: order.customerId },
@@ -248,5 +253,33 @@ export class PaymentsService {
       order.tableId && otherActive.length === 0 ? [order.tableId] : [],
     );
     return ingredientIds;
+  }
+
+  /**
+   * Una cuenta cobrada ya se sirvió: lo que seguía "Listo" sin confirmar se da por entregado para
+   * que no quede colgado en el KDS ni en la mesa. `delivered_by_id` nulo marca que fue el sistema.
+   * Lo que aún se prepara (p. ej. para llevar pagado por adelantado) sigue su curso normal.
+   */
+  private async closeReadyTickets(tx: Tx, orderId: string, user: AuthenticatedUser): Promise<void> {
+    const ready = await tx.kitchenTicket.findMany({
+      where: { orderId, status: KitchenTicketStatus.READY },
+      select: { id: true },
+    });
+    if (ready.length === 0) return;
+    const ticketIds = ready.map((ticket) => ticket.id);
+    await tx.kitchenTicket.updateMany({
+      where: { id: { in: ticketIds } },
+      data: { status: KitchenTicketStatus.DELIVERED, deliveredAt: new Date(), deliveredById: null },
+    });
+    await this.audit.log(
+      {
+        userId: user.id,
+        action: 'order.auto_deliver',
+        entity: 'order',
+        entityId: orderId,
+        metadata: { ticketIds, tickets: ticketIds.length },
+      },
+      tx,
+    );
   }
 }

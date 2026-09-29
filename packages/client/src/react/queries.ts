@@ -11,8 +11,15 @@ import {
   type KitchenStation,
   type RestaurantSettingsDto,
 } from '@karbon/types';
-import { formatMoney, getTerminology, type Terminology } from '@karbon/utils';
-import { useCallback } from 'react';
+import {
+  DEFAULT_KDS_THRESHOLDS,
+  formatMoney,
+  getTerminology,
+  noteSuggestions,
+  type Terminology,
+  type UrgencyThresholds,
+} from '@karbon/utils';
+import { useCallback, useMemo } from 'react';
 import { queryKeys } from '../query-keys';
 import { useApi } from './context';
 import { useSession } from './session';
@@ -51,6 +58,14 @@ export function useTerminology(): Terminology & { mode: RestaurantSettingsDto['b
   return { ...getTerminology(mode), mode };
 }
 
+/** Minutos de advertencia y críticos configurados en Negocio (KDS y celulares). */
+export function useUrgencyThresholds(): UrgencyThresholds {
+  const settings = useSettings().data;
+  return settings
+    ? { warningMinutes: settings.kdsWarningMinutes, criticalMinutes: settings.kdsCriticalMinutes }
+    : DEFAULT_KDS_THRESHOLDS;
+}
+
 export function useTables() {
   const api = useApi();
   return useQuery({
@@ -81,6 +96,31 @@ export function useProducts() {
     queryFn: () => api.catalog.products(),
     enabled: useAuthed(),
   });
+}
+
+export function useNoteOptions() {
+  const api = useApi();
+  return useQuery({
+    queryKey: queryKeys.noteOptions,
+    queryFn: () => api.catalog.noteOptions(),
+    enabled: useAuthed(),
+  });
+}
+
+/** Notas de un toque para un producto de la categoría: propias, heredadas y generales. */
+export function useNoteSuggestions(categoryId: string | null | undefined): string[] {
+  const options = useNoteOptions().data;
+  const categories = useCategories().data;
+  return useMemo(
+    () => noteSuggestions(options ?? [], categories ?? [], categoryId ?? null),
+    [options, categories, categoryId],
+  );
+}
+
+/** Igual que `useNoteSuggestions`, para una línea ya pedida (solo conoce el producto). */
+export function useProductNoteSuggestions(productId: string): string[] {
+  const product = useProducts().data?.find((candidate) => candidate.id === productId);
+  return useNoteSuggestions(product?.categoryId);
 }
 
 export function useOrder(id: string | null | undefined) {

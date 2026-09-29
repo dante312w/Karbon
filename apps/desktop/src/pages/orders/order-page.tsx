@@ -2,8 +2,11 @@ import {
   useApi,
   useHasPermission,
   useMoney,
+  useNoteSuggestions,
   useOrder,
+  useOrderAccess,
   useOrderMutation,
+  useSession,
   useTerminology,
 } from '@karbon/client';
 import {
@@ -29,9 +32,11 @@ import {
   ArrowLeftIcon,
   ArrowRightLeftIcon,
   BanIcon,
+  BellRingIcon,
   CopyIcon,
   HandCoinsIcon,
   PencilIcon,
+  PercentIcon,
   PrinterIcon,
   ReceiptTextIcon,
   SendIcon,
@@ -40,9 +45,11 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
+import { CallWaiterDialog } from '../../components/call-waiter-dialog';
 import { ConfirmDialog } from '../../components/confirm-dialog';
 import { formatTime } from '../../lib/format';
 import { useReceiptPrinter } from '../../lib/printing';
+import { DiscountDialog } from './discount-dialog';
 import { ItemEditorDialog } from './item-dialogs';
 import {
   DuplicateOrderDialog,
@@ -57,7 +64,9 @@ import { ProductCatalog } from './product-catalog';
 type Modal =
   | { kind: 'add'; product: ProductDto }
   | { kind: 'item'; item: OrderItemDto }
-  | { kind: 'move' | 'split' | 'duplicate' | 'details' | 'cancel' | 'pay' };
+  | {
+      kind: 'move' | 'split' | 'duplicate' | 'details' | 'cancel' | 'pay' | 'call' | 'discount';
+    };
 
 export default function OrderPage() {
   const { orderId = '' } = useParams();
@@ -93,6 +102,7 @@ function OrderWorkspace({ order }: { order: OrderDto }) {
   const navigate = useNavigate();
   const printer = useReceiptPrinter();
   const [modal, setModal] = useState<Modal | null>(null);
+  const addingNotes = useNoteSuggestions(modal?.kind === 'add' ? modal.product.categoryId : null);
   const can = {
     update: useHasPermission(Permission.ORDERS_UPDATE),
     send: useHasPermission(Permission.ORDERS_SEND),
@@ -101,8 +111,13 @@ function OrderWorkspace({ order }: { order: OrderDto }) {
     pay: useHasPermission(Permission.PAYMENTS_CREATE),
     move: useHasPermission(Permission.TABLES_OPERATE),
     create: useHasPermission(Permission.ORDERS_CREATE),
+    callWaiter: useHasPermission(Permission.CALLS_WAITER),
+    discount: useHasPermission(Permission.ORDERS_DISCOUNT),
   };
-  const editable = isOrderActive(order.status) && can.update;
+  const me = useSession()?.user.id;
+  // Cada mesero opera sus pedidos; con `orders:manage_any` (caja, administración), todos.
+  const owned = useOrderAccess().canManage(order.waiter.id);
+  const editable = isOrderActive(order.status) && can.update && owned;
   const pendingCount = order.items
     .filter((item) => item.status === OrderItemStatus.PENDING)
     .reduce((sum, item) => sum + item.quantity, 0);
@@ -176,11 +191,17 @@ function OrderWorkspace({ order }: { order: OrderDto }) {
         ) : (
           <EmptyState
             icon={ReceiptTextIcon}
-            title={`Pedido ${ORDER_STATUS_LABEL[order.status].toLowerCase()}`}
+            title={
+              isOrderActive(order.status) && !owned
+                ? `Pedido de ${order.waiter.name}`
+                : `Pedido ${ORDER_STATUS_LABEL[order.status].toLowerCase()}`
+            }
             description={
-              order.cancelReason
-                ? `Motivo: ${order.cancelReason}`
-                : 'Este pedido ya no admite cambios.'
+              isOrderActive(order.status) && !owned
+                ? 'Solo quien lo atiende (o caja) puede modificarlo.'
+                : order.cancelReason
+                  ? `Motivo: ${order.cancelReason}`
+                  : 'Este pedido ya no admite cambios.'
             }
             className="my-auto"
           />
@@ -251,6 +272,17 @@ function OrderWorkspace({ order }: { order: OrderDto }) {
                 <SplitIcon /> Dividir
               </Button>
             ) : null}
+            {editable && can.discount && hasItems ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setModal({ kind: 'discount' });
+                }}
+              >
+                <PercentIcon /> {order.orderDiscount ? 'Descuento aplicado' : 'Descuento'}
+              </Button>
+            ) : null}
             {can.create && hasItems ? (
               <Button
                 variant="outline"
@@ -260,6 +292,17 @@ function OrderWorkspace({ order }: { order: OrderDto }) {
                 }}
               >
                 <CopyIcon /> Duplicar
+              </Button>
+            ) : null}
+            {can.callWaiter && isOrderActive(order.status) && order.waiter.id !== me ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setModal({ kind: 'call' });
+                }}
+              >
+                <BellRingIcon /> Llamar mesero
               </Button>
             ) : null}
             {hasItems ? (
@@ -337,7 +380,7 @@ function OrderWorkspace({ order }: { order: OrderDto }) {
         <ItemNotesDialog
           title={modal.product.name}
           description={money(modal.product.price)}
-          suggestions={terms.quickNotes}
+          suggestions={addingNotes}
           confirmLabel={(quantity) => `Agregar · ${money(modal.product.price * quantity)}`}
           onClose={close}
           onConfirm={(quantity, notes) => {
@@ -354,6 +397,14 @@ function OrderWorkspace({ order }: { order: OrderDto }) {
         />
       ) : null}
       {modal?.kind === 'move' ? <MoveOrderDialog order={order} onClose={close} /> : null}
+      {modal?.kind === 'discount' ? <DiscountDialog order={order} onClose={close} /> : null}
+      {modal?.kind === 'call' ? (
+        <CallWaiterDialog
+          place={{ orderId: order.id }}
+          description={`${place} · ${order.waiter.name}`}
+          onClose={close}
+        />
+      ) : null}
       {modal?.kind === 'split' ? <SplitOrderDialog order={order} onClose={close} /> : null}
       {modal?.kind === 'duplicate' ? <DuplicateOrderDialog order={order} onClose={close} /> : null}
       {modal?.kind === 'details' ? <OrderDetailsDialog order={order} onClose={close} /> : null}

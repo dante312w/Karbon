@@ -120,6 +120,8 @@ sequenceDiagram
   K->>API: PATCH /kitchen/tickets/:id {PREPARING → READY}
   API->>WS: kitchen.ready → sala del mesero
   WS-->>W: "Mesa 5 lista" (vibración)
+  W->>API: POST /orders/:id/tickets/:ticketId/deliver (lo lleva a la mesa)
+  API->>WS: kitchen.delivered → KDS (sale de "Listo", cronómetro detenido)
   W->>API: POST /orders/:id/request-bill
   API->>WS: table.changed (esperando cuenta)
   WS-->>C: pedido pendiente de cobro
@@ -130,13 +132,16 @@ sequenceDiagram
 
 - **REST para mutaciones** (validadas, auditables, idempotentes); **Socket.io solo notifica**. Un cliente que pierde eventos se resincroniza con un GET.
 - Cada evento viaja en un sobre `{ id, occurredAt, data }` para descartar duplicados tras reconectar.
+- Celulares (sobre todo iOS, que suspende la app en segundo plano): al volver tras más de 10 s, al recuperar la red o al restaurar la página, `bindResumeSync` reconecta el socket y recarga el estado por REST sin esperar a que venza el ping.
 - **Salas** según los permisos del usuario autenticado (`kitchen`, `cashier`, `waiters`, `admin`, `user:<id>`); los clientes no eligen sala.
 - **Concurrencia**: `orders.version` (bloqueo optimista) + `SELECT … FOR UPDATE` en las transacciones de pedidos, pagos y caja. Dos terminales editando el mismo pedido: la segunda recibe `409 ORDER_VERSION_CONFLICT` y recarga.
 
 ## 5. Modelo de dominio (resumen)
 
 - **Pedido** (`orders`): `OPEN → BILL_REQUESTED → PAID` (o `CANCELLED`); tipos mesa, para llevar y domicilio.
-- **Comandas** (`kitchen_tickets`): cada envío crea una por estación (cocina / barra; en modo bar todo va a barra); el KDS las mueve `NEW → PREPARING → READY → DELIVERED` ([ADR 0007](adr/0007-comandas-y-cuenta-dividida.md)).
+- **Comandas** (`kitchen_tickets`): cada envío crea una por estación (cocina / barra; en modo bar todo va a barra); el KDS las mueve `NEW → PREPARING → READY` y el mesero del pedido confirma `READY → DELIVERED` ([ADR 0007](adr/0007-comandas-y-cuenta-dividida.md), [ADR 0012](adr/0012-entrega-confirmada-por-el-mesero.md)). Los cronómetros se calculan con las marcas de cada paso (`ticketTiming` en `@karbon/utils`): lo entregado muestra un total fijo.
+- **Propiedad del pedido**: cada mesero opera sus pedidos; `orders:manage_any` opera los de todos (`canManageOrder`, misma regla en backend y pantallas).
+- **Llamados internos** (`staff_calls`): cocina, barra y caja llaman al mesero; el mesero llama a caja. Se guardan en la base y el socket solo avisa; repetir uno abierto insiste en él ([ADR 0013](adr/0013-llamados-internos-persistidos.md)).
 - **Mesa**: estado persistido (`FREE`, `OCCUPIED`, `WAITING_FOOD`, `WAITING_BILL`, `PAID`, `RESERVED`); se pueden unir y mover pedidos entre mesas.
 - **Inventario por receta**: cada venta descuenta `receta × cantidad` de cada insumo con un movimiento inmutable en el kardex; anular un pago lo repone. Costo promedio ponderado al recibir compras.
 - **Caja**: una sola sesión abierta (índice parcial único); esperado = base + efectivo cobrado + ingresos − retiros − gastos en efectivo; el cierre registra el arqueo y la diferencia.

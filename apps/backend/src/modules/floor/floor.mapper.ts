@@ -1,11 +1,12 @@
-import type {
-  AreaDto,
-  FloorElementDto,
-  ReservationDto,
-  TableDto,
-  TableOrderSummary,
+import {
+  type AreaDto,
+  type FloorElementDto,
+  OrderItemStatus,
+  type ReservationDto,
+  type TableDto,
+  type TableOrderSummary,
 } from '@karbon/types';
-import { ACTIVE_ORDER_STATUSES, isTicketOpen } from '@karbon/utils';
+import { ACTIVE_ORDER_STATUSES, isTicketOpen, summarizePreparation } from '@karbon/utils';
 import type { FloorElement, Prisma, Reservation } from '../../generated/prisma/client.js';
 import { decimalToMinor } from '../../common/money.js';
 import { iso, timestamps } from '../../common/mapping.js';
@@ -16,7 +17,8 @@ export const TABLE_INCLUDE = {
     orderBy: { createdAt: 'asc' },
     include: {
       waiter: { select: { name: true } },
-      tickets: { select: { status: true } },
+      tickets: { select: { status: true, createdAt: true } },
+      items: { where: { status: { not: OrderItemStatus.CANCELLED } }, select: { quantity: true } },
     },
   },
 } satisfies Prisma.DiningTableInclude;
@@ -63,6 +65,10 @@ export function toTableDto(table: TableWithOrders, currency: string): TableDto {
     waiterId: order.waiterId,
     waiterName: order.waiter.name,
     pendingTickets: order.tickets.filter((ticket) => isTicketOpen(ticket.status)).length,
+    ...summarizePreparation(
+      order.tickets.map((ticket) => ({ status: ticket.status, createdAt: iso(ticket.createdAt) })),
+    ),
+    itemCount: order.items.reduce((sum, item) => sum + item.quantity, 0),
     createdAt: iso(order.createdAt),
   }));
   return {

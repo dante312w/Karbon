@@ -37,7 +37,7 @@ Todas las respuestas de error siguen `ApiErrorBody`:
 }
 ```
 
-Códigos (`ErrorCode` en `@karbon/types`): genéricos (`VALIDATION_FAILED`, `UNAUTHENTICATED`, `INVALID_CREDENTIALS`, `REFRESH_TOKEN_INVALID`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `RATE_LIMITED`, `INTERNAL_ERROR`), idempotencia (`IDEMPOTENCY_IN_PROGRESS`, `IDEMPOTENCY_KEY_REUSED`), pedidos (`ORDER_VERSION_CONFLICT`, `ORDER_NOT_EDITABLE`, `ORDER_EMPTY`, `ORDER_HAS_PAYMENTS`, `ITEM_ALREADY_SENT`, `PRODUCT_UNAVAILABLE`, `TABLE_OCCUPIED`, `TABLE_REQUIRED`, `INVALID_STATUS_TRANSITION`), caja (`CASH_SESSION_REQUIRED`, `CASH_SESSION_ALREADY_OPEN`, `PAYMENT_EXCEEDS_BALANCE`, `INSUFFICIENT_TENDERED`), facturación e impresión (`NUMBERING_RANGE_EXHAUSTED`, `FISCAL_PROVIDER_NOT_CONFIGURED`, `PRINTER_UNREACHABLE`, `PRINTER_NOT_SUPPORTED`) y sistema (`SETUP_ALREADY_COMPLETED`, `LICENSE_INVALID` con `402`, `BACKUP_UNAVAILABLE`).
+Códigos (`ErrorCode` en `@karbon/types`): genéricos (`VALIDATION_FAILED`, `UNAUTHENTICATED`, `INVALID_CREDENTIALS`, `REFRESH_TOKEN_INVALID`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `RATE_LIMITED`, `INTERNAL_ERROR`), idempotencia (`IDEMPOTENCY_IN_PROGRESS`, `IDEMPOTENCY_KEY_REUSED`), pedidos (`ORDER_VERSION_CONFLICT`, `ORDER_NOT_EDITABLE`, `ORDER_EMPTY`, `ORDER_HAS_PAYMENTS`, `ITEM_ALREADY_SENT`, `PRODUCT_UNAVAILABLE`, `TABLE_OCCUPIED`, `TABLE_REQUIRED`, `INVALID_STATUS_TRANSITION`, `DISCOUNT_LIMIT_EXCEEDED`), caja (`CASH_SESSION_REQUIRED`, `CASH_SESSION_ALREADY_OPEN`, `PAYMENT_EXCEEDS_BALANCE`, `INSUFFICIENT_TENDERED`), facturación e impresión (`NUMBERING_RANGE_EXHAUSTED`, `FISCAL_PROVIDER_NOT_CONFIGURED`, `PRINTER_UNREACHABLE`, `PRINTER_NOT_SUPPORTED`) y sistema (`SETUP_ALREADY_COMPLETED`, `LICENSE_INVALID` con `402`, `BACKUP_UNAVAILABLE`).
 
 ## Endpoints
 
@@ -88,8 +88,12 @@ Todas las rutas cuelgan de `/api/v1`. "Público" = sin token; "autenticado" = cu
 | `GET/POST /areas` · `PATCH/DELETE /areas/:id` (cada área incluye sus `elements` del plano)                   | `tables:read` / `tables:write`             |
 | `POST /areas/:id/elements` · `PATCH/DELETE /floor-elements/:id` (barra, cocina, baños, entrada, caja, pared) | `tables:write`                             |
 | `GET/POST /tables` · `GET/PATCH/DELETE /tables/:id`                                                          | `tables:read` / `tables:write`             |
-| `POST /tables/:id/merge` · `POST /tables/:id/unmerge` · `PATCH /tables/:id/status`                           | `tables:operate`                           |
+| `POST /tables/:id/merge` · `POST /tables/:id/unmerge` · `PATCH /tables/:id/status`                           | `tables:operate` (+ propiedad, ver abajo)  |
 | `GET/POST /reservations` · `PATCH/DELETE /reservations/:id`                                                  | `reservations:read` / `reservations:write` |
+
+**Unir mesas** acepta mesas libres u ocupadas: las cuentas abiertas de las mesas que se unen pasan a la principal como cuentas separadas, con sus productos, notas, mesero, comandas (enviadas o ya preparadas), pagos parciales y divisiones; su `version` sube. Si una mesa unida tenía otras unidas, todas quedan con la principal. **Separar** libera las mesas unidas y deja las cuentas en la principal. En ambos casos hay que poder operar cada cuenta de las mesas involucradas; si no, `403 FORBIDDEN`.
+
+Cada mesa trae en `activeOrders` el resumen de sus cuentas abiertas: total, mesero, `itemCount`, `readyTickets` (comandas listas para recoger) y `preparingSince` (envío de la comanda más antigua aún en cocina). Con eso el celular pinta el mapa sin cargar cada pedido; `table.changed` lo mantiene al día.
 
 ### Catálogo
 
@@ -101,27 +105,56 @@ Todas las rutas cuelgan de `/api/v1`. "Público" = sin token; "autenticado" = cu
 | `PATCH /products/:id/availability`                                    | `catalog:write` o `kitchen:update` (agotado) |
 | `GET /products/:id/image` · `PUT /products/:id/image`                 | público / `catalog:write`                    |
 | `GET /products/:id/recipe` · `PUT /products/:id/recipe`               | `catalog:read` / `catalog:write`             |
+| `GET /note-options` · `POST /note-options`                            | `catalog:read` / `catalog:write`             |
+| `PATCH/DELETE /note-options/:id` · `PUT /note-options/order`          | `catalog:write`                              |
+
+Las **notas de un toque** (`NoteOptionDto`) pertenecen a una categoría o son generales (`categoryId: null`). `GET /note-options` devuelve solo las activas; con `?includeInactive=true`, también las apagadas (para administrarlas). El celular y la caja las combinan con `noteSuggestions` de `@karbon/utils`: primero las de la categoría del producto, luego las de sus categorías madre y al final las generales, sin repetir. Al pedir, la nota se guarda como texto en la línea (`notes`): editar o borrar una opción no cambia pedidos anteriores.
+
+- El texto se normaliza (espacios) y no se repite dentro del grupo sin distinguir mayúsculas (`409`).
+- `PUT /note-options/order` recibe `{ categoryId, ids }` con **todas** las notas del grupo en el nuevo orden; si alguien agregó o borró una mientras tanto, responde `409`.
+- `DELETE /categories/:id` rechaza categorías con productos o subcategorías (`409`) y elimina sus notas.
 
 ### Pedidos y preparación (cocina o barra)
 
-| Método y ruta                                          | Permiso                          | Descripción                                                     |
-| ------------------------------------------------------ | -------------------------------- | --------------------------------------------------------------- |
-| `GET /orders` · `GET /orders/:id`                      | `orders:read`                    | Historial paginado (`status`, `from`, `to`, `search`) y detalle |
-| `POST /orders`                                         | `orders:create`                  | Mesa, para llevar o domicilio; puede enviarse de inmediato      |
-| `PATCH /orders/:id`                                    | `orders:update`                  | Cliente, comensales, etiqueta, notas y propina                  |
-| `POST /orders/:id/items`                               | `orders:update`                  | Agregar ítems (idempotente)                                     |
-| `PATCH /orders/:id/items/:itemId`                      | `orders:update`                  | Cantidad, notas, descuento (`orders:discount`)                  |
-| `POST /orders/:id/items/:itemId/cancel` · `/duplicate` | `orders:update`                  | Anular (con motivo) o duplicar un ítem                          |
-| `PUT /orders/:id/items/order`                          | `orders:update`                  | Reordenar                                                       |
-| `POST /orders/:id/send`                                | `orders:send`                    | Envía lo pendiente: una comanda por estación (idempotente)      |
-| `POST /orders/:id/request-bill`                        | `orders:request_bill`            | Mesa en "esperando cuenta"                                      |
-| `POST /orders/:id/move`                                | `tables:operate`                 | Mover a otra mesa libre                                         |
-| `POST /orders/:id/split`                               | `orders:update`                  | Dividir la cuenta por ítems en un pedido nuevo                  |
-| `POST /orders/:id/duplicate`                           | `orders:create`                  | Repetir el pedido                                               |
-| `POST /orders/:id/cancel`                              | `orders:cancel`                  | Anular con motivo (no si tiene pagos)                           |
-| `GET /kitchen/tickets?station=&status=`                | `kitchen:read`                   | Comandas del KDS                                                |
-| `PATCH /kitchen/tickets/:id/status`                    | `kitchen:update`                 | `NEW → PREPARING → READY → DELIVERED`                           |
-| `POST /kitchen/tickets/:id/print`                      | `kitchen:update` o `orders:send` | Reimprime la comanda en su impresora                            |
+**Propiedad del pedido.** Toda ruta que modifica un pedido (ítems, envío, cuenta, mover, dividir, cancelar, entrega) exige, además del permiso, ser el mesero del pedido o tener `orders:manage_any` (caja y administración por defecto). Si no, `403 FORBIDDEN`. Consultar pedidos no cambia: `orders:read` ve todos.
+
+| Método y ruta                                          | Permiso                          | Descripción                                                          |
+| ------------------------------------------------------ | -------------------------------- | -------------------------------------------------------------------- |
+| `GET /orders` · `GET /orders/:id`                      | `orders:read`                    | Historial paginado (`status`, `from`, `to`, `search`) y detalle      |
+| `POST /orders`                                         | `orders:create`                  | Mesa, para llevar o domicilio; puede enviarse de inmediato           |
+| `PATCH /orders/:id`                                    | `orders:update`                  | Cliente, comensales, etiqueta, notas y propina                       |
+| `POST /orders/:id/items`                               | `orders:update`                  | Agregar ítems (idempotente)                                          |
+| `PATCH /orders/:id/items/:itemId`                      | `orders:update`                  | Cantidad, notas, descuento (`orders:discount`)                       |
+| `POST /orders/:id/items/:itemId/cancel` · `/duplicate` | `orders:update`                  | Anular (con motivo) o duplicar un ítem                               |
+| `PUT /orders/:id/items/order`                          | `orders:update`                  | Reordenar                                                            |
+| `POST /orders/:id/send`                                | `orders:send`                    | Envía lo pendiente: una comanda por estación (idempotente)           |
+| `POST /orders/:id/request-bill`                        | `orders:request_bill`            | Mesa en "esperando cuenta"                                           |
+| `POST /orders/:id/tickets/:ticketId/deliver`           | `orders:deliver` + propiedad     | Confirma que una comanda **Listo** llegó a la mesa (ver abajo)       |
+| `POST /orders/:id/tickets/:ticketId/undeliver`         | `orders:deliver` + propiedad     | Deshace una entrega confirmada por error (vuelve a **Listo**)        |
+| `POST /orders/:id/move`                                | `tables:operate`                 | Mover a otra mesa libre                                              |
+| `POST /orders/:id/split`                               | `orders:update`                  | Dividir la cuenta por ítems en un pedido nuevo                       |
+| `PUT /orders/:id/discount`                             | `orders:discount`                | Descuento sobre el total (porcentaje o valor) o `null` para quitarlo |
+| `POST /orders/:id/duplicate`                           | `orders:create`                  | Repetir el pedido                                                    |
+| `POST /orders/:id/cancel`                              | `orders:cancel`                  | Anular con motivo (no si tiene pagos)                                |
+| `GET /kitchen/tickets?station=&status=`                | `kitchen:read`                   | Comandas del KDS                                                     |
+| `PATCH /kitchen/tickets/:id/status`                    | `kitchen:update`                 | `NEW → PREPARING → READY` (o retroceder un paso)                     |
+| `POST /kitchen/tickets/:id/print`                      | `kitchen:update` o `orders:send` | Reimprime la comanda en su impresora                                 |
+
+**Descuentos** (caja). `PUT /orders/:id/discount` recibe `{ version, discount: { type: 'PERCENT' | 'AMOUNT', value, reason } | null }`: porcentaje con hasta 2 decimales (0 < % ≤ 100) o valor en unidades menores, y un motivo de al menos 3 caracteres. El servidor lo reparte entre las líneas en proporción a su valor (`calculateOrderTotals`, la misma función que usa la vista previa), así cada tarifa de impuesto se calcula sobre lo que se cobra; la propina se calcula después del descuento y un valor fijo mayor que la cuenta la deja en cero. Se rechaza con `422 DISCOUNT_LIMIT_EXCEEDED` si los descuentos (por producto + al pedido) superan `maxDiscountPercent` de la configuración (100 = sin límite; también aplica a `PATCH …/items/:itemId` con `discount`), y con `409 ORDER_HAS_PAYMENTS` si el total quedaría por debajo de lo ya pagado. `OrderDto.orderDiscount` trae tipo, valor, lo que descuenta hoy (`amount`), motivo, quién y cuándo; la bitácora registra `order.discount` (con `previousTotal`, `discountAmount` y `finalTotal`) y `order.discount_removed`. Al dividir la cuenta, un porcentaje pasa a las dos cuentas; con un valor fijo la división responde `409` hasta quitarlo.
+
+**Entrega en la mesa** ([ADR 0012](adr/0012-entrega-confirmada-por-el-mesero.md)). Cocina o barra llevan la comanda hasta **Listo**; pedirle `DELIVERED` al KDS responde `409 INVALID_STATUS_TRANSITION`. La entrega la confirma el mesero del pedido; con `orders:manage_any` (caja, administración y la barra en modo bar) se confirma la de cualquier pedido; si no, `403 FORBIDDEN`. Cada paso guarda su hora y retroceder borra la del paso deshecho, así los cronómetros se calculan siempre con marcas reales. Al cobrar el pedido completo, lo que seguía en **Listo** pasa a **Entregado** sin `deliveredBy` y queda en la bitácora (`order.auto_deliver`).
+
+### Llamados internos
+
+| Método y ruta                       | Permiso                                               | Qué hace                                                |
+| ----------------------------------- | ----------------------------------------------------- | ------------------------------------------------------- |
+| `GET /staff-calls`                  | `calls:*`, `orders:deliver` o `payments:create`       | Abiertos que hice o que puedo atender                   |
+| `POST /staff-calls`                 | `calls:waiter` (al mesero) o `calls:cashier` (a caja) | Llamar; repetir uno abierto insiste en él (`callCount`) |
+| `POST /staff-calls/:id/acknowledge` | `orders:deliver` (mesero) o `payments:create` (caja)  | "Voy": lo toma; si ya lo tomó otro, `409` con su nombre |
+| `POST /staff-calls/:id/resolve`     | Quien lo atiende o quien llamó                        | Atendido                                                |
+| `POST /staff-calls/:id/cancel`      | Solo quien llamó                                      | Ya no hace falta                                        |
+
+`CreateStaffCallRequest`: `{ target: 'WAITER' | 'CASHIER', reason, orderId?, tableId?, message? }`. Motivos: al mesero `TABLE_ATTENTION` (requiere mesa o pedido) y `COME_OVER`; a caja `CHARGE_TABLE` (requiere mesa o pedido), `ACCOUNT_HELP` y `CUSTOMER_ATTENTION`. Un motivo de otro destino responde `400`. El servidor deduce el mesero destinatario (el del pedido o el de la cuenta abierta de la mesa; si no hay uno solo, todos). Al cobrar el pedido completo sus `CHARGE_TABLE` quedan atendidos, y al cerrar la caja se cancelan los abiertos ([ADR 0013](adr/0013-llamados-internos-persistidos.md)).
 
 ### Caja, pagos y facturación
 
@@ -183,12 +216,15 @@ socket.on('order.updated', ({ id, occurredAt, data }) => {
 
 ### Eventos
 
-| Evento              | Payload (`data`)                               | Cuándo                                                                            |
-| ------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------- |
-| `order.created`     | `{ order: OrderDto }`                          | Se crea un pedido                                                                 |
-| `order.updated`     | `{ order: OrderDto }`                          | Ítems, envío a preparación, avance de comandas, pagos, cancelación                |
-| `kitchen.ready`     | `{ ticket: KitchenTicketDto, waiterId }`       | Una comanda pasa a **Listo** (al mesero que la tomó y a caja)                     |
-| `table.changed`     | `{ table: TableDto }`                          | Cambia el estado de una mesa, se une o se mueve un pedido                         |
-| `inventory.updated` | `{ ingredientIds, lowStock: LowStockAlert[] }` | Movimientos de inventario (ventas, compras, ajustes)                              |
-| `cash.closed`       | `{ session: CashSessionDto }`                  | Se cierra un turno de caja                                                        |
-| `settings.updated`  | `{ settings: RestaurantSettingsDto }`          | Cambia la configuración (p. ej. restaurante ↔ bar): todas las terminales recargan |
+| Evento               | Payload (`data`)                               | Cuándo                                                                            |
+| -------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------- |
+| `order.created`      | `{ order: OrderDto }`                          | Se crea un pedido (cocina, caja, administración y meseros)                        |
+| `order.updated`      | `{ order: OrderDto }`                          | Ítems, envío a preparación, avance de comandas, pagos, cancelación                |
+| `kitchen.ready`      | `{ ticket: KitchenTicketDto, waiterId }`       | Una comanda pasa a **Listo** (al mesero que la tomó y a caja)                     |
+| `kitchen.delivered`  | `{ ticket: KitchenTicketDto, waiterId }`       | Se confirma o se deshace una entrega (al mesero, cocina, caja y administración)   |
+| `table.changed`      | `{ table: TableDto }`                          | Cambia el estado de una mesa, se une o se mueve un pedido                         |
+| `inventory.updated`  | `{ ingredientIds, lowStock: LowStockAlert[] }` | Movimientos de inventario (ventas, compras, ajustes)                              |
+| `cash.closed`        | `{ session: CashSessionDto }`                  | Se cierra un turno de caja                                                        |
+| `settings.updated`   | `{ settings: RestaurantSettingsDto }`          | Cambia la configuración (p. ej. restaurante ↔ bar): todas las terminales recargan |
+| `staff_call.created` | `{ call: StaffCallDto, alert }`                | Llamado nuevo: a meseros o a caja según el destino, y a quien llamó               |
+| `staff_call.updated` | `{ call: StaffCallDto, alert }`                | Insistencia (`alert: true`), "Voy", atendido o cancelado (`alert: false`)         |

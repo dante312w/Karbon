@@ -1,3 +1,5 @@
+import { type KitchenTicketDto, KitchenTicketStatus, type TableOrderSummary } from '@karbon/types';
+
 export type TicketUrgency = 'normal' | 'warning' | 'critical';
 
 export interface UrgencyThresholds {
@@ -24,6 +26,85 @@ export function getTicketUrgency(
   if (minutes >= thresholds.criticalMinutes) return 'critical';
   if (minutes >= thresholds.warningMinutes) return 'warning';
   return 'normal';
+}
+
+export interface TicketTiming {
+  /** En cocina: envío → listo; mientras no esté lista, envío → ahora. */
+  kitchenMs: number;
+  /** Esperando al mesero: listo → entregado (o → ahora); `null` si aún no está lista. */
+  pickupMs: number | null;
+  /** Envío → entrega; `null` mientras no se entrega. */
+  totalMs: number | null;
+  /** Entregada o cancelada: ningún valor depende de la hora actual, el cronómetro no avanza. */
+  stopped: boolean;
+}
+
+type TimedTicket = Pick<KitchenTicketDto, 'status' | 'createdAt' | 'readyAt' | 'deliveredAt'>;
+
+/**
+ * Tiempos de una comanda a partir de sus marcas reales. `now` solo interviene en las etapas
+ * en curso: una comanda entregada muestra siempre el mismo total aunque la pantalla se refresque.
+ */
+export function ticketTiming(ticket: TimedTicket, now: number): TicketTiming {
+  const created = Date.parse(ticket.createdAt);
+  const ready = ticket.readyAt ? Date.parse(ticket.readyAt) : null;
+  const delivered = ticket.deliveredAt ? Date.parse(ticket.deliveredAt) : null;
+  const span = (from: number, to: number): number => Math.max(0, to - from);
+
+  switch (ticket.status) {
+    case KitchenTicketStatus.NEW:
+    case KitchenTicketStatus.PREPARING:
+      return { kitchenMs: span(created, now), pickupMs: null, totalMs: null, stopped: false };
+    case KitchenTicketStatus.READY: {
+      const readyAt = ready ?? now;
+      return {
+        kitchenMs: span(created, readyAt),
+        pickupMs: span(readyAt, now),
+        totalMs: null,
+        stopped: false,
+      };
+    }
+    case KitchenTicketStatus.DELIVERED: {
+      // Sin marca de entrega (datos antiguos) el último instante conocido es "listo".
+      const end = delivered ?? ready ?? created;
+      const readyAt = ready ?? end;
+      return {
+        kitchenMs: span(created, readyAt),
+        pickupMs: span(readyAt, end),
+        totalMs: span(created, end),
+        stopped: true,
+      };
+    }
+    case KitchenTicketStatus.CANCELLED:
+      return {
+        kitchenMs: ready === null ? 0 : span(created, ready),
+        pickupMs: null,
+        totalMs: null,
+        stopped: true,
+      };
+  }
+}
+
+export type PreparationSummary = Pick<TableOrderSummary, 'readyTickets' | 'preparingSince'>;
+
+/**
+ * Qué le importa al mesero de las comandas de un pedido: cuántas puede recoger y desde cuándo
+ * espera la más antigua. Lo usan el mapa de mesas (backend) y las pantallas del celular.
+ */
+export function summarizePreparation(
+  tickets: readonly Pick<KitchenTicketDto, 'status' | 'createdAt'>[],
+): PreparationSummary {
+  let readyTickets = 0;
+  let preparingSince: string | null = null;
+  for (const ticket of tickets) {
+    if (ticket.status === KitchenTicketStatus.READY) readyTickets += 1;
+    const inKitchen =
+      ticket.status === KitchenTicketStatus.NEW || ticket.status === KitchenTicketStatus.PREPARING;
+    if (inKitchen && (preparingSince === null || ticket.createdAt < preparingSince)) {
+      preparingSince = ticket.createdAt;
+    }
+  }
+  return { readyTickets, preparingSince };
 }
 
 /** Cronómetro `mm:ss`, o `h:mm:ss` a partir de una hora. Valores negativos cuentan como 0. */

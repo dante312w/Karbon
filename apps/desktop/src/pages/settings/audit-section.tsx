@@ -24,6 +24,7 @@ const ENTITY_LABEL: Record<string, string> = {
   expense: 'Gastos',
   product: 'Productos',
   category: 'Categorías',
+  category_note_option: 'Notas de un toque',
   table: 'Mesas',
   ingredient: 'Insumos',
   purchase: 'Compras',
@@ -42,8 +43,10 @@ const ACTION_LABEL: Record<string, string> = {
   'order.cancel': 'Pedido anulado',
   'order.item_cancel': 'Ítem anulado',
   'order.discount': 'Descuento aplicado',
+  'order.discount_removed': 'Descuento quitado',
   'order.move': 'Pedido movido de mesa',
   'order.split': 'Cuenta dividida',
+  'order.auto_deliver': 'Entregas cerradas al cobrar',
   'payment.void': 'Pago anulado',
   'invoice.issue': 'Factura emitida',
   'invoice.void': 'Factura anulada',
@@ -57,6 +60,7 @@ const ACTION_LABEL: Record<string, string> = {
   'product.delete': 'Producto eliminado',
   'product.recipe': 'Receta modificada',
   'category.delete': 'Categoría eliminada',
+  'note_option.delete': 'Nota de un toque eliminada',
   'table.status': 'Estado de mesa cambiado',
   'table.merge': 'Mesas unidas',
   'table.unmerge': 'Mesas separadas',
@@ -104,6 +108,7 @@ const KEY_LABEL: Record<string, string> = {
   expiresAt: 'Vence',
   name: 'Nombre',
   rate: 'Tarifa (%)',
+  tickets: 'Comandas',
 };
 
 /** La bitácora guarda los montos en unidades menores, como el resto de la API. */

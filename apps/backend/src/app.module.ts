@@ -18,6 +18,7 @@ import { RealtimeModule } from './modules/realtime/realtime.module.js';
 import { ReportsModule } from './modules/reports/reports.module.js';
 import { SettingsModule } from './modules/settings/settings.module.js';
 import { SetupModule } from './modules/setup/setup.module.js';
+import { StaffCallsModule } from './modules/staff-calls/staff-calls.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { SystemModule } from './system/system.module.js';
@@ -46,6 +47,7 @@ import { SystemModule } from './system/system.module.js';
     CatalogModule,
     OrdersModule,
     CashModule,
+    StaffCallsModule,
     BillingModule,
     CustomersModule,
     ReportsModule,

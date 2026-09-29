@@ -4,6 +4,7 @@ import {
   useApiMutation,
   useHasPermission,
   useMoney,
+  useSession,
   useTerminology,
 } from '@karbon/client';
 import { Permission, TableStatus, type TableDto } from '@karbon/types';
@@ -18,8 +19,9 @@ import {
   tableStatusLabel,
   toast,
 } from '@karbon/ui';
-import { elapsedLabel } from '@karbon/utils';
+import { elapsedLabel, mergeCandidates, mergedChildren } from '@karbon/utils';
 import {
+  BellRingIcon,
   CalendarClockIcon,
   ChevronRightIcon,
   DoorOpenIcon,
@@ -29,6 +31,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
+import { CallWaiterDialog } from '../../components/call-waiter-dialog';
 
 /** Detalle de una mesa: sus cuentas abiertas y las operaciones de salón. */
 export function TablePanel({
@@ -50,7 +53,10 @@ export function TablePanel({
   const navigate = useNavigate();
   const canOperate = useHasPermission(Permission.TABLES_OPERATE);
   const canCreate = useHasPermission(Permission.ORDERS_CREATE);
+  const canCallWaiter = useHasPermission(Permission.CALLS_WAITER);
+  const session = useSession();
   const [merging, setMerging] = useState<string[] | null>(null);
+  const [callingWaiter, setCallingWaiter] = useState(false);
 
   const invalidate = [queryKeys.tables];
   const setStatus = useApiMutation(
@@ -76,15 +82,8 @@ export function TablePanel({
 
   if (!table) return null;
   const meta = TABLE_STATUS_META[table.status];
-  const children = tables.filter((candidate) => candidate.mergedIntoId === table.id);
-  const mergeCandidates = tables.filter(
-    (candidate) =>
-      candidate.id !== table.id &&
-      candidate.areaId === table.areaId &&
-      candidate.mergedIntoId === null &&
-      candidate.activeOrders.length === 0 &&
-      !tables.some((other) => other.mergedIntoId === candidate.id),
-  );
+  const children = mergedChildren(table, tables);
+  const candidates = session ? mergeCandidates(table, tables, session.user) : [];
   const hasOrders = table.activeOrders.length > 0;
 
   return (
@@ -113,10 +112,11 @@ export function TablePanel({
         {merging ? (
           <section className="flex flex-col gap-3">
             <p className="text-sm text-muted-foreground">
-              Elige las mesas libres que se unen a {table.name}.
+              Elige las mesas que se unen a {table.name}. Si tienen cuentas abiertas, pasan a{' '}
+              {table.name} como cuentas separadas.
             </p>
             <div className="grid grid-cols-3 gap-2">
-              {mergeCandidates.map((candidate) => {
+              {candidates.map((candidate) => {
                 const checked = merging.includes(candidate.id);
                 return (
                   <Button
@@ -133,12 +133,15 @@ export function TablePanel({
                     }}
                   >
                     {candidate.name}
+                    {candidate.activeOrders.length > 0 ? ' · ocupada' : ''}
                   </Button>
                 );
               })}
             </div>
-            {mergeCandidates.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No hay mesas libres en esta área.</p>
+            {candidates.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No hay mesas que puedas unir en esta área.
+              </p>
             ) : null}
             <div className="flex justify-end gap-2">
               <Button
@@ -205,6 +208,17 @@ export function TablePanel({
             </section>
 
             <section className="mt-auto flex flex-col gap-2">
+              {canCallWaiter && hasOrders ? (
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={() => {
+                    setCallingWaiter(true);
+                  }}
+                >
+                  <BellRingIcon /> Llamar al mesero
+                </Button>
+              ) : null}
               {!hasOrders && canCreate ? (
                 <Button
                   size="touch"
@@ -266,6 +280,17 @@ export function TablePanel({
                 </div>
               ) : null}
             </section>
+            {callingWaiter ? (
+              <CallWaiterDialog
+                place={{ tableId: table.id }}
+                description={`${table.name} · ${[
+                  ...new Set(table.activeOrders.map((order) => order.waiterName)),
+                ].join(', ')}`}
+                onClose={() => {
+                  setCallingWaiter(false);
+                }}
+              />
+            ) : null}
           </>
         )}
       </DialogContent>

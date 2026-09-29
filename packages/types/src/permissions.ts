@@ -1,4 +1,4 @@
-import { SystemRole } from './enums.js';
+import { BusinessMode, SystemRole } from './enums.js';
 
 /**
  * Permisos RBAC con formato `recurso:acción`. Los roles guardan una lista de estos
@@ -29,9 +29,18 @@ export const Permission = {
   ORDERS_REQUEST_BILL: 'orders:request_bill',
   ORDERS_CANCEL: 'orders:cancel',
   ORDERS_DISCOUNT: 'orders:discount',
+  /** Confirmar que una comanda lista llegó a la mesa. */
+  ORDERS_DELIVER: 'orders:deliver',
+  /** Operar pedidos de otros meseros; sin él, cada quien opera solo los suyos. */
+  ORDERS_MANAGE_ANY: 'orders:manage_any',
 
   KITCHEN_READ: 'kitchen:read',
   KITCHEN_UPDATE: 'kitchen:update',
+
+  /** Llamar al mesero de una mesa (o a todos) desde cocina, barra o caja. */
+  CALLS_WAITER: 'calls:waiter',
+  /** Llamar a caja desde el celular del mesero. */
+  CALLS_CASHIER: 'calls:cashier',
 
   PAYMENTS_CREATE: 'payments:create',
   PAYMENTS_VOID: 'payments:void',
@@ -76,7 +85,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Readonly<Record<SystemRole, readonly Perm
     P.ORDERS_SEND,
     P.ORDERS_REQUEST_BILL,
     P.ORDERS_DISCOUNT,
+    P.ORDERS_DELIVER,
+    P.ORDERS_MANAGE_ANY,
     P.KITCHEN_READ,
+    P.CALLS_WAITER,
     P.PAYMENTS_CREATE,
     P.CASH_READ,
     P.CASH_OPEN,
@@ -87,19 +99,40 @@ export const DEFAULT_ROLE_PERMISSIONS: Readonly<Record<SystemRole, readonly Perm
     P.CUSTOMERS_READ,
     P.CUSTOMERS_WRITE,
   ],
+  // Opera mesas (mover, unir, liberar), pero solo con sus propias cuentas (`canManageOrder`).
   [SystemRole.WAITER]: [
     P.TABLES_READ,
+    P.TABLES_OPERATE,
     P.CATALOG_READ,
     P.ORDERS_READ,
     P.ORDERS_CREATE,
     P.ORDERS_UPDATE,
     P.ORDERS_SEND,
     P.ORDERS_REQUEST_BILL,
+    P.ORDERS_DELIVER,
     P.KITCHEN_READ,
+    P.CALLS_CASHIER,
     P.CUSTOMERS_READ,
   ],
-  [SystemRole.KITCHEN]: [P.KITCHEN_READ, P.KITCHEN_UPDATE],
+  [SystemRole.KITCHEN]: [P.KITCHEN_READ, P.KITCHEN_UPDATE, P.CALLS_WAITER],
 };
+
+/**
+ * Permisos que cada modo suma a los roles de sistema. En modo bar el barman entrega lo que
+ * prepara, sea de quien sea el pedido.
+ */
+const MODE_EXTRA_PERMISSIONS: Readonly<
+  Record<BusinessMode, Partial<Record<SystemRole, readonly Permission[]>>>
+> = {
+  [BusinessMode.RESTAURANT]: {},
+  [BusinessMode.BAR]: { [SystemRole.KITCHEN]: [P.ORDERS_DELIVER, P.ORDERS_MANAGE_ANY] },
+};
+
+/** Permisos efectivos de un rol de sistema en el modo del negocio (seed y cambio de modo). */
+export function systemRolePermissions(role: SystemRole, mode: BusinessMode): Permission[] {
+  const extra = MODE_EXTRA_PERMISSIONS[mode][role] ?? [];
+  return [...new Set([...DEFAULT_ROLE_PERMISSIONS[role], ...extra])];
+}
 
 export function isPermission(value: string): value is Permission {
   return (ALL_PERMISSIONS as readonly string[]).includes(value);

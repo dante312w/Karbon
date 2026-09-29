@@ -15,3 +15,5 @@ Cada decisión con más de una opción razonable se documenta aquí: contexto, o
 | [0009](0009-modo-bar.md)                          | Modo bar como configuración (`businessMode`), no como otra aplicación       | Aceptada |
 | [0010](0010-licencias-firmadas-sin-conexion.md)   | Licencias firmadas (Ed25519) que se validan sin conexión                    | Aceptada |
 | [0011](0011-servidor-embebido-supervisado.md)     | Servidor embebido: migrador propio y supervisión desde Electron             | Aceptada |
+| [0012](0012-entrega-confirmada-por-el-mesero.md)  | La entrega la confirma el mesero; propiedad del pedido (`manage_any`)       | Aceptada |
+| [0013](0013-llamados-internos-persistidos.md)     | Llamados internos (mesero ↔ caja/cocina) guardados en la base               | Aceptada |

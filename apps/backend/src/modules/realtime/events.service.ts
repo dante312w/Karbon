@@ -14,11 +14,18 @@ export type KarbonServer = Server<ClientToServerEvents, ServerToClientEvents>;
 
 /** Destinos por evento (docs/API.md). */
 export const EVENT_ROOMS = {
-  orderCreated: [SocketRoom.CASHIER, SocketRoom.ADMIN, SocketRoom.KITCHEN],
+  // Los meseros también: su lista de pedidos abiertos y el mapa se mantienen sin recargar.
+  orderCreated: [SocketRoom.CASHIER, SocketRoom.ADMIN, SocketRoom.KITCHEN, SocketRoom.WAITERS],
   orderUpdated: [SocketRoom.KITCHEN, SocketRoom.CASHIER, SocketRoom.WAITERS, SocketRoom.ADMIN],
   tableChanged: [SocketRoom.WAITERS, SocketRoom.CASHIER, SocketRoom.ADMIN],
+  /** Más la sala propia del mesero del pedido, que agrega quien publica. */
+  kitchenReady: [SocketRoom.CASHIER],
+  kitchenDelivered: [SocketRoom.KITCHEN, SocketRoom.CASHIER, SocketRoom.ADMIN],
   inventoryUpdated: [SocketRoom.ADMIN],
   cashClosed: [SocketRoom.ADMIN, SocketRoom.CASHIER],
+  /** Llamados internos: más la sala propia de quien llamó, que agrega quien publica. */
+  staffCallWaiter: [SocketRoom.WAITERS],
+  staffCallCashier: [SocketRoom.CASHIER],
 } as const;
 
 /**

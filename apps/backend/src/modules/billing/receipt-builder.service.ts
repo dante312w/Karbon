@@ -44,7 +44,7 @@ export class ReceiptBuilder {
       where: { id: orderId },
       include: { items: { where: { status: { not: OrderItemStatus.CANCELLED } } } },
     });
-    const totals = orderTotals(order.items, order.tipPercent, settings);
+    const totals = orderTotals(order.items, order, settings);
     const names = await this.taxNames();
     return totals.taxBreakdown.map((entry) => ({
       taxName: names.get(entry.rate) ?? `Impuesto ${entry.rate} %`,

@@ -1,14 +1,34 @@
+import { DiscountType } from '@karbon/types';
 import {
   type CalculatedTotals,
   calculateOrderTotals,
   lineAmount,
+  type OrderDiscountRule,
   practicalUnit,
 } from '@karbon/utils';
 import { num } from '../../common/mapping.js';
 import { decimalToMinor, minorToDecimal } from '../../common/money.js';
-import type { OrderItem, Prisma, RestaurantSettings } from '../../generated/prisma/client.js';
+import type {
+  Order,
+  OrderItem,
+  Prisma,
+  RestaurantSettings,
+} from '../../generated/prisma/client.js';
 
 type PricedItem = Pick<OrderItem, 'unitPrice' | 'quantity' | 'taxRate' | 'discount'>;
+type PricedOrder = Pick<Order, 'tipPercent' | 'orderDiscountType' | 'orderDiscountValue'>;
+
+/** Descuento del pedido en la forma de `calculateOrderTotals` (porcentaje o unidades menores). */
+export function orderDiscountRule(order: PricedOrder, currency: string): OrderDiscountRule | null {
+  if (!order.orderDiscountType || !order.orderDiscountValue) return null;
+  return {
+    type: order.orderDiscountType,
+    value:
+      order.orderDiscountType === DiscountType.PERCENT
+        ? num(order.orderDiscountValue)
+        : decimalToMinor(order.orderDiscountValue, currency),
+  };
+}
 
 /**
  * Totales de un pedido a partir de sus ítems guardados, con la misma función que usan los
@@ -16,7 +36,7 @@ type PricedItem = Pick<OrderItem, 'unitPrice' | 'quantity' | 'taxRate' | 'discou
  */
 export function orderTotals(
   items: readonly PricedItem[],
-  tipPercent: Prisma.Decimal,
+  order: PricedOrder,
   settings: Pick<RestaurantSettings, 'currency' | 'pricesIncludeTax'>,
 ): CalculatedTotals {
   const { currency } = settings;
@@ -29,8 +49,9 @@ export function orderTotals(
     })),
     {
       pricesIncludeTax: settings.pricesIncludeTax,
-      tipPercent: num(tipPercent),
+      tipPercent: num(order.tipPercent),
       tipRoundingUnit: practicalUnit(currency),
+      orderDiscount: orderDiscountRule(order, currency),
     },
   );
 }

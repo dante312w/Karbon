@@ -1,11 +1,26 @@
 import type { IsoDateTime, MinorUnits, Percentage, Timestamps, Uuid } from '../common.js';
 import type {
+  DiscountType,
   KitchenStation,
   KitchenTicketStatus,
   OrderItemStatus,
   OrderStatus,
   OrderType,
 } from '../enums.js';
+
+/**
+ * Descuento sobre el total del pedido (caja). Se reparte entre las líneas para calcular bien los
+ * impuestos; `amount` es lo que descuenta hoy y cambia si cambian los productos.
+ */
+export interface OrderDiscountDto {
+  type: DiscountType;
+  /** Porcentaje (PERCENT) o valor en unidades menores (AMOUNT). */
+  value: number;
+  amount: MinorUnits;
+  reason: string;
+  appliedBy: { id: Uuid; name: string } | null;
+  appliedAt: IsoDateTime;
+}
 
 export interface OrderItemDto extends Timestamps {
   id: Uuid;
@@ -33,6 +48,8 @@ export interface KitchenTicketDto {
   orderId: Uuid;
   orderNumber: number;
   tableName: string | null;
+  /** Mesero del pedido: es quien confirma la entrega (o alguien con `orders:manage_any`). */
+  waiterId: Uuid;
   waiterName: string;
   /** Ronda de envío dentro del pedido (1, 2, 3…). */
   sequence: number;
@@ -44,6 +61,8 @@ export interface KitchenTicketDto {
   startedAt: IsoDateTime | null;
   readyAt: IsoDateTime | null;
   deliveredAt: IsoDateTime | null;
+  /** Quién confirmó la entrega; `null` si la cerró el sistema al cobrar el pedido. */
+  deliveredBy: { id: Uuid; name: string } | null;
 }
 
 export interface OrderTotals {
@@ -71,6 +90,8 @@ export interface OrderDto extends Timestamps, OrderTotals {
   label: string | null;
   notes: string | null;
   tipPercent: Percentage;
+  /** Descuento sobre el total; los de cada línea están en `items[].discount`. */
+  orderDiscount: OrderDiscountDto | null;
   items: OrderItemDto[];
   tickets: KitchenTicketDto[];
   paidAmount: MinorUnits;
