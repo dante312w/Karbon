@@ -132,6 +132,7 @@ sequenceDiagram
 
 - **REST para mutaciones** (validadas, auditables, idempotentes); **Socket.io solo notifica**. Un cliente que pierde eventos se resincroniza con un GET.
 - Cada evento viaja en un sobre `{ id, occurredAt, data }` para descartar duplicados tras reconectar.
+- Celulares (sobre todo iOS, que suspende la app en segundo plano): al volver tras más de 10 s, al recuperar la red o al restaurar la página, `bindResumeSync` reconecta el socket y recarga el estado por REST sin esperar a que venza el ping.
 - **Salas** según los permisos del usuario autenticado (`kitchen`, `cashier`, `waiters`, `admin`, `user:<id>`); los clientes no eligen sala.
 - **Concurrencia**: `orders.version` (bloqueo optimista) + `SELECT … FOR UPDATE` en las transacciones de pedidos, pagos y caja. Dos terminales editando el mismo pedido: la segunda recibe `409 ORDER_VERSION_CONFLICT` y recarga.
 
