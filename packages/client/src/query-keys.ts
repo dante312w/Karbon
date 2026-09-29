@@ -7,6 +7,7 @@ export const queryKeys = {
   tables: ['tables'] as const,
   categories: ['categories'] as const,
   products: ['products'] as const,
+  noteOptions: ['note-options'] as const,
   recipe: (productId: string) => ['recipe', productId] as const,
   orders: ['orders'] as const,
   order: (id: string) => ['orders', 'detail', id] as const,

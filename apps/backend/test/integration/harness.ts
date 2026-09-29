@@ -65,6 +65,12 @@ export class ApiClient {
       .set('Authorization', `Bearer ${this.session.accessToken}`)
       .send(body);
   }
+
+  delete(path: string) {
+    return this.http()
+      .delete(`/api/v1${path}`)
+      .set('Authorization', `Bearer ${this.session.accessToken}`);
+  }
 }
 
 export async function loginWithPassword(

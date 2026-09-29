@@ -22,6 +22,7 @@ import type {
   CreateFloorElementRequest,
   CreateIngredientRequest,
   CreateInventoryMovementRequest,
+  CreateNoteOptionRequest,
   CreateNumberingRangeRequest,
   CreateOrderRequest,
   CreatePaymentRequest,
@@ -56,6 +57,7 @@ import type {
   LowStockAlert,
   MergeTablesRequest,
   MoveOrderRequest,
+  NoteOptionDto,
   NumberingRangeDto,
   OpenCashSessionRequest,
   OrderDto,
@@ -72,6 +74,7 @@ import type {
   RecipeItemDto,
   ReceiptDocument,
   ReorderItemsRequest,
+  ReorderNoteOptionsRequest,
   ReservationDto,
   RestaurantSettingsDto,
   RoleDto,
@@ -88,6 +91,7 @@ import type {
   UpdateCustomerRequest,
   UpdateFloorElementRequest,
   UpdateIngredientRequest,
+  UpdateNoteOptionRequest,
   UpdateOrderItemRequest,
   UpdateOrderRequest,
   UpdatePrinterRequest,
@@ -206,6 +210,17 @@ export function createApi(http: HttpClient) {
       updateCategory: (id: string, body: UpdateCategoryRequest) =>
         http.patch<CategoryDto>(`/categories/${id}`, body),
       removeCategory: (id: string) => http.delete(`/categories/${id}`),
+      noteOptions: (includeInactive = false) =>
+        http.get<NoteOptionDto[]>(
+          `/note-options${queryString({ includeInactive: includeInactive || undefined })}`,
+        ),
+      createNoteOption: (body: CreateNoteOptionRequest) =>
+        http.post<NoteOptionDto>('/note-options', body),
+      updateNoteOption: (id: string, body: UpdateNoteOptionRequest) =>
+        http.patch<NoteOptionDto>(`/note-options/${id}`, body),
+      removeNoteOption: (id: string) => http.delete(`/note-options/${id}`),
+      reorderNoteOptions: (body: ReorderNoteOptionsRequest) =>
+        http.put<NoteOptionDto[]>('/note-options/order', body),
       products: (query: { categoryId?: string; search?: string; includeInactive?: boolean } = {}) =>
         http.get<ProductDto[]>(`/products${queryString(query)}`),
       createProduct: (body: CreateProductRequest) => http.post<ProductDto>('/products', body),

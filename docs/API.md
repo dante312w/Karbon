@@ -105,6 +105,14 @@ Cada mesa trae en `activeOrders` el resumen de sus cuentas abiertas: total, mese
 | `PATCH /products/:id/availability`                                    | `catalog:write` o `kitchen:update` (agotado) |
 | `GET /products/:id/image` · `PUT /products/:id/image`                 | público / `catalog:write`                    |
 | `GET /products/:id/recipe` · `PUT /products/:id/recipe`               | `catalog:read` / `catalog:write`             |
+| `GET /note-options` · `POST /note-options`                            | `catalog:read` / `catalog:write`             |
+| `PATCH/DELETE /note-options/:id` · `PUT /note-options/order`          | `catalog:write`                              |
+
+Las **notas de un toque** (`NoteOptionDto`) pertenecen a una categoría o son generales (`categoryId: null`). `GET /note-options` devuelve solo las activas; con `?includeInactive=true`, también las apagadas (para administrarlas). El celular y la caja las combinan con `noteSuggestions` de `@karbon/utils`: primero las de la categoría del producto, luego las de sus categorías madre y al final las generales, sin repetir. Al pedir, la nota se guarda como texto en la línea (`notes`): editar o borrar una opción no cambia pedidos anteriores.
+
+- El texto se normaliza (espacios) y no se repite dentro del grupo sin distinguir mayúsculas (`409`).
+- `PUT /note-options/order` recibe `{ categoryId, ids }` con **todas** las notas del grupo en el nuevo orden; si alguien agregó o borró una mientras tanto, responde `409`.
+- `DELETE /categories/:id` rechaza categorías con productos o subcategorías (`409`) y elimina sus notas.
 
 ### Pedidos y preparación (cocina o barra)
 
