@@ -1,13 +1,15 @@
 import type { QueryClient } from '@tanstack/react-query';
 import {
   type EventEnvelope,
+  type KitchenTicketDto,
   type OrderDto,
   type Paginated,
   SocketEvent,
   type SocketEventMap,
+  type StaffCallDto,
   type TableDto,
 } from '@karbon/types';
-import { isOrderActive } from '@karbon/utils';
+import { isOrderActive, mergeStaffCall } from '@karbon/utils';
 import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { queryKeys } from '../query-keys';
 import { type KarbonSocket, useKarbon } from './context';
@@ -39,6 +41,15 @@ export function bindRealtimeCache(socket: KarbonSocket, queryClient: QueryClient
     void queryClient.invalidateQueries({ queryKey: queryKeys.tickets });
   };
 
+  // Lista o entregada: la comanda llega completa y se reemplaza en los tableros donde ya estaba.
+  const onTicket = (envelope: EventEnvelope<SocketEventMap['kitchen.ready']>): void => {
+    if (!fresh(envelope)) return;
+    const { ticket } = envelope.data;
+    queryClient.setQueriesData<KitchenTicketDto[]>({ queryKey: queryKeys.tickets }, (current) =>
+      current?.map((candidate) => (candidate.id === ticket.id ? ticket : candidate)),
+    );
+  };
+
   const onTable = (envelope: EventEnvelope<SocketEventMap['table.changed']>): void => {
     if (!fresh(envelope)) return;
     const { table } = envelope.data;
@@ -51,13 +62,21 @@ export function bindRealtimeCache(socket: KarbonSocket, queryClient: QueryClient
     });
   };
 
+  const onStaffCall = (envelope: EventEnvelope<SocketEventMap['staff_call.updated']>): void => {
+    if (!fresh(envelope)) return;
+    queryClient.setQueryData<StaffCallDto[]>(queryKeys.staffCalls, (current) =>
+      mergeStaffCall(current, envelope.data.call),
+    );
+  };
+
   const handlers = {
     [SocketEvent.ORDER_CREATED]: onOrder,
     [SocketEvent.ORDER_UPDATED]: onOrder,
     [SocketEvent.TABLE_CHANGED]: onTable,
-    [SocketEvent.KITCHEN_READY]: (envelope: EventEnvelope<SocketEventMap['kitchen.ready']>) => {
-      if (fresh(envelope)) void queryClient.invalidateQueries({ queryKey: queryKeys.tickets });
-    },
+    [SocketEvent.KITCHEN_READY]: onTicket,
+    [SocketEvent.KITCHEN_DELIVERED]: onTicket,
+    [SocketEvent.STAFF_CALL_CREATED]: onStaffCall,
+    [SocketEvent.STAFF_CALL_UPDATED]: onStaffCall,
     [SocketEvent.INVENTORY_UPDATED]: (
       envelope: EventEnvelope<SocketEventMap['inventory.updated']>,
     ) => {
@@ -89,6 +108,66 @@ export function bindRealtimeCache(socket: KarbonSocket, queryClient: QueryClient
       socket.off(event as SocketEvent, handler);
     }
     socket.io.off('reconnect', onReconnect);
+  };
+}
+
+/** Tiempo en segundo plano a partir del cual, al volver, se reconecta y se recarga todo. */
+export const RESUME_AFTER_MS = 10_000;
+
+type Listenable = Pick<EventTarget, 'addEventListener' | 'removeEventListener'>;
+
+export interface ResumeSyncOptions {
+  socket: Pick<KarbonSocket, 'connected' | 'connect' | 'disconnect'>;
+  queryClient: Pick<QueryClient, 'invalidateQueries'>;
+  hasSession: () => boolean;
+  doc?: Listenable & Pick<Document, 'visibilityState'>;
+  win?: Listenable;
+  now?: () => number;
+}
+
+/**
+ * iOS suspende la app en segundo plano (pantalla bloqueada, otra app) y el socket puede quedar
+ * "conectado" sin estarlo hasta que venza el ping (~45 s). Al volver después de un rato, al
+ * recuperar la red (cambio de Wi-Fi) o al restaurar la página, se reconecta de inmediato y se
+ * recarga el estado por REST: el mesero nunca ve la mesa como estaba hace un minuto.
+ */
+export function bindResumeSync({
+  socket,
+  queryClient,
+  hasSession,
+  doc = document,
+  win = window,
+  now = Date.now,
+}: ResumeSyncOptions): () => void {
+  let hiddenAt: number | null = null;
+  const resume = (): void => {
+    if (!hasSession()) return;
+    socket.disconnect();
+    socket.connect();
+    void queryClient.invalidateQueries();
+  };
+  const onVisibility = (): void => {
+    if (doc.visibilityState === 'hidden') {
+      hiddenAt = now();
+      return;
+    }
+    const away = hiddenAt === null ? 0 : now() - hiddenAt;
+    hiddenAt = null;
+    if (away >= RESUME_AFTER_MS || !socket.connected) resume();
+  };
+  const onOnline = (): void => {
+    if (!socket.connected) resume();
+  };
+  const onPageShow = (event: Event): void => {
+    if ((event as PageTransitionEvent).persisted) resume();
+  };
+  doc.addEventListener('visibilitychange', onVisibility);
+  win.addEventListener('online', onOnline);
+  win.addEventListener('pageshow', onPageShow);
+  return () => {
+    doc.removeEventListener('visibilitychange', onVisibility);
+    win.removeEventListener('online', onOnline);
+    win.removeEventListener('pageshow', onPageShow);
   };
 }
 

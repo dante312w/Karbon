@@ -22,6 +22,18 @@ export interface CategoryDto extends Timestamps {
   isActive: boolean;
 }
 
+/**
+ * Nota de un toque que el mesero ofrece al pedir ("Sin cebolla", "Sin hielo"). Con
+ * `categoryId = null` es general y se ofrece en todos los productos.
+ */
+export interface NoteOptionDto extends Timestamps {
+  id: Uuid;
+  categoryId: Uuid | null;
+  label: string;
+  sortOrder: number;
+  isActive: boolean;
+}
+
 export interface ProductDto extends Timestamps {
   id: Uuid;
   categoryId: Uuid;

@@ -141,8 +141,16 @@ describe('Operación de un turno (integración)', () => {
         (data) => data.order.id === order.id,
       );
       expect(created.order.tickets).toHaveLength(2);
+      // Los meseros también lo reciben: su lista de pedidos se actualiza sin recargar.
+      await waiterProbe.waitFor('order.created', (data) => data.order.id === order.id);
       await refreshTables();
       expect(table('Mesa 2').status).toBe('WAITING_FOOD');
+      const summary = table('Mesa 2').activeOrders[0];
+      expect(summary?.itemCount).toBe(3);
+      expect(summary?.readyTickets).toBe(0);
+      expect(summary?.preparingSince).toBe(
+        [...order.tickets].map((ticket) => ticket.createdAt).sort()[0],
+      );
     });
 
     it('no permite abrir un segundo pedido en una mesa ocupada', async () => {
@@ -179,42 +187,112 @@ describe('Operación de un turno (integración)', () => {
     });
   });
 
-  describe('cocina (KDS)', () => {
+  describe('cocina (KDS) y entrega en la mesa', () => {
+    let ticket: KitchenTicketDto;
+    const deliverPath = (ticketId: string) => `/orders/${order.id}/tickets/${ticketId}/deliver`;
+
     it('avanza la comanda y avisa al mesero cuando está lista', async () => {
       const board = (await kitchen.get('/kitchen/tickets?station=KITCHEN').expect(200))
         .body as KitchenTicketDto[];
-      const ticket = board.find(
+      const found = board.find(
         (candidate) => candidate.orderId === order.id && candidate.sequence === 1,
       );
-      expect(ticket?.items[0]?.notes).toBe('sin cebolla');
-      if (!ticket) throw new Error('Comanda no encontrada');
+      if (!found) throw new Error('Comanda no encontrada');
+      ticket = found;
+      expect(ticket.items[0]?.notes).toBe('sin cebolla');
+      expect(ticket.waiterId).toBe(waiter.session.user.id);
 
-      await kitchen
-        .patch(`/kitchen/tickets/${ticket.id}/status`, { status: 'DELIVERED' })
-        .expect(409);
       await kitchen
         .patch(`/kitchen/tickets/${ticket.id}/status`, { status: 'PREPARING' })
         .expect(200);
-      await kitchen.patch(`/kitchen/tickets/${ticket.id}/status`, { status: 'READY' }).expect(200);
-      const ready = await waiterProbe.waitFor(
+      const ready = (
+        await kitchen.patch(`/kitchen/tickets/${ticket.id}/status`, { status: 'READY' }).expect(200)
+      ).body as KitchenTicketDto;
+      expect(ready.startedAt).not.toBeNull();
+      expect(ready.readyAt).not.toBeNull();
+      const event = await waiterProbe.waitFor(
         'kitchen.ready',
         (data) => data.ticket.id === ticket.id,
       );
-      expect(ready.ticket.tableName).toBe('Mesa 2');
+      expect(event.ticket.tableName).toBe('Mesa 2');
+      await refreshTables();
+      expect(table('Mesa 2').activeOrders[0]?.readyTickets).toBe(1);
+    });
+
+    it('retroceder en cocina borra la marca del paso deshecho', async () => {
+      const back = (
+        await kitchen
+          .patch(`/kitchen/tickets/${ticket.id}/status`, { status: 'PREPARING' })
+          .expect(200)
+      ).body as KitchenTicketDto;
+      expect(back.readyAt).toBeNull();
+      expect(back.startedAt).not.toBeNull();
+      await kitchen.patch(`/kitchen/tickets/${ticket.id}/status`, { status: 'READY' }).expect(200);
+    });
+
+    it('cocina ya no entrega: la confirma el mesero', async () => {
+      const response = await kitchen
+        .patch(`/kitchen/tickets/${ticket.id}/status`, { status: 'DELIVERED' })
+        .expect(409);
+      expect(response.body.code).toBe('INVALID_STATUS_TRANSITION');
+      await kitchen.post(deliverPath(ticket.id)).expect(403);
+    });
+
+    it('otro mesero no confirma entregas de un pedido ajeno', async () => {
+      const andres = await loginWithPin(harness, 'Andrés', '3333');
+      const response = await andres.post(deliverPath(ticket.id)).expect(403);
+      expect(response.body.code).toBe('FORBIDDEN');
+    });
+
+    it('el mesero confirma la entrega: queda quién y cuándo, y cocina se entera', async () => {
+      const updated = (await waiter.post(deliverPath(ticket.id)).expect(201)).body as OrderDto;
+      const delivered = updated.tickets.find((candidate) => candidate.id === ticket.id);
+      expect(delivered?.status).toBe('DELIVERED');
+      expect(delivered?.deliveredAt).not.toBeNull();
+      expect(delivered?.deliveredBy?.id).toBe(waiter.session.user.id);
+      await kitchenProbe.waitFor('kitchen.delivered', (data) => data.ticket.id === ticket.id);
+
+      // Solo se entrega lo que está listo, y una sola vez.
+      const again = await waiter.post(deliverPath(ticket.id)).expect(409);
+      expect(again.body.code).toBe('INVALID_STATUS_TRANSITION');
+    });
+
+    it('deshacer la entrega vuelve a "Listo" y borra la marca', async () => {
+      const undone = (
+        await waiter.post(`/orders/${order.id}/tickets/${ticket.id}/undeliver`).expect(201)
+      ).body as OrderDto;
+      const back = undone.tickets.find((candidate) => candidate.id === ticket.id);
+      expect(back?.status).toBe('READY');
+      expect(back?.deliveredAt).toBeNull();
+      expect(back?.deliveredBy).toBeNull();
+    });
+
+    it('una comanda de otro pedido no se entrega por esta ruta', async () => {
+      const other = (
+        await waiter
+          .post('/orders', {
+            label: 'Ruta cruzada',
+            items: [{ productId: product('Gaseosa 350 ml').id, quantity: 1 }],
+            send: true,
+          })
+          .expect(201)
+      ).body as OrderDto;
+      const foreign = other.tickets[0];
+      if (!foreign) throw new Error('Sin comanda');
+      await waiter.post(deliverPath(foreign.id)).expect(404);
+      await admin
+        .post(`/orders/${other.id}/cancel`, { version: other.version, reason: 'Prueba de ruta' })
+        .expect(201);
     });
 
     it('con todo entregado la mesa pasa a ocupada', async () => {
       const current = (await waiter.get(`/orders/${order.id}`).expect(200)).body as OrderDto;
-      for (const ticket of current.tickets) {
-        if (ticket.status === 'NEW')
+      for (const pending of current.tickets) {
+        if (pending.status === 'NEW')
           await kitchen
-            .patch(`/kitchen/tickets/${ticket.id}/status`, { status: 'READY' })
+            .patch(`/kitchen/tickets/${pending.id}/status`, { status: 'READY' })
             .expect(200);
-        if (ticket.status !== 'DELIVERED') {
-          await kitchen
-            .patch(`/kitchen/tickets/${ticket.id}/status`, { status: 'DELIVERED' })
-            .expect(200);
-        }
+        if (pending.status !== 'DELIVERED') await waiter.post(deliverPath(pending.id)).expect(201);
       }
       await refreshTables();
       expect(table('Mesa 2').status).toBe('OCCUPIED');
@@ -329,9 +407,9 @@ describe('Operación de un turno (integración)', () => {
       expect((await ingredient('Carne de res molida')).stock).toBe(carneBefore - 300);
     });
 
-    it('libera la mesa después de pagar', async () => {
-      await waiter.patch(`/tables/${table('Mesa 2').id}/status`, { status: 'FREE' }).expect(403);
-      await cashier.patch(`/tables/${table('Mesa 2').id}/status`, { status: 'FREE' }).expect(200);
+    it('libera la mesa después de pagar (el mesero también puede)', async () => {
+      await kitchen.patch(`/tables/${table('Mesa 2').id}/status`, { status: 'FREE' }).expect(403);
+      await waiter.patch(`/tables/${table('Mesa 2').id}/status`, { status: 'FREE' }).expect(200);
       await refreshTables();
       expect(table('Mesa 2').status).toBe('FREE');
     });
@@ -415,6 +493,149 @@ describe('Operación de un turno (integración)', () => {
         .patch(`/products/${brownie.id}/availability`, { isAvailable: true })
         .expect(200);
     });
+
+    it('al cobrar, lo que seguía "Listo" se da por entregado y queda en la bitácora', async () => {
+      const created = (
+        await waiter
+          .post('/orders', {
+            label: 'Para llevar Ana',
+            type: 'TAKEAWAY',
+            items: [
+              { productId: product('Gaseosa 350 ml').id, quantity: 1 },
+              { productId: product('Hamburguesa clásica').id, quantity: 1 },
+            ],
+            send: true,
+          })
+          .expect(201)
+      ).body as OrderDto;
+      const [drink, burger] = [...created.tickets].sort((a, b) =>
+        a.station.localeCompare(b.station),
+      );
+      if (!drink || !burger) throw new Error('Se esperaban dos comandas');
+      await kitchen.patch(`/kitchen/tickets/${drink.id}/status`, { status: 'READY' }).expect(200);
+
+      const paid = (
+        await cashier
+          .post(`/orders/${created.id}/payments`, { method: 'CARD', amount: created.total })
+          .expect(201)
+      ).body as PaymentResultDto;
+      const tickets = new Map(paid.order.tickets.map((ticket) => [ticket.id, ticket]));
+      expect(tickets.get(drink.id)?.status).toBe('DELIVERED');
+      expect(tickets.get(drink.id)?.deliveredBy).toBeNull();
+      // Lo que aún se prepara (pagado por adelantado) sigue en cocina.
+      expect(tickets.get(burger.id)?.status).toBe('NEW');
+
+      const logs = (await admin.get('/audit-logs?search=order.auto_deliver').expect(200))
+        .body as Paginated<AuditLogDto>;
+      expect(logs.items.some((log) => log.entityId === created.id)).toBe(true);
+    });
+  });
+
+  describe('mesas desde el celular: cada mesero opera lo suyo', () => {
+    let andres: ApiClient;
+    let own: OrderDto;
+    let other: OrderDto;
+    const openOrder = async (client: ApiClient, tableName: string, send = false) =>
+      (
+        await client
+          .post('/orders', {
+            tableId: table(tableName).id,
+            guests: 2,
+            items: [
+              { productId: product('Hamburguesa clásica').id, quantity: 1, notes: 'bien asada' },
+            ],
+            send,
+          })
+          .expect(201)
+      ).body as OrderDto;
+
+    beforeAll(async () => {
+      andres = await loginWithPin(harness, 'Andrés', '3333');
+      await refreshTables();
+      own = await openOrder(waiter, 'Mesa 6');
+      other = await openOrder(andres, 'Terraza 3');
+    });
+
+    it('otro mesero no modifica, envía ni cobra un pedido ajeno', async () => {
+      const add = { items: [{ productId: product('Agua 600 ml').id, quantity: 1 }] };
+      await andres.post(`/orders/${own.id}/items`, add).expect(403);
+      await andres.post(`/orders/${own.id}/send`, { version: own.version }).expect(403);
+      await andres.post(`/orders/${own.id}/request-bill`, {}).expect(403);
+      await andres.patch(`/orders/${own.id}`, { version: own.version, guests: 5 }).expect(403);
+      const response = await andres
+        .post(`/orders/${own.id}/move`, { version: own.version, tableId: table('Mesa 7').id })
+        .expect(403);
+      expect(response.body.code).toBe('FORBIDDEN');
+      // Caja opera los pedidos de todos.
+      own = (await cashier.post(`/orders/${own.id}/items`, add).expect(201)).body as OrderDto;
+    });
+
+    it('el mesero mueve su pedido a una mesa libre', async () => {
+      own = (
+        await waiter
+          .post(`/orders/${own.id}/move`, { version: own.version, tableId: table('Mesa 7').id })
+          .expect(201)
+      ).body as OrderDto;
+      expect(own.tableName).toBe('Mesa 7');
+    });
+
+    it('une una mesa ocupada: su cuenta pasa a la principal sin perder nada', async () => {
+      const second = await openOrder(waiter, 'Mesa 8', true);
+      const partial = (
+        await cashier
+          .post(`/orders/${second.id}/payments`, { method: 'CARD', amount: 1_000_000 })
+          .expect(201)
+      ).body as PaymentResultDto;
+
+      const merged = (
+        await waiter
+          .post(`/tables/${table('Mesa 7').id}/merge`, { tableIds: [table('Mesa 8').id] })
+          .expect(201)
+      ).body as TableDto;
+      expect(merged.activeOrders.map((summary) => summary.id).sort()).toEqual(
+        [own.id, second.id].sort(),
+      );
+
+      const moved = (await waiter.get(`/orders/${second.id}`).expect(200)).body as OrderDto;
+      expect(moved.tableName).toBe('Mesa 7');
+      expect(moved.version).toBeGreaterThan(partial.order.version);
+      expect(moved.waiter.id).toBe(waiter.session.user.id);
+      expect(moved.paidAmount).toBe(1_000_000);
+      expect(moved.items[0]?.notes).toBe('bien asada');
+      expect(moved.tickets).toHaveLength(second.tickets.length);
+      await refreshTables();
+      expect(table('Mesa 8').mergedIntoId).toBe(table('Mesa 7').id);
+      expect(table('Mesa 8').status).toBe(table('Mesa 7').status);
+    });
+
+    it('no une mesas con cuentas de otro mesero', async () => {
+      const response = await waiter
+        .post(`/tables/${table('Terraza 4').id}/merge`, { tableIds: [table('Terraza 3').id] })
+        .expect(403);
+      expect(response.body.message).toContain('Terraza 3');
+      await andres.post(`/tables/${table('Mesa 7').id}/unmerge`).expect(403);
+    });
+
+    it('separar deja las cuentas en la principal y libera las demás', async () => {
+      const separated = (await waiter.post(`/tables/${table('Mesa 7').id}/unmerge`).expect(201))
+        .body as TableDto;
+      expect(separated.activeOrders).toHaveLength(2);
+      await refreshTables();
+      expect(table('Mesa 8').mergedIntoId).toBeNull();
+      expect(table('Mesa 8').status).toBe('FREE');
+    });
+
+    afterAll(async () => {
+      for (const created of [own, other]) {
+        const current = (await admin.get(`/orders/${created.id}`).expect(200)).body as OrderDto;
+        await admin
+          .post(`/orders/${created.id}/cancel`, {
+            version: current.version,
+            reason: 'Fin de prueba',
+          })
+          .expect(201);
+      }
+    });
   });
 
   describe('plano del salón', () => {
@@ -440,10 +661,7 @@ describe('Operación de un turno (integración)', () => {
         .find((element) => element.id === created.id);
       expect(moved).toMatchObject({ posX: 2, posY: 6, width: 4 });
 
-      await request(harness.app.getHttpServer())
-        .delete(`/api/v1/floor-elements/${created.id}`)
-        .set('Authorization', `Bearer ${admin.session.accessToken}`)
-        .expect(204);
+      await admin.delete(`/floor-elements/${created.id}`).expect(204);
     });
   });
 
@@ -470,9 +688,26 @@ describe('Operación de un turno (integración)', () => {
       const roles = (await admin.get('/roles').expect(200)).body as {
         code: string;
         name: string;
+        permissions: string[];
       }[];
-      expect(roles.find((role) => role.code === 'KITCHEN')?.name).toBe('Barra');
+      const bar = roles.find((role) => role.code === 'KITCHEN');
+      expect(bar?.name).toBe('Barra');
+      expect(bar?.permissions).toContain('orders:deliver');
+
+      // El barman entrega lo que prepara aunque el pedido sea de otro mesero.
+      const barman = await loginWithPin(harness, 'Cocina', '4444');
+      const [barTicket] = created.tickets;
+      if (!barTicket) throw new Error('Sin comanda');
+      await barman
+        .patch(`/kitchen/tickets/${barTicket.id}/status`, { status: 'READY' })
+        .expect(200);
+      await barman.post(`/orders/${created.id}/tickets/${barTicket.id}/deliver`).expect(201);
+
       await admin.patch('/settings', { businessMode: 'RESTAURANT' }).expect(200);
+      const restored = ((await admin.get('/roles').expect(200)).body as typeof roles).find(
+        (role) => role.code === 'KITCHEN',
+      );
+      expect(restored?.permissions).not.toContain('orders:deliver');
     });
   });
 

@@ -6,8 +6,10 @@ import {
   type Permission,
   SocketEvent,
 } from '@karbon/types';
+import { canManageOrder } from '@karbon/utils';
 import type { AuthenticatedUser } from '../../common/auth/authenticated-user.js';
 import { conflict, notFound } from '../../common/errors/domain-error.js';
+import type { CalculatedTotals } from '@karbon/utils';
 import { minorToDecimal } from '../../common/money.js';
 import type { Order } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
@@ -20,6 +22,13 @@ import { ORDER_INCLUDE, toOrderDto } from './orders.mapper.js';
 export function requirePermission(user: AuthenticatedUser, permission: Permission): void {
   if (!user.permissions.includes(permission)) {
     throw new ForbiddenException('No tienes permiso para esta acción');
+  }
+}
+
+/** Propiedad del pedido (ver `canManageOrder`): un mesero no opera pedidos de otro. */
+export function assertCanManageOrder(user: AuthenticatedUser, waiterId: string): void {
+  if (!canManageOrder(user, waiterId)) {
+    throw new ForbiddenException('Este pedido lo atiende otro mesero');
   }
 }
 
@@ -50,14 +59,14 @@ export class OrderStore {
     return order;
   }
 
-  /** Recalcula totales y sube la versión. */
-  async recalculate(tx: Tx, orderId: string): Promise<void> {
+  /** Recalcula totales (con el descuento del pedido) y sube la versión. */
+  async recalculate(tx: Tx, orderId: string): Promise<CalculatedTotals> {
     const settings = await this.settings.get();
     const order = await tx.order.findUniqueOrThrow({
       where: { id: orderId },
       include: { items: { where: { status: { not: OrderItemStatus.CANCELLED } } } },
     });
-    const totals = orderTotals(order.items, order.tipPercent, settings);
+    const totals = orderTotals(order.items, order, settings);
     const decimal = (amount: number) => minorToDecimal(amount, settings.currency);
     await tx.order.update({
       where: { id: orderId },
@@ -67,9 +76,11 @@ export class OrderStore {
         taxTotal: decimal(totals.taxTotal),
         tipAmount: decimal(totals.tipAmount),
         total: decimal(totals.total),
+        orderDiscountAmount: decimal(totals.orderDiscountAmount),
         version: { increment: 1 },
       },
     });
+    return totals;
   }
 
   async load(orderId: string): Promise<OrderDto> {

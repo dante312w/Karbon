@@ -62,6 +62,7 @@ export interface UpdateSettingsRequest {
   pricesIncludeTax?: boolean;
   tipEnabled?: boolean;
   tipPercent?: Percentage;
+  maxDiscountPercent?: Percentage;
   openingHours?: OpeningHoursSlot[];
   receiptHeader?: string | null;
   receiptFooter?: string | null;
@@ -177,6 +178,23 @@ export interface CreateCategoryRequest {
 }
 
 export type UpdateCategoryRequest = Partial<CreateCategoryRequest> & { isActive?: boolean };
+
+export interface CreateNoteOptionRequest {
+  /** `null` u omitido = nota general (todos los productos). */
+  categoryId?: Uuid | null;
+  label: string;
+}
+
+export interface UpdateNoteOptionRequest {
+  label?: string;
+  isActive?: boolean;
+}
+
+/** Nuevo orden de las notas de una categoría (o de las generales). */
+export interface ReorderNoteOptionsRequest {
+  categoryId: Uuid | null;
+  ids: Uuid[];
+}
 
 export interface CreateProductRequest {
   categoryId: Uuid;

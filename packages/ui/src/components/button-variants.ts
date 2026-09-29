@@ -13,13 +13,15 @@ export const buttonVariants = cva(
           'bg-destructive text-destructive-foreground shadow-soft hover:bg-destructive/90',
         link: 'text-foreground underline-offset-4 hover:underline',
       },
+      // En pantallas táctiles (celular, iPad, POS táctil) ningún botón queda por debajo de los
+      // 44 px que recomiendan las guías de iOS; con mouse se conservan los tamaños compactos.
       size: {
-        sm: 'h-8 px-3 text-xs',
-        md: 'h-10 px-4',
+        sm: 'h-8 px-3 text-xs pointer-coarse:h-11',
+        md: 'h-10 px-4 pointer-coarse:h-11',
         lg: 'h-12 px-6 text-base',
         /** Objetivo táctil amplio para pantallas del POS y celulares. */
         touch: 'h-14 px-6 text-base',
-        icon: 'size-10',
+        icon: 'size-10 pointer-coarse:size-11',
       },
     },
     defaultVariants: {

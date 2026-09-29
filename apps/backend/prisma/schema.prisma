@@ -114,6 +114,39 @@ enum KitchenTicketStatus {
   @@map("kitchen_ticket_status")
 }
 
+enum DiscountType {
+  PERCENT
+  AMOUNT
+
+  @@map("discount_type")
+}
+
+enum StaffCallTarget {
+  WAITER
+  CASHIER
+
+  @@map("staff_call_target")
+}
+
+enum StaffCallReason {
+  TABLE_ATTENTION
+  COME_OVER
+  CHARGE_TABLE
+  ACCOUNT_HELP
+  CUSTOMER_ATTENTION
+
+  @@map("staff_call_reason")
+}
+
+enum StaffCallStatus {
+  PENDING
+  ACKNOWLEDGED
+  RESOLVED
+  CANCELLED
+
+  @@map("staff_call_status")
+}
+
 enum PaymentMethod {
   CASH
   CARD
@@ -277,7 +310,9 @@ model User {
   auditLogs           AuditLog[]
   ordersServed        Order[]             @relation("OrderWaiter")
   ordersCancelled     Order[]             @relation("OrderCancelledBy")
+  ordersDiscounted    Order[]             @relation("OrderDiscountBy")
   orderItemsCancelled OrderItem[]         @relation("OrderItemCancelledBy")
+  ticketsDelivered    KitchenTicket[]     @relation("TicketDeliveredBy")
   paymentsReceived    Payment[]           @relation("PaymentReceivedBy")
   paymentsVoided      Payment[]           @relation("PaymentVoidedBy")
   cashSessionsOpened  CashSession[]       @relation("CashSessionOpenedBy")
@@ -288,6 +323,10 @@ model User {
   purchases           Purchase[]
   invoicesIssued      Invoice[]
   reservationsCreated Reservation[]
+  staffCallsCreated   StaffCall[]         @relation("StaffCallCreatedBy")
+  staffCallsReceived  StaffCall[]         @relation("StaffCallTargetUser")
+  staffCallsAnswered  StaffCall[]         @relation("StaffCallAcknowledgedBy")
+  staffCallsClosed    StaffCall[]         @relation("StaffCallClosedBy")
 
   @@index([roleId])
   @@map("users")
@@ -358,6 +397,8 @@ model RestaurantSettings {
   pricesIncludeTax   Boolean      @default(true) @map("prices_include_tax")
   tipEnabled         Boolean      @default(true) @map("tip_enabled")
   tipPercent         Decimal      @default(10) @map("tip_percent") @db.Decimal(5, 2)
+  /// Descuento máximo (línea + pedido) sobre el valor sin descuentos; 100 = sin límite.
+  maxDiscountPercent Decimal      @default(100) @map("max_discount_percent") @db.Decimal(5, 2)
   /// Lista de OpeningHoursSlot (@karbon/types).
   openingHours       Json         @default("[]") @map("opening_hours")
   receiptFooter      String?      @map("receipt_footer") @db.VarChar(500)
@@ -471,6 +512,7 @@ model DiningTable {
   mergedTables DiningTable[] @relation("TableMerge")
   orders       Order[]
   reservations Reservation[]
+  staffCalls   StaffCall[]
 
   @@unique([areaId, name])
   @@index([status])
@@ -519,12 +561,32 @@ model Category {
   updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
 
-  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
-  children Category[] @relation("CategoryTree")
-  products Product[]
+  parent      Category?            @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Category[]           @relation("CategoryTree")
+  products    Product[]
+  noteOptions CategoryNoteOption[]
 
   @@index([parentId, sortOrder])
   @@map("categories")
+}
+
+/// Notas de un toque que el mesero ofrece según la categoría del producto ("Sin cebolla" en
+/// hamburguesas, "Sin hielo" en bebidas). Al pedir se copian como texto en order_items.notes:
+/// editar o borrar una opción no cambia pedidos pasados.
+model CategoryNoteOption {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  /// null = nota general: se ofrece en todos los productos.
+  categoryId String?  @map("category_id") @db.Uuid
+  label      String   @db.VarChar(60)
+  sortOrder  Int      @default(0) @map("sort_order")
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([categoryId, sortOrder])
+  @@map("category_note_options")
 }
 
 model Product {
@@ -731,42 +793,51 @@ model Customer {
 // ════════════════════════════════════════════════════════════════════════════
 
 model Order {
-  id              String      @id @default(uuid(7)) @db.Uuid
+  id                  String        @id @default(uuid(7)) @db.Uuid
   /// Consecutivo legible (#1234) único en esta sucursal.
-  number          Int         @unique @default(autoincrement())
-  type            OrderType   @default(DINE_IN)
-  status          OrderStatus @default(OPEN)
-  tableId         String?     @map("table_id") @db.Uuid
-  waiterId        String      @map("waiter_id") @db.Uuid
-  customerId      String?     @map("customer_id") @db.Uuid
+  number              Int           @unique @default(autoincrement())
+  type                OrderType     @default(DINE_IN)
+  status              OrderStatus   @default(OPEN)
+  tableId             String?       @map("table_id") @db.Uuid
+  waiterId            String        @map("waiter_id") @db.Uuid
+  customerId          String?       @map("customer_id") @db.Uuid
   /// Sesión de caja en la que se completó el cobro.
-  cashSessionId   String?     @map("cash_session_id") @db.Uuid
+  cashSessionId       String?       @map("cash_session_id") @db.Uuid
   /// Pedido de origen cuando la cuenta se divide por ítems.
-  splitFromId     String?     @map("split_from_id") @db.Uuid
-  guests          Int?
+  splitFromId         String?       @map("split_from_id") @db.Uuid
+  guests              Int?
   /// Nombre de la cuenta cuando no hay mesa (cuenta abierta en barra, pedido para llevar).
-  label           String?     @db.VarChar(60)
-  notes           String?     @db.VarChar(500)
-  subtotal        Decimal     @default(0) @db.Decimal(14, 2)
-  discountTotal   Decimal     @default(0) @map("discount_total") @db.Decimal(14, 2)
-  taxTotal        Decimal     @default(0) @map("tax_total") @db.Decimal(14, 2)
-  tipAmount       Decimal     @default(0) @map("tip_amount") @db.Decimal(14, 2)
+  label               String?       @db.VarChar(60)
+  notes               String?       @db.VarChar(500)
+  subtotal            Decimal       @default(0) @db.Decimal(14, 2)
+  discountTotal       Decimal       @default(0) @map("discount_total") @db.Decimal(14, 2)
+  taxTotal            Decimal       @default(0) @map("tax_total") @db.Decimal(14, 2)
+  tipAmount           Decimal       @default(0) @map("tip_amount") @db.Decimal(14, 2)
   /// Propina aplicada al pedido (se inicializa desde la configuración; el cajero puede cambiarla).
-  tipPercent      Decimal     @default(0) @map("tip_percent") @db.Decimal(5, 2)
-  total           Decimal     @default(0) @db.Decimal(14, 2)
+  tipPercent          Decimal       @default(0) @map("tip_percent") @db.Decimal(5, 2)
+  /// Descuento sobre el total (caja): porcentaje o valor fijo, con motivo. Se reparte entre las
+  /// líneas al recalcular; `order_discount_amount` es lo que descuenta con los productos actuales.
+  orderDiscountType   DiscountType? @map("order_discount_type")
+  orderDiscountValue  Decimal?      @map("order_discount_value") @db.Decimal(14, 2)
+  orderDiscountAmount Decimal       @default(0) @map("order_discount_amount") @db.Decimal(14, 2)
+  orderDiscountReason String?       @map("order_discount_reason") @db.VarChar(255)
+  orderDiscountById   String?       @map("order_discount_by_id") @db.Uuid
+  orderDiscountAt     DateTime?     @map("order_discount_at") @db.Timestamptz(3)
+  total               Decimal       @default(0) @db.Decimal(14, 2)
   /// Concurrencia optimista: dos terminales no pueden pisar la misma versión del pedido.
-  version         Int         @default(0)
-  billRequestedAt DateTime?   @map("bill_requested_at") @db.Timestamptz(3)
-  closedAt        DateTime?   @map("closed_at") @db.Timestamptz(3)
-  cancelledAt     DateTime?   @map("cancelled_at") @db.Timestamptz(3)
-  cancelReason    String?     @map("cancel_reason") @db.VarChar(255)
-  cancelledById   String?     @map("cancelled_by_id") @db.Uuid
-  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  version             Int           @default(0)
+  billRequestedAt     DateTime?     @map("bill_requested_at") @db.Timestamptz(3)
+  closedAt            DateTime?     @map("closed_at") @db.Timestamptz(3)
+  cancelledAt         DateTime?     @map("cancelled_at") @db.Timestamptz(3)
+  cancelReason        String?       @map("cancel_reason") @db.VarChar(255)
+  cancelledById       String?       @map("cancelled_by_id") @db.Uuid
+  createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   table              DiningTable?        @relation(fields: [tableId], references: [id], onDelete: SetNull)
   waiter             User                @relation("OrderWaiter", fields: [waiterId], references: [id], onDelete: Restrict)
   cancelledBy        User?               @relation("OrderCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
+  orderDiscountBy    User?               @relation("OrderDiscountBy", fields: [orderDiscountById], references: [id], onDelete: SetNull)
   customer           Customer?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
   cashSession        CashSession?        @relation(fields: [cashSessionId], references: [id], onDelete: SetNull)
   splitFrom          Order?              @relation("OrderSplit", fields: [splitFromId], references: [id], onDelete: SetNull)
@@ -776,6 +847,7 @@ model Order {
   payments           Payment[]
   invoices           Invoice[]
   inventoryMovements InventoryMovement[]
+  staffCalls         StaffCall[]
 
   @@index([status, createdAt])
   @@index([tableId, status])
@@ -822,29 +894,70 @@ model OrderItem {
 }
 
 /// Comanda: cada "enviar a cocina" genera una por estación con los ítems pendientes.
-/// El KDS mueve comandas por NEW → PREPARING → READY → DELIVERED.
+/// El KDS la mueve por NEW → PREPARING → READY; el mesero confirma READY → DELIVERED.
 model KitchenTicket {
-  id          String              @id @default(uuid(7)) @db.Uuid
-  orderId     String              @map("order_id") @db.Uuid
+  id            String              @id @default(uuid(7)) @db.Uuid
+  orderId       String              @map("order_id") @db.Uuid
   /// Ronda de envío dentro del pedido (1, 2, 3…).
-  sequence    Int
-  station     KitchenStation
-  status      KitchenTicketStatus @default(NEW)
-  notes       String?             @db.VarChar(255)
-  createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
-  startedAt   DateTime?           @map("started_at") @db.Timestamptz(3)
-  readyAt     DateTime?           @map("ready_at") @db.Timestamptz(3)
-  deliveredAt DateTime?           @map("delivered_at") @db.Timestamptz(3)
-  cancelledAt DateTime?           @map("cancelled_at") @db.Timestamptz(3)
-  updatedAt   DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  sequence      Int
+  station       KitchenStation
+  status        KitchenTicketStatus @default(NEW)
+  notes         String?             @db.VarChar(255)
+  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  startedAt     DateTime?           @map("started_at") @db.Timestamptz(3)
+  readyAt       DateTime?           @map("ready_at") @db.Timestamptz(3)
+  deliveredAt   DateTime?           @map("delivered_at") @db.Timestamptz(3)
+  /// Quién confirmó la entrega; null con delivered_at = la cerró el sistema al cobrar.
+  deliveredById String?             @map("delivered_by_id") @db.Uuid
+  cancelledAt   DateTime?           @map("cancelled_at") @db.Timestamptz(3)
+  updatedAt     DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  order Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  items OrderItem[]
+  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  deliveredBy User?       @relation("TicketDeliveredBy", fields: [deliveredById], references: [id], onDelete: SetNull)
+  items       OrderItem[]
 
   @@unique([orderId, sequence, station])
   @@index([station, status, createdAt])
   @@index([status, createdAt])
   @@map("kitchen_tickets")
+}
+
+/// Llamado interno: cocina o caja llaman al mesero; el mesero llama a caja. Queda abierto hasta
+/// que alguien lo atiende. Un índice único parcial sobre `dedupe_key` evita duplicar un llamado
+/// abierto: repetirlo cuenta como insistencia (`call_count`).
+model StaffCall {
+  id               String          @id @default(uuid(7)) @db.Uuid
+  target           StaffCallTarget
+  reason           StaffCallReason
+  status           StaffCallStatus @default(PENDING)
+  message          String?         @db.VarChar(140)
+  tableId          String?         @map("table_id") @db.Uuid
+  orderId          String?         @map("order_id") @db.Uuid
+  /// Mesero al que va (el del pedido); null = a todos los meseros o a caja.
+  targetUserId     String?         @map("target_user_id") @db.Uuid
+  createdById      String          @map("created_by_id") @db.Uuid
+  acknowledgedById String?         @map("acknowledged_by_id") @db.Uuid
+  /// Quién lo cerró; null con closed_at = lo cerró el sistema (cobro o cierre de caja).
+  closedById       String?         @map("closed_by_id") @db.Uuid
+  dedupeKey        String          @map("dedupe_key") @db.VarChar(200)
+  callCount        Int             @default(1) @map("call_count")
+  lastCalledAt     DateTime        @default(now()) @map("last_called_at") @db.Timestamptz(3)
+  acknowledgedAt   DateTime?       @map("acknowledged_at") @db.Timestamptz(3)
+  closedAt         DateTime?       @map("closed_at") @db.Timestamptz(3)
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  table          DiningTable? @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  order          Order?       @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  targetUser     User?        @relation("StaffCallTargetUser", fields: [targetUserId], references: [id], onDelete: SetNull)
+  createdBy      User         @relation("StaffCallCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  acknowledgedBy User?        @relation("StaffCallAcknowledgedBy", fields: [acknowledgedById], references: [id], onDelete: SetNull)
+  closedBy       User?        @relation("StaffCallClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
+
+  @@unique([dedupeKey], map: "staff_calls_open_dedupe_key", where: raw("status = ANY (ARRAY['PENDING'::staff_call_status, 'ACKNOWLEDGED'::staff_call_status])"))
+  @@index([status, target])
+  @@index([createdAt])
+  @@map("staff_calls")
 }
 
 // ════════════════════════════════════════════════════════════════════════════

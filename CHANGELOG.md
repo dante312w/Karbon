@@ -8,13 +8,45 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); v
 
 - Plano del salón: cada área se ve desde arriba con sus mesas (redondas, cuadradas o rectangulares, con sus sillas según la capacidad), el color del estado, el tiempo y el total de la cuenta, más barra, cocina, baños, entrada, caja y paredes. La vista de tarjetas sigue disponible.
 - Editor del plano en Configuración → Salón: arrastrar y soltar (o flechas del teclado) celda por celda, sin encimar mesas.
+- Celular del mesero: cada comanda del pedido muestra su estado con texto e ícono ("En cola", "Preparando", "Listo para recoger", "Entregado") y su tiempo en vivo; lo listo se confirma con **Entregado en la mesa**, con opción de deshacer.
+- Mesas en el celular, rediseñadas: contadores que filtran (**Para recoger**, **Preparando**, **Cuenta**, **Libres**), tarjetas táctiles más grandes con ícono y texto de estado, cuenta, tiempo abierto, mesero y, si hay algo en cocina, su tiempo y urgencia ("A tiempo", "Demorado", "Crítico"). Dos columnas desde 320 px y más en tablet.
+- **Mis pedidos**: primero lo que hay que llevar a la mesa, con hora de apertura, cantidad de productos, espera en cocina y un botón para confirmar de una vez todo lo listo.
+- Detalle del pedido en el celular: cada comanda muestra su urgencia y la hora de envío.
+- Gestión de mesas desde el celular: detalles del pedido, mover, unir y separar mesas, dividir cuenta, cancelar (con permiso), editar cantidad y notas de lo no enviado, anular lo enviado con motivo y marcar libre una mesa pagada.
+- Unir mesas ocupadas: las cuentas de la mesa que se une pasan a la principal, cada una por separado, sin perder productos, comandas ni pagos parciales.
+- Permisos nuevos: **Confirmar entregas en la mesa** y **Operar pedidos de otros meseros** (caja y administración).
+- Notas de un toque por categoría: el administrador define en el Catálogo las notas de cada categoría ("Sin cebolla" en hamburguesas, "Sin hielo" en bebidas) y las generales; las subcategorías heredan las de su categoría madre. Se pueden renombrar, ordenar, apagar y eliminar sin afectar pedidos anteriores.
+- Eliminar una categoría desde el Catálogo (solo si ya no tiene productos ni subcategorías).
+- Llamados entre áreas: cocina, barra y caja llaman al mesero ("La mesa necesita atención", "Que venga un momento") desde la comanda, el pedido o la mesa; el mesero llama a caja ("Necesito cobrar", "Ayuda con una cuenta", "Un cliente necesita a caja"). Quien recibe oye un aviso propio (distinto al de "listo") y el celular vibra; **Voy** muestra a todos quién va. Tocar de nuevo insiste en el mismo llamado sin duplicarlo. Los llamados se guardan: no se pierden si el celular estaba bloqueado o sin red.
+- Permisos nuevos: **Llamar al mesero** (cocina, barra y caja) y **Llamar a caja** (meseros).
+- Pruebas de integración de tiempo real entre equipos (mesa abierta, notas editadas en vivo, listo/entregado con cronómetro congelado, mover y unir mesas, descuento, reconexión del socket) y guía de calidad ([docs/QA.md](docs/QA.md)) con la evidencia de cada criterio de aceptación y la prueba manual en iPhone/iPad.
+- Descuento sobre el total en caja: porcentaje o valor fijo, con motivo, vista previa del total y registro de quién lo aplicó (valor anterior, descontado y final en la auditoría). Se reparte entre los productos para que los impuestos queden bien, no deja la cuenta por debajo de lo ya pagado y se puede quitar. El mesero lo ve en el celular.
+- **Descuento máximo** configurable en Configuración → Negocio; aplica a los descuentos por producto y al del pedido.
+- iPhone y iPad: la app de meseros se instala desde Safari (Compartir → Agregar a inicio) con pantalla de inicio propia, barra de estado sobre la franja de marca, y uso vertical u horizontal.
 
 ### Cambiado
+
+- Cada mesero opera solo sus pedidos (el servidor lo exige en todas las modificaciones); caja, administración y los roles que cobran operan todos. Los pedidos de otro se ven en modo lectura.
+- El rol Mesero puede mover, unir y liberar mesas (con sus propias cuentas).
+- Al pedir, el mesero y la caja ven solo las notas que aplican al producto, en lugar de la misma lista fija para todo. Las notas que existían pasan a ser generales al actualizar. Marcar una nota ya escrita a mano (sin importar mayúsculas) la reconoce en lugar de repetirla.
+
+- La entrega la confirma el mesero, no cocina: el KDS llega hasta **Listo** y muestra cuánto lleva **por recoger**. En modo bar, el barman también puede entregar desde el tablero. Al cobrar, lo que seguía listo se da por entregado y queda en la auditoría.
 
 - Identidad visual morada: botones y acentos violeta, barra lateral y pantallas de ingreso en morado oscuro, neutros con un leve tinte morado y logo nuevo. El verde queda solo para estados (mesa libre, comanda a tiempo). Paleta de gráficos validada para daltonismo en ambos temas.
 - KDS en pantallas anchas (TV): dos o más comandas por fila en cada columna.
 
 ### Corregido
+
+- iPhone/iPad: los avisos de cocina y los llamados no sonaban hasta que se interactuaba con la app; ahora el primer toque habilita el sonido y se reanuda al volver a la app.
+- iPhone/iPad: al volver de segundo plano (pantalla bloqueada, otra app) o tras un cambio de WiFi, la app mostraba datos de hasta un minuto atrás mientras el socket detectaba la desconexión; ahora se reconecta y recarga al instante.
+- iPhone: tocar un campo de texto agrandaba la página (letra menor a 16 px); los campos usan 16 px en pantallas táctiles.
+- Pantallas táctiles: botones, chips y el botón de cerrar de los paneles alcanzan 44 px; los paneles laterales, los avisos y las barras inferiores respetan el notch, la isla y la barra de inicio también en horizontal; en el celular horizontal las acciones del pedido van en una sola fila.
+- Catálogo en tablet: el lápiz para editar una categoría solo aparecía al pasar el mouse.
+- KDS en iPhone: el botón de pantalla completa fallaba (iPhone no la permite); ahora no se muestra ahí.
+
+- Los celulares no recibían los pedidos que abría otro mesero hasta recargar; ahora llegan al instante.
+
+- KDS: el cronómetro de las comandas entregadas seguía contando. Ahora muestra un **tiempo total fijo**, con cuánto tardó en prepararse y en recogerse, y quién la entregó. Deshacer un paso (Listo → Preparando) ya no deja marcas de tiempo viejas.
 
 - Configuración → Celulares: el QR apuntaba al backend aunque este no publicara la app de meseros (en desarrollo) y, con Docker, a la IP interna del contenedor. Ahora el servidor informa dónde se abre cada app (el mismo servidor en el programa instalado, los puertos de Vite en desarrollo) y, si no se publica, la pantalla lo explica en lugar de mostrar un QR que no sirve.
 - Menú lateral: en pantallas bajas (laptops con escala de Windows al 125 %) el botón Configuración quedaba cortado sin forma de llegar a él; ahora está fijo al fondo y los demás módulos se desplazan.

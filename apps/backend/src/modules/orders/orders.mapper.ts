@@ -1,8 +1,9 @@
-import type { KitchenTicketDto, OrderDto, OrderItemDto } from '@karbon/types';
+import type { KitchenTicketDto, OrderDiscountDto, OrderDto, OrderItemDto } from '@karbon/types';
 import { PaymentStatus } from '@karbon/types';
 import type { OrderItem, Prisma } from '../../generated/prisma/client.js';
 import { iso, isoOrNull, num, timestamps } from '../../common/mapping.js';
 import { decimalToMinor } from '../../common/money.js';
+import { orderDiscountRule } from './order-totals.js';
 
 const TICKET_ITEM_SELECT = {
   id: true,
@@ -12,14 +13,20 @@ const TICKET_ITEM_SELECT = {
   status: true,
 } satisfies Prisma.OrderItemSelect;
 
+const TICKET_CORE_INCLUDE = {
+  items: { select: TICKET_ITEM_SELECT, orderBy: { sortOrder: 'asc' } },
+  deliveredBy: { select: { id: true, name: true } },
+} satisfies Prisma.KitchenTicketInclude;
+
 export const ORDER_INCLUDE = {
   table: { select: { id: true, name: true } },
   waiter: { select: { id: true, name: true } },
   customer: { select: { id: true, name: true } },
+  orderDiscountBy: { select: { id: true, name: true } },
   items: { orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] },
   tickets: {
     orderBy: [{ sequence: 'asc' }, { station: 'asc' }],
-    include: { items: { select: TICKET_ITEM_SELECT, orderBy: { sortOrder: 'asc' } } },
+    include: TICKET_CORE_INCLUDE,
   },
   payments: { where: { status: PaymentStatus.COMPLETED }, select: { amount: true } },
 } satisfies Prisma.OrderInclude;
@@ -27,7 +34,7 @@ export const ORDER_INCLUDE = {
 export type OrderWithRelations = Prisma.OrderGetPayload<{ include: typeof ORDER_INCLUDE }>;
 
 export const TICKET_INCLUDE = {
-  items: { select: TICKET_ITEM_SELECT, orderBy: { sortOrder: 'asc' } },
+  ...TICKET_CORE_INCLUDE,
   order: {
     select: {
       number: true,
@@ -49,6 +56,7 @@ interface TicketContext {
   number: number;
   label: string | null;
   tableName: string | null;
+  waiterId: string;
   waiterName: string;
 }
 
@@ -59,6 +67,7 @@ function toTicketDto(ticket: TicketCore, context: TicketContext): KitchenTicketD
     orderNumber: context.number,
     // En barra o para llevar no hay mesa: se muestra el nombre de la cuenta.
     tableName: context.tableName ?? context.label,
+    waiterId: context.waiterId,
     waiterName: context.waiterName,
     sequence: ticket.sequence,
     station: ticket.station,
@@ -75,6 +84,7 @@ function toTicketDto(ticket: TicketCore, context: TicketContext): KitchenTicketD
     startedAt: isoOrNull(ticket.startedAt),
     readyAt: isoOrNull(ticket.readyAt),
     deliveredAt: isoOrNull(ticket.deliveredAt),
+    deliveredBy: ticket.deliveredBy,
   };
 }
 
@@ -83,6 +93,7 @@ export function toTicketDtoWithOrder(ticket: TicketWithRelations): KitchenTicket
     number: ticket.order.number,
     label: ticket.order.label,
     tableName: ticket.order.table?.name ?? null,
+    waiterId: ticket.order.waiterId,
     waiterName: ticket.order.waiter.name,
   });
 }
@@ -118,6 +129,7 @@ export function toOrderDto(order: OrderWithRelations, currency: string): OrderDt
     number: order.number,
     label: order.label,
     tableName: order.table?.name ?? null,
+    waiterId: order.waiter.id,
     waiterName: order.waiter.name,
   };
   return {
@@ -135,6 +147,7 @@ export function toOrderDto(order: OrderWithRelations, currency: string): OrderDt
     label: order.label,
     notes: order.notes,
     tipPercent: num(order.tipPercent),
+    orderDiscount: toOrderDiscountDto(order, currency),
     items: order.items.map((item) => toItemDto(item, currency)),
     tickets: order.tickets.map((ticket) => toTicketDto(ticket, context)),
     subtotal: decimalToMinor(order.subtotal, currency),
@@ -150,5 +163,17 @@ export function toOrderDto(order: OrderWithRelations, currency: string): OrderDt
     cancelledAt: isoOrNull(order.cancelledAt),
     cancelReason: order.cancelReason,
     ...timestamps(order),
+  };
+}
+
+function toOrderDiscountDto(order: OrderWithRelations, currency: string): OrderDiscountDto | null {
+  const rule = orderDiscountRule(order, currency);
+  if (!rule || !order.orderDiscountReason || !order.orderDiscountAt) return null;
+  return {
+    ...rule,
+    amount: decimalToMinor(order.orderDiscountAmount, currency),
+    reason: order.orderDiscountReason,
+    appliedBy: order.orderDiscountBy,
+    appliedAt: iso(order.orderDiscountAt),
   };
 }

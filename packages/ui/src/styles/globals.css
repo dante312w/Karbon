@@ -168,4 +168,29 @@
   body {
     @apply bg-background font-sans text-foreground antialiased;
   }
+
+  /* Táctil (iPhone, iPad, POS): sin recuadro gris al tocar, sin agrandar el texto al girar, y los
+     controles responden al primer toque (sin la espera del doble toque para hacer zoom). */
+  html {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  button,
+  a,
+  label,
+  summary,
+  input,
+  select,
+  textarea,
+  [role='button'] {
+    touch-action: manipulation;
+  }
+
+  /* Mantener pulsado un botón no abre el menú de iOS (copiar, compartir). */
+  button,
+  [role='button'] {
+    -webkit-touch-callout: none;
+  }
 }

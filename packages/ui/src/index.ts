@@ -19,6 +19,7 @@ export {
   ORDER_TYPE_LABEL,
   TABLE_STATUS_META,
   tableStatusLabel,
+  URGENCY_META,
 } from './domain/status-meta';
 export { Dialog, DialogContent, type DialogContentProps } from './components/dialog';
 export {
@@ -53,8 +54,14 @@ export {
   QuantityStepper,
   type QuantityStepperProps,
 } from './components/order-inputs';
+export {
+  StaffCallCard,
+  type StaffCallCardProps,
+  StaffCallDialog,
+  type StaffCallDialogProps,
+} from './components/staff-calls';
 export { ErrorScreen, Toaster } from './components/feedback';
 export { errorMessage, notifyError, toast } from './components/notify';
 export { PERMISSION_GROUPS } from './domain/permission-labels';
 export { useNow } from './lib/use-now';
-export { playChime } from './lib/chime';
+export { playChime, unlockAudioOnGesture } from './lib/chime';

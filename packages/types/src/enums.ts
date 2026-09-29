@@ -82,6 +82,28 @@ export const KitchenTicketStatus = createEnum([
 ]);
 export type KitchenTicketStatus = EnumValue<typeof KitchenTicketStatus>;
 
+/** Descuento sobre el total del pedido: porcentaje o valor fijo. */
+export const DiscountType = createEnum(['PERCENT', 'AMOUNT']);
+export type DiscountType = EnumValue<typeof DiscountType>;
+
+/** A quién va un llamado interno: al mesero (desde cocina, barra o caja) o a caja (desde el mesero). */
+export const StaffCallTarget = createEnum(['WAITER', 'CASHIER']);
+export type StaffCallTarget = EnumValue<typeof StaffCallTarget>;
+
+/** Motivo de un llamado. Cada destino admite los suyos (`STAFF_CALL_REASONS` en @karbon/utils). */
+export const StaffCallReason = createEnum([
+  'TABLE_ATTENTION',
+  'COME_OVER',
+  'CHARGE_TABLE',
+  'ACCOUNT_HELP',
+  'CUSTOMER_ATTENTION',
+]);
+export type StaffCallReason = EnumValue<typeof StaffCallReason>;
+
+/** PENDING → ACKNOWLEDGED ("Voy") → RESOLVED; quien llama puede cancelarlo mientras siga abierto. */
+export const StaffCallStatus = createEnum(['PENDING', 'ACKNOWLEDGED', 'RESOLVED', 'CANCELLED']);
+export type StaffCallStatus = EnumValue<typeof StaffCallStatus>;
+
 /** "Mixto" no es un método: es un pedido con varios pagos de métodos distintos. */
 export const PaymentMethod = createEnum(['CASH', 'CARD', 'TRANSFER', 'QR']);
 export type PaymentMethod = EnumValue<typeof PaymentMethod>;

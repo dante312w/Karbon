@@ -1,15 +1,20 @@
 import {
   useAuthActions,
+  useHasPermission,
   useRealtimeConnected,
   useSession,
   useSettings,
   useTerminology,
 } from '@karbon/client';
 import { Button, cn, StatusDot, ThemeToggle } from '@karbon/ui';
-import { LayoutGridIcon, LogOutIcon, ReceiptTextIcon } from 'lucide-react';
+import { Permission } from '@karbon/types';
+import { ConciergeBellIcon, LayoutGridIcon, LogOutIcon, ReceiptTextIcon } from 'lucide-react';
+import { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
+import { CallCashierDialog } from './call-cashier-dialog';
 import { OutboxButton } from './outbox-button';
 import { ReadyNotifier } from './ready-notifier';
+import { StaffCallsBar } from './staff-calls-bar';
 
 const TABS = [
   { to: '/', label: 'Mesas', icon: LayoutGridIcon },
@@ -26,10 +31,15 @@ export function Shell() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const showTabs = TABS.some((tab) => tab.to === pathname);
+  const canCallCashier = useHasPermission(Permission.CALLS_CASHIER);
+  const [callingCashier, setCallingCashier] = useState(false);
 
   return (
     <div className="flex min-h-dvh flex-col bg-muted/40">
-      <header className="sticky top-0 z-30 flex items-center gap-2 border-b bg-background px-3 py-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
+      {/* Instalada en iPhone, la barra de estado (hora, batería) va en blanco sobre esta franja de
+          marca: se lee igual en tema claro y oscuro. En el navegador mide 0. */}
+      <div aria-hidden className="sticky top-0 z-40 h-[env(safe-area-inset-top)] bg-brand" />
+      <header className="sticky top-[env(safe-area-inset-top)] z-30 flex items-center gap-2 border-b bg-background py-2 pr-[max(0.75rem,env(safe-area-inset-right))] pl-[max(0.75rem,env(safe-area-inset-left))]">
         <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-brand font-black text-primary">
           K
         </div>
@@ -43,7 +53,19 @@ export function Shell() {
           </p>
         </div>
         <OutboxButton />
-        <ThemeToggle />
+        {canCallCashier ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Llamar a caja"
+            onClick={() => {
+              setCallingCashier(true);
+            }}
+          >
+            <ConciergeBellIcon />
+          </Button>
+        ) : null}
+        <ThemeToggle compact />
         <Button
           variant="ghost"
           size="icon"
@@ -56,13 +78,19 @@ export function Shell() {
         </Button>
       </header>
 
-      <main className={cn('flex flex-1 flex-col', showTabs && 'pb-20')}>
+      <main
+        className={cn(
+          'flex flex-1 flex-col pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]',
+          showTabs && 'pb-[calc(5rem+env(safe-area-inset-bottom))]',
+        )}
+      >
+        <StaffCallsBar />
         <Outlet />
       </main>
 
       {showTabs ? (
         <nav
-          className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-2 border-t bg-background pb-[env(safe-area-inset-bottom)]"
+          className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-2 border-t bg-background pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)]"
           aria-label="Secciones"
         >
           {TABS.map((tab) => (
@@ -84,6 +112,13 @@ export function Shell() {
         </nav>
       ) : null}
       <ReadyNotifier />
+      {callingCashier ? (
+        <CallCashierDialog
+          onClose={() => {
+            setCallingCashier(false);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

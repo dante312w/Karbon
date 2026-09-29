@@ -5,6 +5,7 @@ import {
   useCategories,
   useHasPermission,
   useMoney,
+  useNoteSuggestions,
   useOrder,
   useOutbox,
   useProducts,
@@ -26,7 +27,7 @@ import {
   QuantityStepper,
   toast,
 } from '@karbon/ui';
-import { normalizeSearch } from '@karbon/utils';
+import { ITEM_NOTES_MAX_LENGTH, normalizeSearch } from '@karbon/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeftIcon,
@@ -67,6 +68,7 @@ export default function TakeOrderPage() {
   const [search, setSearch] = useState('');
   const term = normalizeSearch(useDeferredValue(search));
   const [noting, setNoting] = useState<ProductDto | null>(null);
+  const notingSuggestions = useNoteSuggestions(noting?.categoryId);
   const [cartOpen, setCartOpen] = useState(false);
   const [label, setLabel] = useState('');
   const [type, setType] = useState<OrderType>(OrderType.DINE_IN);
@@ -229,7 +231,7 @@ export default function TakeOrderPage() {
       </ul>
 
       {cart.count > 0 ? (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-background p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-background p-3 pr-[max(0.75rem,env(safe-area-inset-right))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))]">
           <Button
             size="touch"
             className="w-full justify-between"
@@ -249,7 +251,7 @@ export default function TakeOrderPage() {
         <ItemNotesDialog
           title={noting.name}
           description={money(noting.price)}
-          suggestions={terms.quickNotes}
+          suggestions={notingSuggestions}
           confirmLabel={(quantity) => `Agregar · ${money(noting.price * quantity)}`}
           onClose={() => {
             setNoting(null);
@@ -332,6 +334,7 @@ export default function TakeOrderPage() {
                 <Input
                   aria-label={`Nota para ${line.name}`}
                   placeholder="Nota (sin cebolla, sin hielo…)"
+                  maxLength={ITEM_NOTES_MAX_LENGTH}
                   value={line.notes}
                   onChange={(event) => {
                     cart.update(line.key, { notes: event.target.value });

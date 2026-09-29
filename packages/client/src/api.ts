@@ -22,6 +22,7 @@ import type {
   CreateFloorElementRequest,
   CreateIngredientRequest,
   CreateInventoryMovementRequest,
+  CreateNoteOptionRequest,
   CreateNumberingRangeRequest,
   CreateOrderRequest,
   CreatePaymentRequest,
@@ -30,6 +31,7 @@ import type {
   CreatePurchaseRequest,
   CreateReservationRequest,
   CreateRoleRequest,
+  CreateStaffCallRequest,
   CreateSupplierRequest,
   CreateTableRequest,
   CreateTaxRequest,
@@ -56,6 +58,7 @@ import type {
   LowStockAlert,
   MergeTablesRequest,
   MoveOrderRequest,
+  NoteOptionDto,
   NumberingRangeDto,
   OpenCashSessionRequest,
   OrderDto,
@@ -72,14 +75,17 @@ import type {
   RecipeItemDto,
   ReceiptDocument,
   ReorderItemsRequest,
+  ReorderNoteOptionsRequest,
   ReservationDto,
   RestaurantSettingsDto,
   RoleDto,
   ServerInfo,
+  SetOrderDiscountRequest,
   SetRecipeRequest,
   SetTableStatusRequest,
   SetupStatusDto,
   SplitOrderRequest,
+  StaffCallDto,
   SupplierDto,
   TableDto,
   TaxDto,
@@ -88,6 +94,7 @@ import type {
   UpdateCustomerRequest,
   UpdateFloorElementRequest,
   UpdateIngredientRequest,
+  UpdateNoteOptionRequest,
   UpdateOrderItemRequest,
   UpdateOrderRequest,
   UpdatePrinterRequest,
@@ -206,6 +213,17 @@ export function createApi(http: HttpClient) {
       updateCategory: (id: string, body: UpdateCategoryRequest) =>
         http.patch<CategoryDto>(`/categories/${id}`, body),
       removeCategory: (id: string) => http.delete(`/categories/${id}`),
+      noteOptions: (includeInactive = false) =>
+        http.get<NoteOptionDto[]>(
+          `/note-options${queryString({ includeInactive: includeInactive || undefined })}`,
+        ),
+      createNoteOption: (body: CreateNoteOptionRequest) =>
+        http.post<NoteOptionDto>('/note-options', body),
+      updateNoteOption: (id: string, body: UpdateNoteOptionRequest) =>
+        http.patch<NoteOptionDto>(`/note-options/${id}`, body),
+      removeNoteOption: (id: string) => http.delete(`/note-options/${id}`),
+      reorderNoteOptions: (body: ReorderNoteOptionsRequest) =>
+        http.put<NoteOptionDto[]>('/note-options/order', body),
       products: (query: { categoryId?: string; search?: string; includeInactive?: boolean } = {}) =>
         http.get<ProductDto[]>(`/products${queryString(query)}`),
       createProduct: (body: CreateProductRequest) => http.post<ProductDto>('/products', body),
@@ -245,7 +263,13 @@ export function createApi(http: HttpClient) {
         ),
       requestBill: (id: string, version?: number) =>
         http.post<OrderDto>(`/orders/${id}/request-bill`, { version }),
+      deliverTicket: (id: string, ticketId: string) =>
+        http.post<OrderDto>(`/orders/${id}/tickets/${ticketId}/deliver`),
+      undeliverTicket: (id: string, ticketId: string) =>
+        http.post<OrderDto>(`/orders/${id}/tickets/${ticketId}/undeliver`),
       move: (id: string, body: MoveOrderRequest) => http.post<OrderDto>(`/orders/${id}/move`, body),
+      setDiscount: (id: string, body: SetOrderDiscountRequest) =>
+        http.put<OrderDto>(`/orders/${id}/discount`, body),
       split: (id: string, body: SplitOrderRequest) =>
         http.post<OrderDto>(`/orders/${id}/split`, body),
       duplicate: (id: string, body: DuplicateOrderRequest) =>
@@ -271,6 +295,13 @@ export function createApi(http: HttpClient) {
       setStatus: (id: string, status: KitchenTicketStatus) =>
         http.patch<KitchenTicketDto>(`/kitchen/tickets/${id}/status`, { status }),
       reprint: (id: string) => http.post<undefined>(`/kitchen/tickets/${id}/print`),
+    },
+    staffCalls: {
+      list: () => http.get<StaffCallDto[]>('/staff-calls'),
+      create: (body: CreateStaffCallRequest) => http.post<StaffCallDto>('/staff-calls', body),
+      acknowledge: (id: string) => http.post<StaffCallDto>(`/staff-calls/${id}/acknowledge`),
+      resolve: (id: string) => http.post<StaffCallDto>(`/staff-calls/${id}/resolve`),
+      cancel: (id: string) => http.post<StaffCallDto>(`/staff-calls/${id}/cancel`),
     },
     cash: {
       current: () => http.get<CashSessionSummaryDto | null>('/cash-sessions/current'),

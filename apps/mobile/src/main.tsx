@@ -1,5 +1,5 @@
 import { KarbonProvider } from '@karbon/client';
-import { ThemeProvider, Toaster } from '@karbon/ui';
+import { ThemeProvider, Toaster, unlockAudioOnGesture } from '@karbon/ui';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './app';
@@ -11,6 +11,8 @@ const container = document.getElementById('root');
 if (!container) throw new Error('No se encontró el contenedor #root');
 
 const pwaMode = registerServiceWorker();
+// iOS solo deja sonar avisos después de un toque: el primero (y cada vuelta a la app) lo habilita.
+unlockAudioOnGesture();
 
 // La PWA la sirve el mismo servidor del restaurante: la API es del mismo origen.
 createRoot(container).render(

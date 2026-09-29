@@ -4,15 +4,22 @@ import {
   useApiMutation,
   useHasPermission,
   useKitchenTickets,
+  useOrderAccess,
   useProducts,
-  useSettings,
+  useSession,
+  useStaffCallActions,
+  useStaffCalls,
   useTerminology,
+  useUrgencyThresholds,
 } from '@karbon/client';
 import {
   type KitchenStation,
   type KitchenTicketDto,
   KitchenTicketStatus,
   Permission,
+  type StaffCallDto,
+  StaffCallReason,
+  StaffCallTarget,
 } from '@karbon/types';
 import {
   Button,
@@ -25,13 +32,14 @@ import {
   notifyError,
   Spinner,
   Switch,
+  toast,
   useNow,
   playChime,
 } from '@karbon/ui';
 import {
-  DEFAULT_KDS_THRESHOLDS,
   effectiveStation,
   enabledStations,
+  outgoingStaffCalls,
   STATION_LABEL,
 } from '@karbon/utils';
 import { useQueryClient } from '@tanstack/react-query';
@@ -43,10 +51,10 @@ import {
   MinimizeIcon,
   SoupIcon,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatTime } from '../../lib/format';
 import { useLocalState } from '../../lib/use-local-state';
-import { TicketCard } from './ticket-card';
+import { TicketCard, type TicketCommand } from './ticket-card';
 
 const COLUMNS = [
   KitchenTicketStatus.NEW,
@@ -58,9 +66,9 @@ const COLUMNS = [
 export default function KdsPage() {
   const api = useApi();
   const queryClient = useQueryClient();
-  const settings = useSettings().data;
   const terms = useTerminology();
   const canUpdate = useHasPermission(Permission.KITCHEN_UPDATE);
+  const access = useOrderAccess();
   const now = useNow(1_000);
   const stations = enabledStations(terms.mode);
   const [stationPref, setStationPref] = useLocalState<string>('karbon.kds.station', 'ALL');
@@ -74,9 +82,7 @@ export default function KdsPage() {
     ? (stationPref as KitchenStation)
     : undefined;
   const tickets = useKitchenTickets(station);
-  const thresholds = settings
-    ? { warningMinutes: settings.kdsWarningMinutes, criticalMinutes: settings.kdsCriticalMinutes }
-    : DEFAULT_KDS_THRESHOLDS;
+  const thresholds = useUrgencyThresholds();
 
   // Aviso sonoro cuando llega una comanda que no estaba en pantalla. Al cambiar de estación
   // se vuelve a empezar: las comandas de la otra estación no son nuevas.
@@ -104,9 +110,18 @@ export default function KdsPage() {
     };
   }, []);
 
-  const setStatus = useApiMutation(
-    ({ ticket, status }: { ticket: KitchenTicketDto; status: KitchenTicketStatus }) =>
-      api.kitchen.setStatus(ticket.id, status),
+  // Cocina mueve la comanda por su ruta; la entrega (modo bar, caja) va por la del pedido.
+  const runCommand = useApiMutation(
+    async ({ ticket, command }: { ticket: KitchenTicketDto; command: TicketCommand }) => {
+      if (command.kind === 'kitchen') return api.kitchen.setStatus(ticket.id, command.to);
+      const order =
+        command.kind === 'deliver'
+          ? await api.orders.deliverTicket(ticket.orderId, ticket.id)
+          : await api.orders.undeliverTicket(ticket.orderId, ticket.id);
+      const updated = order.tickets.find((candidate) => candidate.id === ticket.id);
+      if (!updated) throw new Error('La comanda ya no pertenece al pedido');
+      return updated;
+    },
     [],
     {
       onSuccess: (updated) => {
@@ -120,6 +135,57 @@ export default function KdsPage() {
       },
     },
   );
+  // Llamar al mesero desde la comanda (dudas, "pasa por aquí"): se ve en la tarjeta si ya fue.
+  const me = useSession()?.user.id ?? '';
+  const canCallWaiter = useHasPermission(Permission.CALLS_WAITER);
+  const staffCalls = useStaffCalls().data;
+  const callActions = useStaffCallActions({ onError: notifyError });
+  const callByOrder = useMemo(
+    () =>
+      new Map(
+        outgoingStaffCalls(staffCalls ?? [], me)
+          .filter((call): call is StaffCallDto & { orderId: string } => call.orderId !== null)
+          .map((call) => [call.orderId, call]),
+      ),
+    [staffCalls, me],
+  );
+  const callWaiter = (ticket: KitchenTicketDto): void => {
+    callActions.create.mutate(
+      {
+        target: StaffCallTarget.WAITER,
+        reason: StaffCallReason.COME_OVER,
+        orderId: ticket.orderId,
+      },
+      {
+        onSuccess: (call) => {
+          toast.success(
+            call.callCount > 1
+              ? `Se insistió a ${ticket.waiterName}`
+              : `Llamaste a ${ticket.waiterName}`,
+          );
+        },
+      },
+    );
+  };
+
+  const cardProps = (ticket: KitchenTicketDto) => ({
+    now,
+    thresholds,
+    canUpdate,
+    canDeliver: access.canDeliver(ticket.waiterId),
+    busy: runCommand.isPending && runCommand.variables.ticket.id === ticket.id,
+    onCommand: (target: KitchenTicketDto, command: TicketCommand) => {
+      runCommand.mutate({ ticket: target, command });
+    },
+    call: callByOrder.get(ticket.orderId) ?? null,
+    ...(canCallWaiter
+      ? {
+          onCallWaiter: () => {
+            callWaiter(ticket);
+          },
+        }
+      : {}),
+  });
 
   const all = tickets.data ?? [];
   const delivered = all
@@ -186,14 +252,17 @@ export default function KdsPage() {
         >
           {soundOn ? <BellIcon /> : <BellOffIcon />}
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="Pantalla completa"
-          onClick={toggleFullscreen}
-        >
-          {fullscreen ? <MinimizeIcon /> : <MaximizeIcon />}
-        </Button>
+        {/* iPhone no tiene pantalla completa para páginas: ahí no se ofrece. */}
+        {document.fullscreenEnabled ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Pantalla completa"
+            onClick={toggleFullscreen}
+          >
+            {fullscreen ? <MinimizeIcon /> : <MaximizeIcon />}
+          </Button>
+        ) : null}
       </header>
 
       {tickets.isPending ? <Spinner className="m-6" /> : null}
@@ -228,14 +297,8 @@ export default function KdsPage() {
                   <TicketCard
                     key={ticket.id}
                     ticket={ticket}
-                    now={now}
-                    thresholds={thresholds}
                     showStation={!station && stations.length > 1}
-                    canUpdate={canUpdate}
-                    busy={setStatus.isPending && setStatus.variables.ticket.id === ticket.id}
-                    onChangeStatus={(target, next) => {
-                      setStatus.mutate({ ticket: target, status: next });
-                    }}
+                    {...cardProps(ticket)}
                   />
                 ))}
               </div>
@@ -261,14 +324,8 @@ export default function KdsPage() {
                 <TicketCard
                   key={ticket.id}
                   ticket={ticket}
-                  now={now}
-                  thresholds={thresholds}
                   showStation={false}
-                  canUpdate={canUpdate}
-                  busy={setStatus.isPending}
-                  onChangeStatus={(target, next) => {
-                    setStatus.mutate({ ticket: target, status: next });
-                  }}
+                  {...cardProps(ticket)}
                 />
               ))}
             </div>

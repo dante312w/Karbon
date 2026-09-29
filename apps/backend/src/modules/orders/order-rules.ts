@@ -8,45 +8,86 @@ import { isOrderActive } from '@karbon/utils';
 import { conflict } from '../../common/errors/domain-error.js';
 
 /**
- * Transiciones del KDS. Se permite retroceder un paso (toque accidental) y saltar de Nuevo a
- * Listo (bebidas o productos sin preparación). Cocina/barra nunca cancela: eso es del pedido.
+ * Quién mueve la comanda: cocina/barra la prepara (KDS) y el servicio (mesero, o caja) confirma
+ * que llegó a la mesa. Cada uno puede deshacer su propio paso ante un toque accidental.
  */
-const TICKET_TRANSITIONS: Readonly<Record<TicketStatus, readonly TicketStatus[]>> = {
-  NEW: [KitchenTicketStatus.PREPARING, KitchenTicketStatus.READY],
-  PREPARING: [KitchenTicketStatus.READY, KitchenTicketStatus.NEW],
-  READY: [KitchenTicketStatus.DELIVERED, KitchenTicketStatus.PREPARING],
-  DELIVERED: [KitchenTicketStatus.READY],
-  CANCELLED: [],
+export type TicketActor = 'kitchen' | 'service';
+
+const TICKET_TRANSITIONS: Readonly<
+  Record<TicketActor, Readonly<Record<TicketStatus, readonly TicketStatus[]>>>
+> = {
+  // Nuevo → Listo directo: bebidas o productos sin preparación. Cocina nunca cancela ni entrega.
+  kitchen: {
+    NEW: [KitchenTicketStatus.PREPARING, KitchenTicketStatus.READY],
+    PREPARING: [KitchenTicketStatus.READY, KitchenTicketStatus.NEW],
+    READY: [KitchenTicketStatus.PREPARING],
+    DELIVERED: [],
+    CANCELLED: [],
+  },
+  service: {
+    NEW: [],
+    PREPARING: [],
+    READY: [KitchenTicketStatus.DELIVERED],
+    DELIVERED: [KitchenTicketStatus.READY],
+    CANCELLED: [],
+  },
 };
 
-export function canTransitionTicket(from: TicketStatus, to: TicketStatus): boolean {
-  return TICKET_TRANSITIONS[from].includes(to);
+export function canTransitionTicket(
+  actor: TicketActor,
+  from: TicketStatus,
+  to: TicketStatus,
+): boolean {
+  return TICKET_TRANSITIONS[actor][from].includes(to);
 }
 
-export function assertTicketTransition(from: TicketStatus, to: TicketStatus): void {
-  if (!canTransitionTicket(from, to)) {
-    throw conflict(
-      ErrorCode.INVALID_STATUS_TRANSITION,
-      `Una comanda en ${from} no puede pasar a ${to}`,
-    );
-  }
+export function assertTicketTransition(
+  actor: TicketActor,
+  from: TicketStatus,
+  to: TicketStatus,
+): void {
+  if (canTransitionTicket(actor, from, to)) return;
+  const message =
+    actor === 'kitchen' && to === KitchenTicketStatus.DELIVERED
+      ? 'La entrega en la mesa la confirma el mesero'
+      : `Una comanda en ${from} no puede pasar a ${to}`;
+  throw conflict(ErrorCode.INVALID_STATUS_TRANSITION, message);
 }
 
-/** Marca de tiempo que registra cada estado (para tiempos de preparación en reportes). */
-export function ticketTimestampField(
-  status: TicketStatus,
-): 'startedAt' | 'readyAt' | 'deliveredAt' | 'cancelledAt' | null {
-  switch (status) {
-    case KitchenTicketStatus.PREPARING:
-      return 'startedAt';
-    case KitchenTicketStatus.READY:
-      return 'readyAt';
-    case KitchenTicketStatus.DELIVERED:
-      return 'deliveredAt';
-    case KitchenTicketStatus.CANCELLED:
-      return 'cancelledAt';
+export interface TicketStatusChange {
+  status: TicketStatus;
+  startedAt?: Date | null;
+  readyAt?: Date | null;
+  deliveredAt?: Date | null;
+  deliveredById?: string | null;
+  cancelledAt?: Date | null;
+}
+
+/**
+ * Datos que registra una transición. Avanzar marca la hora del paso; retroceder borra la marca
+ * del paso deshecho, así los cronómetros y los reportes de tiempos nunca quedan incoherentes.
+ */
+export function ticketStatusChange(
+  from: TicketStatus,
+  to: TicketStatus,
+  now: Date,
+  actorId: string | null,
+): TicketStatusChange {
+  switch (to) {
     case KitchenTicketStatus.NEW:
-      return null;
+      return { status: to, startedAt: null };
+    case KitchenTicketStatus.PREPARING:
+      return from === KitchenTicketStatus.READY
+        ? { status: to, readyAt: null }
+        : { status: to, startedAt: now };
+    case KitchenTicketStatus.READY:
+      return from === KitchenTicketStatus.DELIVERED
+        ? { status: to, deliveredAt: null, deliveredById: null }
+        : { status: to, readyAt: now };
+    case KitchenTicketStatus.DELIVERED:
+      return { status: to, deliveredAt: now, deliveredById: actorId };
+    case KitchenTicketStatus.CANCELLED:
+      return { status: to, cancelledAt: now };
   }
 }
 

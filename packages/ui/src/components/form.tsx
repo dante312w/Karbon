@@ -2,7 +2,7 @@ import { type ComponentProps, type ReactNode, useId } from 'react';
 import { cn } from '../lib/cn';
 
 const CONTROL =
-  'w-full rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-xs transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/40 disabled:opacity-50 aria-invalid:border-destructive';
+  'w-full rounded-lg border border-input bg-background px-3 py-2 text-base shadow-xs pointer-fine:text-sm transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/40 disabled:opacity-50 aria-invalid:border-destructive';
 
 export function Input({ className, ...props }: ComponentProps<'input'>) {
   return <input className={cn(CONTROL, 'h-10', className)} {...props} />;

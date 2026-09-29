@@ -8,6 +8,7 @@ const PERSISTED_ROOTS: ReadonlySet<string> = new Set([
   'settings',
   'categories',
   'products',
+  'note-options',
   'areas',
   'tables',
 ]);

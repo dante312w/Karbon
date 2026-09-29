@@ -1,5 +1,6 @@
-import type { MinorUnits, OrderTotals, Percentage } from '@karbon/types';
+import { DiscountType, type MinorUnits, type OrderTotals, type Percentage } from '@karbon/types';
 import {
+  allocate,
   assertMinorUnits,
   multiplyMinor,
   percentOf,
@@ -17,6 +18,12 @@ export interface TotalsLine {
   discount?: MinorUnits;
 }
 
+/** Descuento sobre el total: `value` es un porcentaje (PERCENT) o un valor en unidades menores. */
+export interface OrderDiscountRule {
+  type: DiscountType;
+  value: number;
+}
+
 export interface TotalsOptions {
   /** Si `true`, los precios de carta ya incluyen el impuesto (usual en restaurantes en Colombia). */
   pricesIncludeTax: boolean;
@@ -24,6 +31,8 @@ export interface TotalsOptions {
   tipPercent?: Percentage;
   /** Unidad a la que se redondea la propina (ver `practicalUnit`). Por defecto, sin redondeo. */
   tipRoundingUnit?: MinorUnits;
+  /** Descuento sobre el total del pedido, después de los descuentos de línea. */
+  orderDiscount?: OrderDiscountRule | null;
 }
 
 export interface TaxBreakdownEntry {
@@ -34,6 +43,10 @@ export interface TaxBreakdownEntry {
 
 export interface CalculatedTotals extends OrderTotals {
   taxBreakdown: TaxBreakdownEntry[];
+  /** Precio × cantidad de todas las líneas, antes de cualquier descuento. */
+  grossAmount: MinorUnits;
+  /** Lo que descuenta el descuento del pedido (incluido en `discountTotal`). */
+  orderDiscountAmount: MinorUnits;
 }
 
 /** Total de una línea antes de separar impuestos: precio × cantidad − descuento. */
@@ -49,6 +62,54 @@ export function lineAmount(line: TotalsLine): MinorUnits {
 }
 
 /**
+ * Valor del descuento del pedido sobre `base` (lo que suman las líneas ya con sus descuentos).
+ * Un valor fijo mayor que la base se limita a la base: el total nunca queda negativo.
+ */
+export function orderDiscountAmount(
+  base: MinorUnits,
+  rule: OrderDiscountRule | null | undefined,
+): MinorUnits {
+  if (!rule || base <= 0) return 0;
+  if (rule.type === DiscountType.PERCENT) {
+    if (rule.value <= 0 || rule.value > 100) {
+      throw new RangeError('El porcentaje de descuento debe estar entre 0 y 100');
+    }
+    return percentOf(base, rule.value);
+  }
+  assertMinorUnits(rule.value, 'descuento');
+  if (rule.value <= 0) throw new RangeError('El descuento debe ser mayor que cero');
+  return Math.min(rule.value, base);
+}
+
+/** Porcentaje que representan todos los descuentos (línea + pedido) sobre el valor sin descuentos. */
+export function discountPercent(
+  totals: Pick<CalculatedTotals, 'discountTotal' | 'grossAmount'>,
+): number {
+  return totals.grossAmount === 0 ? 0 : (totals.discountTotal / totals.grossAmount) * 100;
+}
+
+/** "10 %" o "$ 5.000" (con el formateador de dinero del negocio). */
+export function describeOrderDiscount(
+  discount: OrderDiscountRule,
+  money: (amount: MinorUnits) => string,
+): string {
+  return discount.type === DiscountType.PERCENT
+    ? `${String(discount.value)} %`
+    : money(discount.value);
+}
+
+/**
+ * ¿Los descuentos (línea + pedido) superan el máximo configurado? Se compara en unidades menores
+ * con el mismo redondeo del cálculo: un 10 % exacto no falla por un peso de redondeo.
+ */
+export function exceedsDiscountLimit(
+  totals: Pick<CalculatedTotals, 'discountTotal' | 'grossAmount'>,
+  maxPercent: Percentage,
+): boolean {
+  return totals.discountTotal > percentOf(totals.grossAmount, maxPercent);
+}
+
+/**
  * Calcula los totales de un pedido. El impuesto se calcula por tarifa agrupada (no por
  * línea) para que el desglose coincida con el comprobante y minimizar el error de redondeo.
  * Es la misma función en backend (fuente de verdad) y en clientes (vista previa).
@@ -58,11 +119,19 @@ export function calculateOrderTotals(
   options: TotalsOptions,
 ): CalculatedTotals {
   const amountByRate = new Map<number, { rate: Percentage; amount: MinorUnits }>();
-  let discountTotal = 0;
+  const amounts = lines.map(lineAmount);
+  const base = sumMinor(amounts);
+  // El descuento del pedido se reparte entre las líneas en proporción a su valor: así cada
+  // tarifa de impuesto se calcula sobre lo que realmente se cobra.
+  const orderDiscount = orderDiscountAmount(base, options.orderDiscount);
+  const shares = orderDiscount > 0 ? allocate(orderDiscount, amounts) : amounts.map(() => 0);
+  let discountTotal = orderDiscount;
+  let grossAmount = 0;
 
-  for (const line of lines) {
-    const amount = lineAmount(line);
+  for (const [index, line] of lines.entries()) {
+    const amount = (amounts[index] ?? 0) - (shares[index] ?? 0);
     discountTotal += line.discount ?? 0;
+    grossAmount += multiplyMinor(line.unitPrice, line.quantity);
     const key = toBasisPoints(line.taxRate);
     const group = amountByRate.get(key) ?? { rate: line.taxRate, amount: 0 };
     group.amount += amount;
@@ -92,5 +161,7 @@ export function calculateOrderTotals(
     tipAmount,
     total: subtotal + taxTotal + tipAmount,
     taxBreakdown,
+    grossAmount,
+    orderDiscountAmount: orderDiscount,
   };
 }
