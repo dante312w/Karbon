@@ -6,7 +6,7 @@ Guía para instalar Karbon en el negocio y operarlo en el día a día. Está pen
 
 - **Un PC con Windows 10 u 11** que será el servidor (idealmente el de la caja). 4 GB de RAM o más.
 - **Router WiFi** al que se conectan el PC, los celulares de los meseros y la tablet de cocina/barra. No hace falta internet.
-- **Celulares Android** con Chrome para los meseros (iPhone con Safari también funciona).
+- **Celulares** para los meseros: Android con Chrome, o iPhone/iPad con Safari (iOS 16.4 o superior).
 - Opcional: impresora térmica de 80 mm (por red o USB) y una tablet o TV para la cocina o la barra.
 
 > Consejo: pide a quien administra el router que **reserve la IP del PC servidor** (DHCP estático). Así la dirección que usan los celulares no cambia.
@@ -47,11 +47,16 @@ Después carga el **Catálogo** (categorías, productos, precios, imágenes y es
 En el PC abre **Configuración → Celulares**. Con cada celular (conectado a la misma WiFi):
 
 1. **Instala el certificado del local** (una sola vez): en la sección "Conexión segura (HTTPS)" escanea el QR del certificado, descárgalo e instálalo. Android: Ajustes → Seguridad → Instalar certificado CA. iPhone: Ajustes → Perfil descargado → Instalar, y actívalo en Información → Confianza de certificados.
-2. **Abre la app**: escanea el QR con la dirección del servidor (por ejemplo `https://192.168.1.10:3443`) y ábrelo en Chrome.
-3. En Chrome: menú ⋮ → **Instalar aplicación** (o "Agregar a pantalla principal"). Queda como una app más.
+2. **Abre la app**: escanea el QR con la dirección del servidor (por ejemplo `https://192.168.1.10:3443`) y ábrelo en Chrome (Android) o Safari (iPhone/iPad).
+3. **Instálala**:
+   - Android, en Chrome: menú ⋮ → **Instalar aplicación** (o "Agregar a pantalla principal").
+   - iPhone/iPad, en Safari: botón **Compartir** → **Agregar a inicio**. Se abre a pantalla completa, con la barra de estado sobre la franja de color de Karbon, y funciona en vertical y horizontal.
 4. Cada mesero entra tocando su nombre y escribiendo su **PIN**.
+5. En iPhone, **toca la pantalla una vez** al empezar el turno: iOS no deja sonar avisos hasta el primer toque. Desde ahí suenan los "listo para recoger" y los llamados (el iPhone no vibra desde una página web; Android sí).
 
 Sin el certificado la app funciona igual en modo básico (HTTP); solo que si se corta la WiFi hay que esperar a que vuelva para recargarla.
+
+Al bloquear el celular o cambiar de app, iOS pausa Karbon. Al volver, la app se reconecta sola y recarga mesas, pedidos y llamados en un instante; si la WiFi cambió, lo hace apenas vuelve la red. Los pedidos tomados sin conexión quedan en cola y se envían solos.
 
 ## 5. Tablero de cocina o barra (KDS)
 
@@ -126,5 +131,6 @@ Karbon incluye **30 días de prueba**. Para activar la licencia: **Configuració
 | El celular muestra "Sin conexión"                     | Verifica que esté en la WiFi del negocio y que Karbon esté abierto en el PC (ícono en la bandeja)                                 |
 | Cambió la IP del PC y los celulares no conectan       | Reserva la IP en el router; mientras tanto, vuelve a escanear el QR de Configuración → Celulares                                  |
 | La tablet del KDS no suena                            | Toca **Activar sonido** en el tablero (los navegadores bloquean el sonido hasta que se toca la pantalla)                          |
+| El iPhone no suena con los avisos                     | Toca la pantalla una vez con la app abierta y revisa que el interruptor de silencio del iPhone no esté activado                   |
 | La impresora de red no imprime                        | Configuración → Impresoras → **Imprimir prueba**; revisa la IP y que la impresora esté en la misma red                            |
 | El ícono de la bandeja dice "Servidor: con problemas" | Cierra Karbon desde la bandeja (**Salir**) y ábrelo de nuevo; si persiste, envía a soporte la carpeta `%APPDATA%\Karbon POS\logs` |

@@ -7,7 +7,18 @@ import { EmptyState } from './layout';
 /** Notificaciones de la app (éxitos, errores de la API, avisos de cocina/barra). */
 export function Toaster() {
   const { resolved } = useTheme();
-  return <SonnerToaster theme={resolved} position="top-center" richColors closeButton />;
+  // Los avisos bajan lo necesario para no quedar bajo el notch o la isla del iPhone.
+  const top = 'max(16px, env(safe-area-inset-top))';
+  return (
+    <SonnerToaster
+      theme={resolved}
+      position="top-center"
+      richColors
+      closeButton
+      offset={{ top }}
+      mobileOffset={{ top }}
+    />
+  );
 }
 
 /** Texto del error para soporte (errores de JavaScript o respuestas del enrutador). */
