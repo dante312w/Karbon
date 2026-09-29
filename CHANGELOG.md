@@ -21,6 +21,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); v
 - Permisos nuevos: **Llamar al mesero** (cocina, barra y caja) y **Llamar a caja** (meseros).
 - Descuento sobre el total en caja: porcentaje o valor fijo, con motivo, vista previa del total y registro de quién lo aplicó (valor anterior, descontado y final en la auditoría). Se reparte entre los productos para que los impuestos queden bien, no deja la cuenta por debajo de lo ya pagado y se puede quitar. El mesero lo ve en el celular.
 - **Descuento máximo** configurable en Configuración → Negocio; aplica a los descuentos por producto y al del pedido.
+- iPhone y iPad: la app de meseros se instala desde Safari (Compartir → Agregar a inicio) con pantalla de inicio propia, barra de estado sobre la franja de marca, y uso vertical u horizontal.
 
 ### Cambiado
 
@@ -34,6 +35,13 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); v
 - KDS en pantallas anchas (TV): dos o más comandas por fila en cada columna.
 
 ### Corregido
+
+- iPhone/iPad: los avisos de cocina y los llamados no sonaban hasta que se interactuaba con la app; ahora el primer toque habilita el sonido y se reanuda al volver a la app.
+- iPhone/iPad: al volver de segundo plano (pantalla bloqueada, otra app) o tras un cambio de WiFi, la app mostraba datos de hasta un minuto atrás mientras el socket detectaba la desconexión; ahora se reconecta y recarga al instante.
+- iPhone: tocar un campo de texto agrandaba la página (letra menor a 16 px); los campos usan 16 px en pantallas táctiles.
+- Pantallas táctiles: botones, chips y el botón de cerrar de los paneles alcanzan 44 px; los paneles laterales, los avisos y las barras inferiores respetan el notch, la isla y la barra de inicio también en horizontal; en el celular horizontal las acciones del pedido van en una sola fila.
+- Catálogo en tablet: el lápiz para editar una categoría solo aparecía al pasar el mouse.
+- KDS en iPhone: el botón de pantalla completa fallaba (iPhone no la permite); ahora no se muestra ahí.
 
 - Los celulares no recibían los pedidos que abría otro mesero hasta recargar; ahora llegan al instante.
 

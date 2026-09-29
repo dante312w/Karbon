@@ -17,11 +17,8 @@ export default defineConfig({
       // El registro lo decide la app: solo en contexto seguro (ver src/pwa.ts).
       injectRegister: false,
       registerType: 'autoUpdate',
-      pwaAssets: {
-        image: `${BRAND_ASSETS_DIR}/logo.svg`,
-        preset: 'minimal-2023',
-        overrideManifestIcons: true,
-      },
+      // Íconos, apple-touch-icon y pantallas de inicio de iPhone/iPad (pwa-assets.config.ts).
+      pwaAssets: { config: true, overrideManifestIcons: true },
       manifest: {
         name: 'Karbon Meseros',
         short_name: 'Karbon',
@@ -30,12 +27,15 @@ export default defineConfig({
         start_url: '/',
         scope: '/',
         display: 'standalone',
-        orientation: 'portrait',
+        // En iPad se usa también horizontal; el celular se adapta a ambas.
+        orientation: 'any',
         theme_color: '#1d1237',
-        background_color: '#ffffff',
+        background_color: '#1d1237',
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}'],
+        // Las pantallas de inicio de iOS las pide el sistema al abrir: no se precargan todas.
+        globIgnores: ['**/apple-splash-*.png'],
         navigateFallback: 'index.html',
         // La API y los sockets nunca se sirven desde caché: los pedidos deben ser en vivo.
         navigateFallbackDenylist: [/^\/api\//, /^\/socket\.io\//],

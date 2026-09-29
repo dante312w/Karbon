@@ -220,11 +220,12 @@ export default function OrderPage() {
       </dl>
 
       {editable ? (
-        <div className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-2 gap-2 border-t bg-background p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-2 gap-2 border-t bg-background p-3 pr-[max(0.75rem,env(safe-area-inset-right))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] [@media(max-height:500px)]:grid-flow-col [@media(max-height:500px)]:grid-cols-none [@media(max-height:500px)]:py-2">
           {pendingCount > 0 && canSend ? (
             <Button
               size="touch"
-              className="col-span-2"
+              // Celular horizontal: las tres acciones en una fila para no tapar el pedido.
+              className="col-span-2 [@media(max-height:500px)]:col-span-1 [@media(max-height:500px)]:h-12"
               disabled={send.isPending}
               onClick={() => {
                 send.mutate();

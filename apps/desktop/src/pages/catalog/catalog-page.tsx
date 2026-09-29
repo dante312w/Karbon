@@ -215,7 +215,7 @@ export default function CatalogPage() {
                 variant="ghost"
                 size="sm"
                 aria-label={`Editar ${category.name}`}
-                className="opacity-0 group-hover:opacity-100"
+                className="opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100"
                 onClick={() => {
                   setEditingCategory({ category });
                 }}
