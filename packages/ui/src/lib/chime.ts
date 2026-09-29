@@ -15,6 +15,8 @@ export function playChime(kind: keyof typeof NOTES = 'new'): void {
   try {
     context ??= new AudioContext();
     const audio = context;
+    // Suspendido (o "interrumpido" en iOS tras pasar a segundo plano): se intenta reanudar.
+    if (audio.state !== 'running') void audio.resume();
     const notes = NOTES[kind];
     notes.forEach((frequency, index) => {
       const oscillator = audio.createOscillator();
@@ -32,4 +34,32 @@ export function playChime(kind: keyof typeof NOTES = 'new'): void {
   } catch {
     // Sin audio disponible (política del navegador antes de la primera interacción): se omite.
   }
+}
+
+/**
+ * iOS (Safari y la PWA instalada) solo deja sonar audio que se crea o reanuda dentro de un toque,
+ * y lo vuelve a suspender al pasar a segundo plano. Cada toque, si hace falta, lo reanuda con un
+ * sonido silencioso: así los avisos de cocina y los llamados suenan aunque lleguen sin tocar nada.
+ */
+export function unlockAudioOnGesture(
+  target: Pick<Window, 'addEventListener' | 'removeEventListener'> = window,
+): () => void {
+  const unlock = (): void => {
+    try {
+      context ??= new AudioContext();
+      if (context.state === 'running') return;
+      void context.resume();
+      const source = context.createBufferSource();
+      source.buffer = context.createBuffer(1, 1, 22_050);
+      source.connect(context.destination);
+      source.start(0);
+    } catch {
+      // Navegador sin Web Audio: no hay nada que desbloquear.
+    }
+  };
+  const events = ['pointerdown', 'touchend', 'keydown'] as const;
+  for (const event of events) target.addEventListener(event, unlock, { passive: true });
+  return () => {
+    for (const event of events) target.removeEventListener(event, unlock);
+  };
 }

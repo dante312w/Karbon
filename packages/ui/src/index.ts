@@ -64,4 +64,4 @@ export { ErrorScreen, Toaster } from './components/feedback';
 export { errorMessage, notifyError, toast } from './components/notify';
 export { PERMISSION_GROUPS } from './domain/permission-labels';
 export { useNow } from './lib/use-now';
-export { playChime } from './lib/chime';
+export { playChime, unlockAudioOnGesture } from './lib/chime';

@@ -1,5 +1,5 @@
 import { KarbonProvider } from '@karbon/client';
-import { ThemeProvider, Toaster } from '@karbon/ui';
+import { ThemeProvider, Toaster, unlockAudioOnGesture } from '@karbon/ui';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './app';
@@ -11,6 +11,8 @@ const container = document.getElementById('root');
 if (!container) throw new Error('No se encontró el contenedor #root');
 
 const runtime = await resolveRuntime();
+// El KDS también se abre en iPad: el audio queda habilitado con el primer toque.
+unlockAudioOnGesture();
 
 createRoot(container).render(
   <StrictMode>

@@ -30,7 +30,8 @@ export function DialogContent({
           'fixed z-50 flex max-h-[92dvh] flex-col gap-4 bg-background p-5 shadow-elevated outline-none',
           variant === 'modal'
             ? 'top-1/2 left-1/2 w-[min(92vw,34rem)] -translate-x-1/2 -translate-y-1/2 rounded-2xl border'
-            : 'inset-y-0 right-0 h-dvh w-[min(100vw,28rem)] max-h-dvh border-l',
+            : // Panel lateral: en iPhone no queda bajo el notch, la isla ni la barra de inicio.
+              'inset-y-0 right-0 h-dvh w-[min(100vw,28rem)] max-h-dvh border-l pt-[max(1.25rem,env(safe-area-inset-top))] pr-[max(1.25rem,env(safe-area-inset-right))] pb-[max(1.25rem,env(safe-area-inset-bottom))]',
           className,
         )}
         {...props}
@@ -47,7 +48,7 @@ export function DialogContent({
             )}
           </div>
           <DialogPrimitive.Close
-            className="rounded-md p-1 text-muted-foreground hover:bg-accent"
+            className="-m-1 rounded-md p-1 text-muted-foreground hover:bg-accent pointer-coarse:-m-2.5 pointer-coarse:p-2.5"
             aria-label="Cerrar"
           >
             <XIcon className="size-5" />

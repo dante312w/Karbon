@@ -111,6 +111,66 @@ export function bindRealtimeCache(socket: KarbonSocket, queryClient: QueryClient
   };
 }
 
+/** Tiempo en segundo plano a partir del cual, al volver, se reconecta y se recarga todo. */
+export const RESUME_AFTER_MS = 10_000;
+
+type Listenable = Pick<EventTarget, 'addEventListener' | 'removeEventListener'>;
+
+export interface ResumeSyncOptions {
+  socket: Pick<KarbonSocket, 'connected' | 'connect' | 'disconnect'>;
+  queryClient: Pick<QueryClient, 'invalidateQueries'>;
+  hasSession: () => boolean;
+  doc?: Listenable & Pick<Document, 'visibilityState'>;
+  win?: Listenable;
+  now?: () => number;
+}
+
+/**
+ * iOS suspende la app en segundo plano (pantalla bloqueada, otra app) y el socket puede quedar
+ * "conectado" sin estarlo hasta que venza el ping (~45 s). Al volver después de un rato, al
+ * recuperar la red (cambio de Wi-Fi) o al restaurar la página, se reconecta de inmediato y se
+ * recarga el estado por REST: el mesero nunca ve la mesa como estaba hace un minuto.
+ */
+export function bindResumeSync({
+  socket,
+  queryClient,
+  hasSession,
+  doc = document,
+  win = window,
+  now = Date.now,
+}: ResumeSyncOptions): () => void {
+  let hiddenAt: number | null = null;
+  const resume = (): void => {
+    if (!hasSession()) return;
+    socket.disconnect();
+    socket.connect();
+    void queryClient.invalidateQueries();
+  };
+  const onVisibility = (): void => {
+    if (doc.visibilityState === 'hidden') {
+      hiddenAt = now();
+      return;
+    }
+    const away = hiddenAt === null ? 0 : now() - hiddenAt;
+    hiddenAt = null;
+    if (away >= RESUME_AFTER_MS || !socket.connected) resume();
+  };
+  const onOnline = (): void => {
+    if (!socket.connected) resume();
+  };
+  const onPageShow = (event: Event): void => {
+    if ((event as PageTransitionEvent).persisted) resume();
+  };
+  doc.addEventListener('visibilitychange', onVisibility);
+  win.addEventListener('online', onOnline);
+  win.addEventListener('pageshow', onPageShow);
+  return () => {
+    doc.removeEventListener('visibilitychange', onVisibility);
+    win.removeEventListener('online', onOnline);
+    win.removeEventListener('pageshow', onPageShow);
+  };
+}
+
 /** Escucha un evento del servidor mientras el componente esté montado (sonidos, avisos). */
 export function useSocketEvent<E extends SocketEvent>(
   event: E,

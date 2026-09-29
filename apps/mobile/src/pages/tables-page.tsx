@@ -283,7 +283,7 @@ export function TablesPage() {
 
       <Button
         size="lg"
-        className="fixed right-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-20 rounded-full shadow-elevated"
+        className="fixed right-[max(1rem,env(safe-area-inset-right))] bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-20 rounded-full shadow-elevated"
         onClick={() => {
           void navigate('/nuevo');
         }}
