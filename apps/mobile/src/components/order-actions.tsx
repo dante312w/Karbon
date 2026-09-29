@@ -5,6 +5,7 @@ import {
   useHasPermission,
   useMoney,
   useOrderMutation,
+  useProductNoteSuggestions,
   useSession,
   useTables,
   useTerminology,
@@ -639,6 +640,7 @@ export function ItemSheet({
   const api = useApi();
   const money = useMoney();
   const terms = useTerminology();
+  const noteSuggestions = useProductNoteSuggestions(item.productId);
   const canCancel = useHasPermission(Permission.ORDERS_CANCEL);
   const pending = item.status === OrderItemStatus.PENDING;
   const [quantity, setQuantity] = useState(item.quantity);
@@ -736,7 +738,7 @@ export function ItemSheet({
       }
     >
       <QuantityStepper value={quantity} onChange={setQuantity} className="self-center" />
-      <NotesEditor value={notes} onChange={setNotes} suggestions={terms.quickNotes} />
+      <NotesEditor value={notes} onChange={setNotes} suggestions={noteSuggestions} />
     </Sheet>
   );
 }

@@ -40,6 +40,8 @@ Todo está en **Configuración** (solo administradores):
 
 Después carga el **Catálogo** (categorías, productos, precios, imágenes y estación: cocina o barra) y, si vas a controlar inventario, los **insumos** y la **receta** de cada producto.
 
+**Notas de un toque:** en el Catálogo, elige una categoría y toca **Editar notas** para definir las que el mesero marca con un toque al pedir ("Sin cebolla", "Término medio"…). Con **Todas** seleccionado editas las **notas generales**, que se ofrecen en todos los productos. Puedes renombrarlas, ordenarlas con las flechas, apagarlas por un tiempo o eliminarlas; los pedidos ya tomados no cambian. Una categoría se puede eliminar desde su edición cuando ya no tiene productos.
+
 ## 4. Conectar los celulares de los meseros
 
 En el PC abre **Configuración → Celulares**. Con cada celular (conectado a la misma WiFi):
@@ -69,7 +71,7 @@ Sin el certificado la app funciona igual en modo básico (HTTP); solo que si se 
 
 ### Tomar un pedido
 
-- **Mesero (celular):** Mesas → toca la mesa → agrega productos (con notas rápidas como "sin cebolla" o "sin hielo") → **Enviar a cocina/barra**. Si la señal se cae, el pedido queda en cola y se envía solo al volver.
+- **Mesero (celular):** Mesas → toca la mesa → agrega productos (con las notas de un toque de su categoría, como "sin cebolla" en hamburguesas o "sin hielo" en bebidas, más texto libre) → **Enviar a cocina/barra**. Si la señal se cae, el pedido queda en cola y se envía solo al volver.
   - Arriba de las mesas, los contadores **Para recoger**, **Preparando**, **Cuenta** y **Libres** filtran el salón con un toque.
   - Cada mesa con algo en cocina muestra cuánto lleva y si va **A tiempo**, **Demorado** o **Crítico** (los minutos son los del tablero de cocina).
   - En **Mis pedidos** aparece primero lo listo para llevar; **Entregado en la mesa** lo confirma todo de una vez.

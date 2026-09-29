@@ -5,6 +5,7 @@ export * from './order-access.js';
 export * from './kds.js';
 export * from './business-mode.js';
 export * from './labels.js';
+export * from './note-options.js';
 export * from './search.js';
 export * from './table-summary.js';
 export * from './table-ops.js';

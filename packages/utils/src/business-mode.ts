@@ -20,8 +20,6 @@ export interface Terminology {
   /** Estado de mesa WAITING_FOOD. */
   waitingLabel: string;
   venue: string;
-  /** Notas frecuentes que se agregan con un toque al tomar el pedido. */
-  quickNotes: readonly string[];
 }
 
 const TERMINOLOGY: Readonly<Record<BusinessMode, Terminology>> = {
@@ -33,15 +31,6 @@ const TERMINOLOGY: Readonly<Record<BusinessMode, Terminology>> = {
     prepRoleName: 'Cocina',
     waitingLabel: 'Esperando comida',
     venue: 'Restaurante',
-    quickNotes: [
-      'Sin cebolla',
-      'Sin sal',
-      'Sin salsas',
-      'Término medio',
-      'Bien asado',
-      'Extra queso',
-      'Para llevar',
-    ],
   },
   BAR: {
     prepArea: 'Barra',
@@ -51,15 +40,6 @@ const TERMINOLOGY: Readonly<Record<BusinessMode, Terminology>> = {
     prepRoleName: 'Barra',
     waitingLabel: 'Esperando pedido',
     venue: 'Bar',
-    quickNotes: [
-      'Sin hielo',
-      'Poco hielo',
-      'Sin azúcar',
-      'Doble',
-      'Michelada',
-      'Con limón',
-      'Bien fría',
-    ],
   },
 };
 

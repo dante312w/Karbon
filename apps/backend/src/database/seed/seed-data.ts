@@ -128,7 +128,8 @@ export interface DemoDataset {
     tables: readonly DemoTable[];
     elements?: readonly DemoElement[];
   }[];
-  categories: readonly { key: string; name: string; color: string }[];
+  /** `notes`: notas de un toque que el mesero ve al pedir un producto de la categoría. */
+  categories: readonly { key: string; name: string; color: string; notes: readonly string[] }[];
   ingredients: readonly DemoIngredient[];
   products: readonly DemoProduct[];
 }
@@ -170,11 +171,38 @@ const RESTAURANT: DemoDataset = {
     },
   ],
   categories: [
-    { key: 'entradas', name: 'Entradas', color: '#F59E0B' },
-    { key: 'hamburguesas', name: 'Hamburguesas', color: '#EF4444' },
-    { key: 'fuertes', name: 'Platos fuertes', color: '#22C55E' },
-    { key: 'bebidas', name: 'Bebidas', color: '#3B82F6' },
-    { key: 'postres', name: 'Postres', color: '#A855F7' },
+    {
+      key: 'entradas',
+      name: 'Entradas',
+      color: '#F59E0B',
+      notes: ['Salsa aparte', 'Sin salsas', 'Bien crocante'],
+    },
+    {
+      key: 'hamburguesas',
+      name: 'Hamburguesas',
+      color: '#EF4444',
+      notes: [
+        'Sin cebolla',
+        'Sin tomate',
+        'Extra queso',
+        'Sin salsas',
+        'Término medio',
+        'Bien asada',
+      ],
+    },
+    {
+      key: 'fuertes',
+      name: 'Platos fuertes',
+      color: '#22C55E',
+      notes: ['Sin sal', 'Término medio', 'Bien asado', 'Sin arroz', 'Salsa aparte'],
+    },
+    {
+      key: 'bebidas',
+      name: 'Bebidas',
+      color: '#3B82F6',
+      notes: ['Sin hielo', 'Poco hielo', 'Sin azúcar', 'Bien fría'],
+    },
+    { key: 'postres', name: 'Postres', color: '#A855F7', notes: ['Sin helado', 'Para compartir'] },
   ],
   ingredients: [
     { key: 'pan', name: 'Pan de hamburguesa', unit: UNIT, stock: 60, minStock: 20, cost: 800 },
@@ -363,11 +391,36 @@ const BAR_DATASET: DemoDataset = {
     },
   ],
   categories: [
-    { key: 'cervezas', name: 'Cervezas', color: '#F59E0B' },
-    { key: 'cocteles', name: 'Cócteles', color: '#EC4899' },
-    { key: 'licores', name: 'Licores y shots', color: '#8B5CF6' },
-    { key: 'sin-alcohol', name: 'Sin alcohol', color: '#3B82F6' },
-    { key: 'picadas', name: 'Picadas', color: '#22C55E' },
+    {
+      key: 'cervezas',
+      name: 'Cervezas',
+      color: '#F59E0B',
+      notes: ['Michelada', 'Con limón', 'Bien fría', 'Con vaso'],
+    },
+    {
+      key: 'cocteles',
+      name: 'Cócteles',
+      color: '#EC4899',
+      notes: ['Sin hielo', 'Poco hielo', 'Poco dulce', 'Sin azúcar', 'Doble'],
+    },
+    {
+      key: 'licores',
+      name: 'Licores y shots',
+      color: '#8B5CF6',
+      notes: ['Doble', 'Con limón', 'Con sal', 'Con hielo'],
+    },
+    {
+      key: 'sin-alcohol',
+      name: 'Sin alcohol',
+      color: '#3B82F6',
+      notes: ['Sin hielo', 'Sin azúcar'],
+    },
+    {
+      key: 'picadas',
+      name: 'Picadas',
+      color: '#22C55E',
+      notes: ['Salsas aparte', 'Sin picante', 'Para compartir'],
+    },
   ],
   ingredients: [
     { key: 'cerveza', name: 'Cerveza nacional', unit: UNIT, stock: 96, minStock: 48, cost: 2_500 },
@@ -540,6 +593,15 @@ const BAR_DATASET: DemoDataset = {
       ],
     },
   ],
+};
+
+/**
+ * Notas generales (todos los productos) de una instalación nueva. Las de cada categoría las
+ * define el administrador; el catálogo de demostración trae ejemplos.
+ */
+export const DEFAULT_GENERAL_NOTES: Readonly<Record<BusinessMode, readonly string[]>> = {
+  RESTAURANT: ['Para llevar'],
+  BAR: [],
 };
 
 export const DEMO_DATASETS: Readonly<Record<BusinessMode, DemoDataset>> = {

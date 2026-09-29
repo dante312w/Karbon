@@ -2,6 +2,7 @@ import {
   useApi,
   useHasPermission,
   useMoney,
+  useNoteSuggestions,
   useOrder,
   useOrderAccess,
   useOrderMutation,
@@ -94,6 +95,7 @@ function OrderWorkspace({ order }: { order: OrderDto }) {
   const navigate = useNavigate();
   const printer = useReceiptPrinter();
   const [modal, setModal] = useState<Modal | null>(null);
+  const addingNotes = useNoteSuggestions(modal?.kind === 'add' ? modal.product.categoryId : null);
   const can = {
     update: useHasPermission(Permission.ORDERS_UPDATE),
     send: useHasPermission(Permission.ORDERS_SEND),
@@ -346,7 +348,7 @@ function OrderWorkspace({ order }: { order: OrderDto }) {
         <ItemNotesDialog
           title={modal.product.name}
           description={money(modal.product.price)}
-          suggestions={terms.quickNotes}
+          suggestions={addingNotes}
           confirmLabel={(quantity) => `Agregar · ${money(modal.product.price * quantity)}`}
           onClose={close}
           onConfirm={(quantity, notes) => {

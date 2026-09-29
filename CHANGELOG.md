@@ -15,11 +15,14 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); v
 - Gestión de mesas desde el celular: detalles del pedido, mover, unir y separar mesas, dividir cuenta, cancelar (con permiso), editar cantidad y notas de lo no enviado, anular lo enviado con motivo y marcar libre una mesa pagada.
 - Unir mesas ocupadas: las cuentas de la mesa que se une pasan a la principal, cada una por separado, sin perder productos, comandas ni pagos parciales.
 - Permisos nuevos: **Confirmar entregas en la mesa** y **Operar pedidos de otros meseros** (caja y administración).
+- Notas de un toque por categoría: el administrador define en el Catálogo las notas de cada categoría ("Sin cebolla" en hamburguesas, "Sin hielo" en bebidas) y las generales; las subcategorías heredan las de su categoría madre. Se pueden renombrar, ordenar, apagar y eliminar sin afectar pedidos anteriores.
+- Eliminar una categoría desde el Catálogo (solo si ya no tiene productos ni subcategorías).
 
 ### Cambiado
 
 - Cada mesero opera solo sus pedidos (el servidor lo exige en todas las modificaciones); caja, administración y los roles que cobran operan todos. Los pedidos de otro se ven en modo lectura.
 - El rol Mesero puede mover, unir y liberar mesas (con sus propias cuentas).
+- Al pedir, el mesero y la caja ven solo las notas que aplican al producto, en lugar de la misma lista fija para todo. Las notas que existían pasan a ser generales al actualizar. Marcar una nota ya escrita a mano (sin importar mayúsculas) la reconoce en lugar de repetirla.
 
 - La entrega la confirma el mesero, no cocina: el KDS llega hasta **Listo** y muestra cuánto lleva **por recoger**. En modo bar, el barman también puede entregar desde el tablero. Al cobrar, lo que seguía listo se da por entregado y queda en la auditoría.
 

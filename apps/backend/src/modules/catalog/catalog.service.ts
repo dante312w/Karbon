@@ -51,16 +51,26 @@ export class CatalogService {
     return toCategoryDto(await this.prisma.category.update({ where: { id }, data: dto }));
   }
 
+  /**
+   * Borrado lógico: los pedidos pasados siguen apuntando a sus productos. Sus notas de un toque
+   * sí se eliminan (los pedidos guardan el texto, no la opción).
+   */
   async deleteCategory(id: string, user: AuthenticatedUser): Promise<void> {
-    const products = await this.prisma.product.count({
-      where: { categoryId: id, deletedAt: null },
-    });
+    const [products, children] = await Promise.all([
+      this.prisma.product.count({ where: { categoryId: id, deletedAt: null } }),
+      this.prisma.category.count({ where: { parentId: id, deletedAt: null } }),
+    ]);
     if (products > 0)
       throw conflict(ErrorCode.CONFLICT, 'La categoría tiene productos; muévelos primero');
-    await this.prisma.category.update({
-      where: { id },
-      data: { deletedAt: new Date(), isActive: false },
-    });
+    if (children > 0)
+      throw conflict(ErrorCode.CONFLICT, 'La categoría tiene subcategorías; muévelas primero');
+    await this.prisma.$transaction([
+      this.prisma.category.update({
+        where: { id },
+        data: { deletedAt: new Date(), isActive: false },
+      }),
+      this.prisma.categoryNoteOption.deleteMany({ where: { categoryId: id } }),
+    ]);
     await this.audit.log({
       userId: user.id,
       action: 'category.delete',
