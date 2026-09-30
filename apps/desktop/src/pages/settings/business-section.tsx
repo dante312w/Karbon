@@ -330,7 +330,10 @@ function IdentitySection({ settings }: { settings: RestaurantSettingsDto }) {
           </Field>
         </div>
       </fieldset>
-      <fieldset disabled={!canWrite} className="grid gap-4 border-t pt-4 md:grid-cols-3">
+      <fieldset
+        disabled={!canWrite}
+        className="grid items-start gap-4 border-t pt-4 md:grid-cols-2 xl:grid-cols-4"
+      >
         <Switch
           checked={pricesIncludeTax}
           onCheckedChange={setPricesIncludeTax}
@@ -353,25 +356,25 @@ function IdentitySection({ settings }: { settings: RestaurantSettingsDto }) {
               />
             )}
           </Field>
-          <Field
-            label="Descuento máximo (%)"
-            hint="Tope para caja: descuentos por producto y al pedido. 100 = sin límite."
-            className="w-56"
-          >
-            {(id) => (
-              <Input
-                id={id}
-                type="number"
-                min={0}
-                max={100}
-                value={maxDiscount}
-                onChange={(event) => {
-                  setMaxDiscount(event.target.value);
-                }}
-              />
-            )}
-          </Field>
         </div>
+        <Field
+          label="Descuento máximo (%)"
+          hint="Tope para caja (por producto y al pedido). 100 = sin límite."
+        >
+          {(id) => (
+            <Input
+              id={id}
+              type="number"
+              min={0}
+              max={100}
+              className="w-24"
+              value={maxDiscount}
+              onChange={(event) => {
+                setMaxDiscount(event.target.value);
+              }}
+            />
+          )}
+        </Field>
         <div className="flex gap-3">
           <Field label="KDS amarillo (min)">
             {(id) => (
