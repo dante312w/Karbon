@@ -91,7 +91,7 @@ Al bloquear el celular o cambiar de app, iOS pausa Karbon. Al volver, la app se 
 
 1. El mesero toca **Pedir cuenta** (la mesa pasa a "esperando cuenta") o la caja abre el pedido directamente.
 2. **Descuento** (opcional, con permiso): en el pedido, **Descuento** → porcentaje o valor fijo, y el motivo ("Cortesía", "Cliente frecuente"…). Antes de aplicarlo se ve el total con descuento. Queda registrado quién lo aplicó y se puede quitar. El administrador fija el **descuento máximo** en Configuración → Negocio (100 = sin límite).
-3. **Cobrar**: elige efectivo (calcula el cambio), tarjeta, transferencia o QR. Para pagos mixtos, registra varios pagos hasta completar el total.
+3. **Cobrar**: elige efectivo (calcula el cambio), tarjeta, transferencia o QR. Para pagos mixtos, registra varios pagos hasta completar el total. Si quedan productos sin enviar a cocina, el botón dice **Enviar y cobrar**: primero los envía y luego abre el cobro. Con pagos parciales ya registrados no se puede anular ni quitar un producto si el total quedaría por debajo de lo pagado; primero se anula un pago.
 4. Imprime el **tiquete** o la **factura** (térmica, A4 o PDF). La mesa queda libre y el inventario se descuenta según las recetas.
 
 ### Durante el turno

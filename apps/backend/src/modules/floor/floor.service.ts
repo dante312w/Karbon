@@ -151,14 +151,27 @@ export class FloorService {
     await this.publishTables([id]);
   }
 
-  /** Reserva manual o liberación de una mesa sin pedidos activos. */
+  /**
+   * Reserva manual o liberación de una mesa sin pedidos activos. Una mesa unida a otra depende
+   * de la principal: no se libera ni reserva mientras la principal tenga cuentas. Al liberar la
+   * principal, la unión se deshace: cada mesa vuelve a estar disponible por separado.
+   */
   async setStatus(id: string, dto: SetTableStatusDto, user: AuthenticatedUser): Promise<TableDto> {
-    await this.assertWithoutActiveOrders(this.prisma, id);
+    const serving = await this.resolveServingTable(this.prisma, id);
+    await this.assertWithoutActiveOrders(this.prisma, serving.id);
+    const released = dto.status === TableStatus.FREE;
+    const children = await this.prisma.diningTable.findMany({
+      where: { mergedIntoId: id },
+      select: { id: true },
+    });
     await this.prisma.$transaction(async (tx) => {
-      await tx.diningTable.update({ where: { id }, data: { status: dto.status } });
+      await tx.diningTable.update({
+        where: { id },
+        data: { status: dto.status, ...(released ? { mergedIntoId: null } : {}) },
+      });
       await tx.diningTable.updateMany({
         where: { mergedIntoId: id },
-        data: { status: dto.status },
+        data: { status: dto.status, ...(released ? { mergedIntoId: null } : {}) },
       });
       await this.audit.log(
         {
@@ -166,19 +179,24 @@ export class FloorService {
           action: 'table.status',
           entity: 'table',
           entityId: id,
-          metadata: { status: dto.status },
+          metadata: {
+            status: dto.status,
+            ...(released && children.length > 0
+              ? { unmerged: children.map((child) => child.id) }
+              : {}),
+          },
         },
         tx,
       );
     });
-    await this.publishTables([id]);
+    await this.publishTables([id, ...children.map((child) => child.id)]);
     return this.getTable(id);
   }
 
   // ─── Uso interno de otros módulos ───────────────────────────────────────────
 
   /** Mesa donde vive el pedido: si la mesa está unida, la principal. */
-  async resolveServingTable(tx: Tx, tableId: string): Promise<{ id: string; name: string }> {
+  async resolveServingTable(tx: Db, tableId: string): Promise<{ id: string; name: string }> {
     const table = await tx.diningTable.findFirst({
       where: { id: tableId, deletedAt: null, isActive: true },
       include: { mergedInto: { select: { id: true, name: true } } },
