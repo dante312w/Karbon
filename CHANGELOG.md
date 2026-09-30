@@ -37,6 +37,13 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/); v
 
 ### Corregido
 
+- Un pedido con pagos parciales quedaba trabado (sin poder cobrarse) si después se anulaba o quitaba un producto y el total bajaba de lo pagado; ahora ningún cambio deja el total por debajo de lo cobrado.
+- Al liberar una mesa principal, las mesas unidas a ella seguían unidas; ahora la unión se deshace y cada mesa queda libre. Una mesa unida a otra ocupada ya no se puede liberar ni reservar por separado.
+- Se podía cobrar un pedido con platos que nunca se enviaron a cocina; ahora el cobro los exige enviados (en caja, **Enviar y cobrar**) y lo que se entrega directo queda como servido. Pedir la cuenta también exige enviar lo pendiente.
+- Dividir la cuenta con la misma línea repetida podía mover más unidades de las que había.
+- Bajar la cantidad de un producto con un descuento mayor que su nuevo valor daba un error interno; ahora el mensaje explica qué ajustar.
+- Un nombre de cuenta vacío se guarda como "sin nombre" y un cliente inexistente responde "El cliente no existe".
+
 - iPhone/iPad: los avisos de cocina y los llamados no sonaban hasta que se interactuaba con la app; ahora el primer toque habilita el sonido y se reanuda al volver a la app.
 - iPhone/iPad: al volver de segundo plano (pantalla bloqueada, otra app) o tras un cambio de WiFi, la app mostraba datos de hasta un minuto atrás mientras el socket detectaba la desconexión; ahora se reconecta y recarga al instante.
 - iPhone: tocar un campo de texto agrandaba la página (letra menor a 16 px); los campos usan 16 px en pantallas táctiles.

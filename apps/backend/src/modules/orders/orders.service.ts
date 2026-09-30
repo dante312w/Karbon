@@ -55,6 +55,11 @@ import type {
 } from './orders.dto.js';
 import { ORDER_INCLUDE, toOrderDto } from './orders.mapper.js';
 
+/** Nombre de cuenta opcional: vacío o solo espacios equivale a no tener nombre. */
+function cleanLabel(label: string | null | undefined): string | null {
+  return label?.trim() ? label.trim() : null;
+}
+
 interface MutationResult {
   /** Mesas afectadas además de la del pedido (mover, dividir). */
   tableIds?: (string | null)[];
@@ -135,13 +140,14 @@ export class OrdersService {
     await this.license.assertOperational();
     const settings = await this.settings.get();
     const type = dto.type ?? OrderType.DINE_IN;
-    if (type === OrderType.DINE_IN && !dto.tableId && !dto.label) {
+    if (type === OrderType.DINE_IN && !dto.tableId && !cleanLabel(dto.label)) {
       throw invalid(ErrorCode.TABLE_REQUIRED, 'Indica la mesa o un nombre para la cuenta');
     }
 
     let sentTicketIds: string[] = [];
     const order = await this.prisma.$transaction(
       async (tx) => {
+        if (dto.customerId) await this.assertCustomer(tx, dto.customerId);
         let tableId: string | null = null;
         if (dto.tableId) {
           const serving = await this.floor.resolveServingTable(tx, dto.tableId);
@@ -161,7 +167,7 @@ export class OrdersService {
             tableId,
             waiterId: user.id,
             guests: dto.guests ?? null,
-            label: dto.label?.trim() ?? null,
+            label: cleanLabel(dto.label),
             notes: dto.notes ?? null,
             customerId: dto.customerId ?? null,
             tipPercent: type === OrderType.DINE_IN && settings.tipEnabled ? settings.tipPercent : 0,
@@ -218,6 +224,14 @@ export class OrdersService {
       const quantity = dto.quantity ?? item.quantity;
       const discount =
         dto.discount === undefined ? item.discount : minorToDecimal(dto.discount, currency);
+      // Con menos unidades, el descuento que ya tenía la línea puede quedar mayor que su valor.
+      if (discount.gt(item.unitPrice.mul(quantity))) {
+        throw badRequest(
+          dto.discount === undefined
+            ? 'El descuento de este producto supera su nuevo valor; bájalo antes de cambiar la cantidad'
+            : 'El descuento no puede superar el valor del producto',
+        );
+      }
       const total = lineTotal(item.unitPrice, quantity, discount, currency);
       await tx.orderItem.update({
         where: { id: itemId },
@@ -232,7 +246,7 @@ export class OrdersService {
       const previousTotal = decimalToMinor(order.total, currency);
       return {
         afterTotals: async (totals) => {
-          await this.assertDiscountAllowed(tx, orderId, totals);
+          await this.assertDiscountAllowed(totals);
           await this.audit.log(
             {
               userId: user.id,
@@ -326,7 +340,7 @@ export class OrdersService {
       });
       return {
         afterTotals: async (totals) => {
-          await this.assertDiscountAllowed(tx, orderId, totals);
+          await this.assertDiscountAllowed(totals);
           await this.audit.log(
             {
               userId: user.id,
@@ -350,14 +364,9 @@ export class OrdersService {
     });
   }
 
-  /** Límite configurado y nunca por debajo de lo ya pagado: lo decide el servidor, no la pantalla. */
-  private async assertDiscountAllowed(
-    tx: Tx,
-    orderId: string,
-    totals: CalculatedTotals,
-  ): Promise<void> {
-    const settings = await this.settings.get();
-    const max = num(settings.maxDiscountPercent);
+  /** Máximo de descuento configurado: lo decide el servidor, no la pantalla. */
+  private async assertDiscountAllowed(totals: CalculatedTotals): Promise<void> {
+    const max = num((await this.settings.get()).maxDiscountPercent);
     if (exceedsDiscountLimit(totals, max)) {
       throw invalid(
         ErrorCode.DISCOUNT_LIMIT_EXCEEDED,
@@ -365,18 +374,38 @@ export class OrdersService {
         { maxDiscountPercent: max },
       );
     }
+  }
+
+  /**
+   * Ningún cambio (anular o quitar productos, descuentos, propina) deja el total por debajo de lo
+   * ya cobrado: el pedido quedaría con saldo negativo y no se podría terminar de cobrar.
+   */
+  private async assertNotBelowPaid(
+    tx: Tx,
+    orderId: string,
+    totals: CalculatedTotals,
+  ): Promise<void> {
     const paid = await tx.payment.aggregate({
       where: { orderId, status: PaymentStatus.COMPLETED },
       _sum: { amount: true },
     });
-    const paidAmount = paid._sum.amount ? decimalToMinor(paid._sum.amount, settings.currency) : 0;
+    if (!paid._sum.amount) return;
+    const paidAmount = decimalToMinor(paid._sum.amount, await this.settings.currency());
     if (totals.total < paidAmount) {
       throw conflict(
         ErrorCode.ORDER_HAS_PAYMENTS,
-        'El descuento dejaría la cuenta por debajo de lo ya pagado',
-        { paidAmount },
+        'El pedido quedaría por debajo de lo ya pagado; anula primero un pago',
+        { paidAmount, total: totals.total },
       );
     }
+  }
+
+  private async assertCustomer(tx: Tx, customerId: string): Promise<void> {
+    const customer = await tx.customer.findFirst({
+      where: { id: customerId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!customer) throw notFound('El cliente');
   }
 
   /** Quitar un ítem pendiente lo elimina; anular uno ya enviado exige permiso y motivo. */
@@ -488,6 +517,15 @@ export class OrdersService {
         where: { orderId, status: { not: OrderItemStatus.CANCELLED } },
       });
       if (items === 0) throw invalid(ErrorCode.ORDER_EMPTY, 'El pedido no tiene productos');
+      const unsent = await tx.orderItem.count({
+        where: { orderId, status: OrderItemStatus.PENDING },
+      });
+      if (unsent > 0) {
+        throw conflict(
+          ErrorCode.ORDER_HAS_UNSENT_ITEMS,
+          'Hay productos sin enviar; envíalos antes de pedir la cuenta',
+        );
+      }
       await tx.order.update({
         where: { id: orderId },
         data: { status: OrderStatus.BILL_REQUESTED, billRequestedAt: new Date() },
@@ -500,11 +538,12 @@ export class OrdersService {
     if (dto.tipPercent !== undefined) requirePermission(user, Permission.PAYMENTS_CREATE);
     return this.mutate(orderId, dto.version, user, async (tx, order) => {
       assertOrderEditable(order.status);
+      if (dto.customerId) await this.assertCustomer(tx, dto.customerId);
       await tx.order.update({
         where: { id: orderId },
         data: {
           ...(dto.guests === undefined ? {} : { guests: dto.guests }),
-          ...(dto.label === undefined ? {} : { label: dto.label?.trim() ?? null }),
+          ...(dto.label === undefined ? {} : { label: cleanLabel(dto.label) }),
           ...(dto.notes === undefined ? {} : { notes: dto.notes }),
           ...(dto.customerId === undefined ? {} : { customerId: dto.customerId }),
           ...(dto.tipPercent === undefined ? {} : { tipPercent: dto.tipPercent }),
@@ -564,13 +603,19 @@ export class OrdersService {
         where: { orderId, status: { not: OrderItemStatus.CANCELLED } },
       });
       const byId = new Map(items.map((item) => [item.id, item]));
-      const moving = dto.items.map((line) => {
-        const item = byId.get(line.itemId);
+      // Si la misma línea viene repetida se suman sus cantidades: nunca se mueven más unidades
+      // de las que tiene el pedido.
+      const requested = new Map<string, number>();
+      for (const line of dto.items) {
+        requested.set(line.itemId, (requested.get(line.itemId) ?? 0) + line.quantity);
+      }
+      const moving = [...requested].map(([itemId, quantity]) => {
+        const item = byId.get(itemId);
         if (!item) throw notFound('Alguno de los productos a dividir');
-        if (line.quantity > item.quantity) {
+        if (quantity > item.quantity) {
           throw badRequest(`Solo hay ${item.quantity} de ${item.productName}`);
         }
-        return { item, quantity: line.quantity };
+        return { item, quantity };
       });
       const movingUnits = moving.reduce((sum, line) => sum + line.quantity, 0);
       const totalUnits = items.reduce((sum, item) => sum + item.quantity, 0);
@@ -734,6 +779,7 @@ export class OrdersService {
         const outcome = await change(tx, locked);
         const totals = await this.store.recalculate(tx, orderId);
         await outcome.afterTotals?.(totals);
+        await this.assertNotBelowPaid(tx, orderId, totals);
         await this.floor.refreshStatuses(tx, [locked.tableId, ...(outcome.tableIds ?? [])]);
         return { order: locked, result: outcome };
       },

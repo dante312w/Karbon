@@ -3,6 +3,7 @@ import {
   CashSessionStatus,
   ErrorCode,
   KitchenTicketStatus,
+  OrderItemStatus,
   OrderStatus,
   type PaymentDto,
   PaymentMethod,
@@ -70,13 +71,25 @@ export class PaymentsService {
         const session = await this.cash.requireOpenSession(tx);
         const locked = await this.store.lock(tx, orderId);
         assertOrderEditable(locked.status);
+        // Un plato sin enviar nunca llega a cocina: se cobraría algo que no se sirve.
+        const unsent = await tx.orderItem.count({
+          where: { orderId, status: OrderItemStatus.PENDING, product: { sendToKitchen: true } },
+        });
+        if (unsent > 0) {
+          throw conflict(
+            ErrorCode.ORDER_HAS_UNSENT_ITEMS,
+            'Hay productos sin enviar a cocina o barra; envíalos antes de cobrar',
+            { unsent },
+          );
+        }
 
         const paid = await this.paidAmount(tx, orderId);
         const pending = locked.total.sub(paid);
         const amount = minorToDecimal(dto.amount, currency);
 
         if (amount.isZero()) {
-          if (!pending.isZero()) throw badRequest('El monto debe ser mayor que cero');
+          // Saldo cero (o negativo en pedidos antiguos): se permite cerrar sin cobrar más.
+          if (pending.gt(0)) throw badRequest('El monto debe ser mayor que cero');
         } else {
           if (amount.gt(pending)) {
             throw conflict(ErrorCode.PAYMENT_EXCEEDS_BALANCE, 'El pago supera el saldo pendiente', {
@@ -232,6 +245,11 @@ export class PaymentsService {
       },
     });
     const ingredientIds = await this.stock.applySale(tx, order.id, order.number, user.id);
+    // Lo que se entrega directo (bebida de mostrador) y seguía "sin enviar" ya se sirvió.
+    await tx.orderItem.updateMany({
+      where: { orderId: order.id, status: OrderItemStatus.PENDING },
+      data: { status: OrderItemStatus.SENT },
+    });
     await this.closeReadyTickets(tx, order.id, user);
     if (order.customerId) {
       await tx.customer.update({

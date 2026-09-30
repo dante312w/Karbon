@@ -157,18 +157,31 @@ function OrderWorkspace({ order }: { order: OrderDto }) {
   );
   const canSend = editable && can.send && pendingCount > 0;
   const canPay = editable && can.pay && hasItems;
+  // Lo que sigue sin enviar nunca llegaría a cocina: se envía primero y luego se cobra.
+  const mustSendFirst = pendingCount > 0 && can.send;
+  const openPayment = (): void => {
+    if (!mustSendFirst) {
+      setModal({ kind: 'pay' });
+      return;
+    }
+    send.mutate(undefined, {
+      onSuccess: () => {
+        setModal({ kind: 'pay' });
+      },
+    });
+  };
 
   // Atajos del POS: F8 envía, F9 cobra.
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (event.key === 'F8' && canSend && !send.isPending) send.mutate();
-      if (event.key === 'F9' && canPay) setModal({ kind: 'pay' });
+      if (event.key === 'F9' && canPay && !send.isPending) openPayment();
     };
     window.addEventListener('keydown', onKey);
     return () => {
       window.removeEventListener('keydown', onKey);
     };
-  }, [canSend, canPay, send]);
+  }, [canSend, canPay, send, openPayment]);
 
   const printPrebill = (): void => {
     void printer.print({ kind: 'order', orderId: order.id }).catch(notifyError);
@@ -364,12 +377,10 @@ function OrderWorkspace({ order }: { order: OrderDto }) {
                 size="lg"
                 variant={pendingCount > 0 ? 'secondary' : 'default'}
                 className={order.status === OrderStatus.OPEN && can.bill ? '' : 'col-span-2'}
-                disabled={!canPay}
-                onClick={() => {
-                  setModal({ kind: 'pay' });
-                }}
+                disabled={!canPay || send.isPending}
+                onClick={openPayment}
               >
-                <WalletIcon /> Cobrar · F9
+                <WalletIcon /> {mustSendFirst ? 'Enviar y cobrar' : 'Cobrar'} · F9
               </Button>
             ) : null}
           </footer>
