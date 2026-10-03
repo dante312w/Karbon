@@ -68,7 +68,7 @@ export default function TakeOrderPage() {
   const [search, setSearch] = useState('');
   const term = normalizeSearch(useDeferredValue(search));
   const [noting, setNoting] = useState<ProductDto | null>(null);
-  const notingSuggestions = useNoteSuggestions(noting?.categoryId);
+  const notingSuggestions = useNoteSuggestions(noting);
   const [cartOpen, setCartOpen] = useState(false);
   const [label, setLabel] = useState('');
   const [type, setType] = useState<OrderType>(OrderType.DINE_IN);

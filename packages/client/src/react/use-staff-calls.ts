@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 import {
   type CreateStaffCallRequest,
   Permission,
@@ -8,7 +9,13 @@ import {
   StaffCallStatus,
   type StaffCallTarget,
 } from '@karbon/types';
-import { canAnswerStaffCall, isStaffCallForMe, mergeStaffCall } from '@karbon/utils';
+import {
+  canAnswerStaffCall,
+  canAnswerStaffCallAs,
+  isStaffCallForMe,
+  isStaffCallOpen,
+  mergeStaffCall,
+} from '@karbon/utils';
 import { queryKeys } from '../query-keys';
 import { useApi } from './context';
 import { useSocketEvent } from './realtime';
@@ -34,6 +41,61 @@ export function useStaffCalls() {
     // Respaldo por si se pierde un evento (celular suspendido): nunca más de un minuto atrasado.
     refetchInterval: 60_000,
   });
+}
+
+/** Meseros que se pueden llamar (con su conexión), para el selector de "Llamar al mesero". */
+export function useStaffCallRecipients(enabled = true) {
+  const api = useApi();
+  const session = useSession();
+  return useQuery({
+    queryKey: queryKeys.staffCallRecipients,
+    queryFn: api.staffCalls.recipients,
+    enabled: enabled && (session?.user.permissions.includes(Permission.CALLS_WAITER) ?? false),
+    // La conexión cambia: se pide fresca cada vez que se abre el selector.
+    staleTime: 0,
+  });
+}
+
+function subscribeVisibility(onChange: () => void): () => void {
+  document.addEventListener('visibilitychange', onChange);
+  return () => {
+    document.removeEventListener('visibilitychange', onChange);
+  };
+}
+
+/**
+ * "Vista": cuando un llamado para este equipo aparece en pantalla (con la app visible), se avisa
+ * al servidor una sola vez para que quien llamó lo sepa. Cubre los que llegan por el socket y los
+ * que se cargan al volver de segundo plano.
+ */
+export function useMarkStaffCallsSeen(receive: StaffCallTarget): void {
+  const api = useApi();
+  const session = useSession();
+  const calls = useStaffCalls().data;
+  const visible = useSyncExternalStore(
+    subscribeVisibility,
+    () => document.visibilityState === 'visible',
+    () => false,
+  );
+  const sent = useRef(new Set<string>());
+  useEffect(() => {
+    if (!session || !visible) return;
+    for (const call of calls ?? []) {
+      if (
+        call.target !== receive ||
+        call.seenAt !== null ||
+        call.createdBy.id === session.user.id ||
+        !isStaffCallOpen(call) ||
+        !canAnswerStaffCallAs(call, session.user) ||
+        sent.current.has(call.id)
+      ) {
+        continue;
+      }
+      sent.current.add(call.id);
+      // Si falla (sin red), se reintenta cuando la lista se recargue.
+      void api.staffCalls.seen(call.id).catch(() => sent.current.delete(call.id));
+    }
+  }, [api, calls, receive, session, visible]);
 }
 
 /**

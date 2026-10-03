@@ -1,8 +1,12 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Permission, type StaffCallDto } from '@karbon/types';
+import { Permission, type StaffCallDto, type StaffCallRecipientDto } from '@karbon/types';
 import type { AuthenticatedUser } from '../../common/auth/authenticated-user.js';
-import { CurrentUser, RequireAnyPermission } from '../../common/auth/decorators.js';
+import {
+  CurrentUser,
+  RequireAnyPermission,
+  RequirePermissions,
+} from '../../common/auth/decorators.js';
 import { CreateStaffCallDto } from './staff-calls.dto.js';
 import { StaffCallsService } from './staff-calls.service.js';
 
@@ -23,6 +27,13 @@ export class StaffCallsController {
     return this.calls.list(user);
   }
 
+  @Get('recipients')
+  @RequirePermissions(Permission.CALLS_WAITER)
+  @ApiOperation({ summary: 'Meseros que se pueden llamar, con su conexión actual' })
+  recipients(): Promise<StaffCallRecipientDto[]> {
+    return this.calls.recipients();
+  }
+
   @Post()
   @RequireAnyPermission(...CALLERS)
   @ApiOperation({ summary: 'Llama al mesero o a caja; repetir un llamado abierto insiste en él' })
@@ -31,6 +42,16 @@ export class StaffCallsController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<StaffCallDto> {
     return this.calls.create(dto, user);
+  }
+
+  @Post(':id/seen')
+  @RequireAnyPermission(...ANSWERERS)
+  @ApiOperation({ summary: 'El aviso apareció en el equipo de quien lo atiende ("vista")' })
+  seen(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<StaffCallDto> {
+    return this.calls.markSeen(id, user);
   }
 
   @Post(':id/acknowledge')

@@ -1,6 +1,7 @@
 import {
   staffCallToastId,
   useSession,
+  useMarkStaffCallsSeen,
   useStaffCallActions,
   useStaffCallAlerts,
   useStaffCalls,
@@ -18,7 +19,6 @@ import {
   notifyError,
   playChime,
   StaffCallCard,
-  StaffCallDialog,
   toast,
   useNow,
 } from '@karbon/ui';
@@ -34,10 +34,11 @@ import {
 } from '@karbon/utils';
 import { BellIcon, BellRingIcon } from 'lucide-react';
 import { useState } from 'react';
+import { CallWaiterDialog } from './call-waiter-dialog';
 
 /**
  * Llamados en el escritorio: caja recibe los de los meseros (con sonido) y cocina, barra o caja
- * siguen los que hicieron. También permite llamar a todos los meseros.
+ * siguen los que hicieron. También permite llamar a un mesero o a todos.
  */
 export function StaffCallsBell() {
   const session = useSession();
@@ -53,6 +54,7 @@ export function StaffCallsBell() {
   const outgoing = session ? outgoingStaffCalls(calls, session.user.id) : [];
   const pending = incoming.filter((call) => call.status === StaffCallStatus.PENDING).length;
 
+  useMarkStaffCallsSeen(StaffCallTarget.CASHIER);
   useStaffCallAlerts(StaffCallTarget.CASHIER, {
     onIncoming: (call) => {
       playChime('call');
@@ -143,7 +145,7 @@ export function StaffCallsBell() {
                     setCalling(true);
                   }}
                 >
-                  <BellRingIcon /> Llamar a los meseros
+                  <BellRingIcon /> Llamar a un mesero
                 </Button>
               ) : null
             }
@@ -208,24 +210,13 @@ export function StaffCallsBell() {
       ) : null}
 
       {calling ? (
-        <StaffCallDialog
-          title="Llamar a los meseros"
-          description="Suena en el celular de todos los meseros."
+        <CallWaiterDialog
+          place={null}
+          description="Suena en el celular del mesero elegido (o de todos)."
+          defaultWaiterId={null}
           reasons={[StaffCallReason.COME_OVER]}
-          busy={actions.create.isPending}
           onClose={() => {
             setCalling(false);
-          }}
-          onSubmit={(reason, message) => {
-            actions.create.mutate(
-              { target: StaffCallTarget.WAITER, reason, message },
-              {
-                onSuccess: () => {
-                  toast.success('Llamado enviado a los meseros');
-                  setCalling(false);
-                },
-              },
-            );
           }}
         />
       ) : null}

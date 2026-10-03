@@ -87,6 +87,11 @@ export function bindRealtimeCache(socket: KarbonSocket, queryClient: QueryClient
     [SocketEvent.CASH_CLOSED]: (envelope: EventEnvelope<SocketEventMap['cash.closed']>) => {
       if (fresh(envelope)) void queryClient.invalidateQueries({ queryKey: queryKeys.cash });
     },
+    [SocketEvent.NOTE_OPTIONS_CHANGED]: (
+      envelope: EventEnvelope<SocketEventMap['note_options.changed']>,
+    ) => {
+      if (fresh(envelope)) void queryClient.invalidateQueries({ queryKey: queryKeys.noteOptions });
+    },
     [SocketEvent.SETTINGS_UPDATED]: (
       envelope: EventEnvelope<SocketEventMap['settings.updated']>,
     ) => {

@@ -152,6 +152,27 @@ export class EventProbe {
     return this.received.some((entry) => entry.event === event);
   }
 
+  /** ¿Llegó algún evento que cumpla la condición? (para comprobar que algo NO llegó). */
+  got<E extends SocketEvent>(event: E, predicate: (data: SocketEventMap[E]) => boolean): boolean {
+    return this.received.some(
+      (entry) => entry.event === event && predicate(entry.envelope.data as SocketEventMap[E]),
+    );
+  }
+
+  count(event: SocketEvent): number {
+    return this.received.filter((entry) => entry.event === event).length;
+  }
+
+  /** Espera a que lleguen `count` eventos de ese tipo en total (p. ej. el siguiente a uno visto). */
+  async waitForCount(event: SocketEvent, count: number, timeoutMs = 5_000): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (this.count(event) >= count) return;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    throw new Error(`No llegaron ${String(count)} eventos ${event}`);
+  }
+
   close(): void {
     this.socket.close();
   }

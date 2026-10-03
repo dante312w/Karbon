@@ -30,7 +30,7 @@ import {
 import { useDeferredValue, useState } from 'react';
 import { ConfirmDialog } from '../../components/confirm-dialog';
 import { useAssetUrl } from '../../lib/runtime-context';
-import { NoteOptionsDialog, NotesStrip } from './note-options-dialog';
+import { NoteOptionsDialog, NotesManagerDialog, NotesStrip } from './note-options-dialog';
 import { ProductDialog } from './product-dialog';
 
 const SWATCHES = [
@@ -59,6 +59,7 @@ export default function CatalogPage() {
     null,
   );
   const [editingNotes, setEditingNotes] = useState(false);
+  const [managingNotes, setManagingNotes] = useState(false);
   const term = useDeferredValue(search.trim().toLowerCase());
   const categories = useQuery({
     queryKey: [...queryKeys.categories, 'all'],
@@ -231,6 +232,9 @@ export default function CatalogPage() {
             onEdit={() => {
               setEditingNotes(true);
             }}
+            onManage={() => {
+              setManagingNotes(true);
+            }}
           />
           <label className="relative">
             <span className="sr-only">Buscar producto</span>
@@ -290,6 +294,13 @@ export default function CatalogPage() {
           category={selectedCategory}
           onClose={() => {
             setEditingNotes(false);
+          }}
+        />
+      ) : null}
+      {managingNotes ? (
+        <NotesManagerDialog
+          onClose={() => {
+            setManagingNotes(false);
           }}
         />
       ) : null}

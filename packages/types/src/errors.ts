@@ -19,6 +19,8 @@ export const ErrorCode = {
   ORDER_VERSION_CONFLICT: 'ORDER_VERSION_CONFLICT',
   ORDER_NOT_EDITABLE: 'ORDER_NOT_EDITABLE',
   ORDER_EMPTY: 'ORDER_EMPTY',
+  /** Solo una cuenta sin productos ni pagos se cierra sin anularla (mesa abierta por error). */
+  ORDER_NOT_EMPTY: 'ORDER_NOT_EMPTY',
   ORDER_HAS_PAYMENTS: 'ORDER_HAS_PAYMENTS',
   /** Hay productos de cocina o barra sin enviar: primero se envían, después se cobra. */
   ORDER_HAS_UNSENT_ITEMS: 'ORDER_HAS_UNSENT_ITEMS',
@@ -26,6 +28,8 @@ export const ErrorCode = {
   PRODUCT_UNAVAILABLE: 'PRODUCT_UNAVAILABLE',
   TABLE_OCCUPIED: 'TABLE_OCCUPIED',
   TABLE_REQUIRED: 'TABLE_REQUIRED',
+  /** Unir dejaría varias cuentas con consumo en la mesa principal: se pide confirmar. */
+  TABLE_MERGE_NEEDS_CONFIRMATION: 'TABLE_MERGE_NEEDS_CONFIRMATION',
   INVALID_STATUS_TRANSITION: 'INVALID_STATUS_TRANSITION',
   DISCOUNT_LIMIT_EXCEEDED: 'DISCOUNT_LIMIT_EXCEEDED',
 

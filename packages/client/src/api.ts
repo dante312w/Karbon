@@ -1,5 +1,6 @@
 import type {
   ActivateLicenseRequest,
+  AssignNoteOptionsRequest,
   AddOrderItemsRequest,
   AreaDto,
   AuditLogDto,
@@ -80,14 +81,17 @@ import type {
   RestaurantSettingsDto,
   RoleDto,
   ServerInfo,
+  SetNoteOptionsRequest,
   SetOrderDiscountRequest,
   SetRecipeRequest,
   SetTableStatusRequest,
   SetupStatusDto,
   SplitOrderRequest,
   StaffCallDto,
+  StaffCallRecipientDto,
   SupplierDto,
   TableDto,
+  UnmergeTablesRequest,
   TaxDto,
   UpdateAreaRequest,
   UpdateCategoryRequest,
@@ -193,7 +197,8 @@ export function createApi(http: HttpClient) {
       removeTable: (id: string) => http.delete(`/tables/${id}`),
       merge: (id: string, body: MergeTablesRequest) =>
         http.post<TableDto>(`/tables/${id}/merge`, body),
-      unmerge: (id: string) => http.post<TableDto>(`/tables/${id}/unmerge`),
+      unmerge: (id: string, body: UnmergeTablesRequest = {}) =>
+        http.post<TableDto>(`/tables/${id}/unmerge`, body),
       setStatus: (id: string, body: SetTableStatusRequest) =>
         http.patch<TableDto>(`/tables/${id}/status`, body),
       reservations: (query: { from?: string; to?: string } = {}) =>
@@ -224,6 +229,12 @@ export function createApi(http: HttpClient) {
       removeNoteOption: (id: string) => http.delete(`/note-options/${id}`),
       reorderNoteOptions: (body: ReorderNoteOptionsRequest) =>
         http.put<NoteOptionDto[]>('/note-options/order', body),
+      assignNoteOptions: (body: AssignNoteOptionsRequest) =>
+        http.put<NoteOptionDto[]>('/note-options/assignments', body),
+      setCategoryNoteOptions: (categoryId: string, body: SetNoteOptionsRequest) =>
+        http.put<NoteOptionDto[]>(`/categories/${categoryId}/note-options`, body),
+      setProductNoteOptions: (productId: string, body: SetNoteOptionsRequest) =>
+        http.put<NoteOptionDto[]>(`/products/${productId}/note-options`, body),
       products: (query: { categoryId?: string; search?: string; includeInactive?: boolean } = {}) =>
         http.get<ProductDto[]>(`/products${queryString(query)}`),
       createProduct: (body: CreateProductRequest) => http.post<ProductDto>('/products', body),
@@ -276,6 +287,9 @@ export function createApi(http: HttpClient) {
         http.post<OrderDto>(`/orders/${id}/duplicate`, body),
       cancel: (id: string, body: CancelRequest) =>
         http.post<OrderDto>(`/orders/${id}/cancel`, body),
+      /** Cuenta sin productos ni pagos (mesa abierta por error): la cierra y libera la mesa. */
+      closeEmpty: (id: string, body: VersionedRequest) =>
+        http.post<OrderDto>(`/orders/${id}/close-empty`, body),
       receipt: (id: string) => http.get<ReceiptDocument>(`/orders/${id}/receipt`),
       printReceipt: (id: string, printerId: string) =>
         http.post<undefined>(`/orders/${id}/receipt/print`, { printerId }),
@@ -298,7 +312,9 @@ export function createApi(http: HttpClient) {
     },
     staffCalls: {
       list: () => http.get<StaffCallDto[]>('/staff-calls'),
+      recipients: () => http.get<StaffCallRecipientDto[]>('/staff-calls/recipients'),
       create: (body: CreateStaffCallRequest) => http.post<StaffCallDto>('/staff-calls', body),
+      seen: (id: string) => http.post<StaffCallDto>(`/staff-calls/${id}/seen`),
       acknowledge: (id: string) => http.post<StaffCallDto>(`/staff-calls/${id}/acknowledge`),
       resolve: (id: string) => http.post<StaffCallDto>(`/staff-calls/${id}/resolve`),
       cancel: (id: string) => http.post<StaffCallDto>(`/staff-calls/${id}/cancel`),

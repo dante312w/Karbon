@@ -149,6 +149,17 @@ export default function OrderPage() {
 
       <TicketProgress order={data} />
 
+      {data.items.length === 0 && editable ? (
+        <p className="m-3 rounded-xl border border-dashed bg-background p-3 text-sm text-muted-foreground">
+          Mesa abierta, aún sin productos. Toca «Agregar» cuando pidan; desde{' '}
+          <EllipsisVerticalIcon
+            className="inline size-4 align-text-bottom"
+            aria-label="Más acciones"
+          />{' '}
+          puedes unirla con otras mesas o liberarla si se van.
+        </p>
+      ) : null}
+
       <ul className="flex flex-col divide-y bg-background">
         {items.map((item) => {
           const pending = item.status === OrderItemStatus.PENDING;
@@ -249,6 +260,7 @@ export default function OrderPage() {
               variant="outline"
               disabled={
                 data.status === OrderStatus.BILL_REQUESTED ||
+                data.items.length === 0 ||
                 pendingCount > 0 ||
                 requestBill.isPending
               }

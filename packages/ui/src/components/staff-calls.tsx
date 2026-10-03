@@ -1,11 +1,16 @@
-import { type StaffCallDto, type StaffCallReason, StaffCallStatus } from '@karbon/types';
+import {
+  type StaffCallDto,
+  type StaffCallReason,
+  type StaffCallRecipientDto,
+  StaffCallStatus,
+} from '@karbon/types';
 import {
   elapsedLabel,
   STAFF_CALL_REASON_LABEL,
   staffCallStatusText,
   staffCallTitle,
 } from '@karbon/utils';
-import { BellRingIcon, FootprintsIcon } from 'lucide-react';
+import { BellRingIcon, FootprintsIcon, UsersIcon } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { cn } from '../lib/cn';
 import { Badge } from './badge';
@@ -87,11 +92,85 @@ export interface StaffCallDialogProps {
   description?: string;
   reasons: readonly StaffCallReason[];
   defaultReason?: StaffCallReason;
+  /**
+   * Al llamar al mesero: a quién se puede llamar y quién va marcado de entrada (el mesero de la
+   * mesa; `null` = todos). Sin esta prop no hay selector (p. ej. al llamar a caja).
+   */
+  recipients?: {
+    options: readonly StaffCallRecipientDto[];
+    loading?: boolean;
+    defaultId: string | null;
+  };
   /** `side` en el celular (panel), `modal` en el escritorio. */
   variant?: 'modal' | 'side';
   busy?: boolean;
-  onSubmit: (reason: StaffCallReason, message: string | null) => void;
+  /** `recipientId`: el mesero elegido o `null` = todos. */
+  onSubmit: (reason: StaffCallReason, message: string | null, recipientId: string | null) => void;
   onClose: () => void;
+}
+
+/** "Todos los meseros" o uno en particular, con quién está conectado ahora. */
+function RecipientPicker({
+  options,
+  loading,
+  value,
+  onChange,
+}: {
+  options: readonly StaffCallRecipientDto[];
+  loading: boolean;
+  value: string | null;
+  onChange: (id: string | null) => void;
+}) {
+  const choice = (id: string | null, label: ReactNode, key: string) => (
+    <Button
+      key={key}
+      type="button"
+      role="radio"
+      aria-checked={value === id}
+      variant={value === id ? 'default' : 'outline'}
+      size="touch"
+      className="justify-start"
+      onClick={() => {
+        onChange(id);
+      }}
+    >
+      {label}
+    </Button>
+  );
+  return (
+    <div className="flex flex-col gap-2" role="radiogroup" aria-label="A quién">
+      <p className="text-sm font-medium">¿A quién?</p>
+      {choice(
+        null,
+        <>
+          <UsersIcon /> Todos los meseros
+        </>,
+        'all',
+      )}
+      {options.map((recipient) =>
+        choice(
+          recipient.id,
+          <span className="flex w-full items-center gap-2">
+            <span
+              className={cn(
+                'size-2.5 shrink-0 rounded-full',
+                recipient.online ? 'bg-status-free' : 'bg-muted-foreground/40',
+              )}
+              aria-hidden
+            />
+            <span className="flex-1 text-left">{recipient.name}</span>
+            <span className="text-xs font-normal opacity-80">
+              {recipient.online ? 'conectado' : 'sin conexión'}
+            </span>
+          </span>,
+          recipient.id,
+        ),
+      )}
+      {!loading && options.length === 0 ? (
+        <p className="text-xs text-muted-foreground">No hay meseros activos para elegir.</p>
+      ) : null}
+    </div>
+  );
 }
 
 /** Elegir el motivo (y un detalle opcional) antes de llamar al mesero o a caja. */
@@ -100,6 +179,7 @@ export function StaffCallDialog({
   description,
   reasons,
   defaultReason,
+  recipients,
   variant = 'modal',
   busy = false,
   onSubmit,
@@ -107,6 +187,13 @@ export function StaffCallDialog({
 }: StaffCallDialogProps) {
   const [reason, setReason] = useState<StaffCallReason | undefined>(defaultReason ?? reasons[0]);
   const [message, setMessage] = useState('');
+  // Mientras no elija, va marcado el mesero de la mesa (si está en la lista) o "Todos".
+  const [chosen, setChosen] = useState<string | null | undefined>(undefined);
+  const fallback =
+    recipients?.options.some((option) => option.id === recipients.defaultId) === true
+      ? recipients.defaultId
+      : null;
+  const recipientId = chosen === undefined ? fallback : chosen;
   return (
     <Dialog
       open
@@ -127,7 +214,7 @@ export function StaffCallDialog({
               size="lg"
               disabled={!reason || busy}
               onClick={() => {
-                if (reason) onSubmit(reason, message.trim() || null);
+                if (reason) onSubmit(reason, message.trim() || null, recipientId);
               }}
             >
               <BellRingIcon /> Llamar
@@ -135,6 +222,14 @@ export function StaffCallDialog({
           </>
         }
       >
+        {recipients ? (
+          <RecipientPicker
+            options={recipients.options}
+            loading={recipients.loading ?? false}
+            value={recipientId}
+            onChange={setChosen}
+          />
+        ) : null}
         <div className="flex flex-col gap-2" role="radiogroup" aria-label="Motivo">
           {reasons.map((option) => (
             <Button
