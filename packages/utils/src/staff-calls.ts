@@ -1,4 +1,5 @@
 import {
+  type IsoDateTime,
   Permission,
   type StaffCallDto,
   StaffCallReason,
@@ -72,9 +73,38 @@ export function canAnswerStaffCall(
   return permissions.includes(STAFF_CALL_ANSWER_PERMISSION[target]);
 }
 
-/** Los dirigidos a otro mesero se muestran en su equipo sin sonar en el mío. */
-export function isStaffCallForMe(call: Pick<StaffCallDto, 'targetUser'>, userId: Uuid): boolean {
-  return call.targetUser === null || call.targetUser.id === userId;
+/** A quién va un llamado (el DTO o la fila del servidor, que trae la fecha como `Date`). */
+export interface StaffCallAudience {
+  targetUser: { id: Uuid } | null;
+  escalatedAt: IsoDateTime | Date | null;
+}
+
+/**
+ * ¿Me toca este llamado? Los generales (sin mesero elegido) y los escalados son de todos; los
+ * dirigidos, solo de ese mesero.
+ */
+export function isStaffCallForMe(call: StaffCallAudience, userId: Uuid): boolean {
+  return call.targetUser === null || call.escalatedAt !== null || call.targetUser.id === userId;
+}
+
+/** Puede atenderlo: tiene el permiso del destino y el llamado es para él (o para todos). */
+export function canAnswerStaffCallAs(
+  call: StaffCallAudience & { target: StaffCallTarget },
+  user: { id: Uuid; permissions: readonly Permission[] },
+): boolean {
+  return canAnswerStaffCall(call.target, user.permissions) && isStaffCallForMe(call, user.id);
+}
+
+/**
+ * Quién aparece en el selector de "Llamar al mesero": quienes entregan en la mesa y no cobran
+ * (meseros; en bar, también el barman). Caja y administración atienden llamados generales, pero
+ * no se eligen como mesero.
+ */
+export function isWaiterCallRecipient(permissions: readonly Permission[]): boolean {
+  return (
+    permissions.includes(Permission.ORDERS_DELIVER) &&
+    !permissions.includes(Permission.PAYMENTS_CREATE)
+  );
 }
 
 /** Primero lo que nadie ha tomado; dentro de cada grupo, lo más antiguo arriba. */
@@ -154,13 +184,20 @@ export function staffCallTitle(
 
 /** Estado visto por quien llamó y por los demás ("Va Laura", "Insistió 3 veces"). */
 export function staffCallStatusText(
-  call: Pick<StaffCallDto, 'status' | 'callCount' | 'acknowledgedBy' | 'closedBy'>,
+  call: Pick<
+    StaffCallDto,
+    'status' | 'callCount' | 'acknowledgedBy' | 'closedBy' | 'seenAt' | 'seenBy' | 'escalatedAt'
+  >,
 ): string {
   switch (call.status) {
-    case StaffCallStatus.PENDING:
-      return call.callCount > 1
-        ? `Sin respuesta · ${String(call.callCount)} avisos`
-        : 'Sin respuesta';
+    case StaffCallStatus.PENDING: {
+      const seen = call.seenAt
+        ? `Vista${call.seenBy ? ` por ${call.seenBy.name}` : ''}`
+        : 'Enviada';
+      const escalated = call.escalatedAt ? ' · pasó a todos' : '';
+      const insisted = call.callCount > 1 ? ` · ${String(call.callCount)} avisos` : '';
+      return `${seen}${escalated}${insisted}`;
+    }
     case StaffCallStatus.ACKNOWLEDGED:
       return `Va ${call.acknowledgedBy?.name ?? 'alguien'}`;
     case StaffCallStatus.RESOLVED:

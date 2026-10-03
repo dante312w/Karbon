@@ -6,5 +6,6 @@ export class CreateStaffCallDto implements CreateStaffCallRequest {
   @IsIn(Object.values(StaffCallReason)) reason!: StaffCallReason;
   @IsOptional() @IsUUID() tableId?: string | null;
   @IsOptional() @IsUUID() orderId?: string | null;
+  @IsOptional() @IsUUID() waiterId?: string | null;
   @IsOptional() @IsString() @MaxLength(140) message?: string | null;
 }

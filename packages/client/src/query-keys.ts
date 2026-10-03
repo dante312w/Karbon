@@ -14,6 +14,7 @@ export const queryKeys = {
   activeOrders: ['orders', 'active'] as const,
   tickets: ['kitchen-tickets'] as const,
   staffCalls: ['staff-calls'] as const,
+  staffCallRecipients: ['staff-calls', 'recipients'] as const,
   cash: ['cash'] as const,
   expenses: ['cash', 'expenses'] as const,
   invoices: ['invoices'] as const,

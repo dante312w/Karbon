@@ -22,6 +22,8 @@ export const SocketEvent = {
   STAFF_CALL_CREATED: 'staff_call.created',
   /** Alguien insistió, respondió ("Voy"), lo atendió o lo canceló. */
   STAFF_CALL_UPDATED: 'staff_call.updated',
+  /** Cambiaron las notas de un toque o sus asignaciones: los equipos las recargan. */
+  NOTE_OPTIONS_CHANGED: 'note_options.changed',
 } as const;
 export type SocketEvent = (typeof SocketEvent)[keyof typeof SocketEvent];
 
@@ -92,6 +94,9 @@ export interface StaffCallEventData {
   alert: boolean;
 }
 
+/** Sin datos: quien lo recibe vuelve a pedir las notas por REST. */
+export type NoteOptionsChangedData = Record<string, never>;
+
 export interface SocketEventMap {
   [SocketEvent.ORDER_CREATED]: OrderEventData;
   [SocketEvent.ORDER_UPDATED]: OrderEventData;
@@ -103,6 +108,7 @@ export interface SocketEventMap {
   [SocketEvent.SETTINGS_UPDATED]: SettingsUpdatedData;
   [SocketEvent.STAFF_CALL_CREATED]: StaffCallEventData;
   [SocketEvent.STAFF_CALL_UPDATED]: StaffCallEventData;
+  [SocketEvent.NOTE_OPTIONS_CHANGED]: NoteOptionsChangedData;
 }
 
 /** Tipado para `Server`/`Socket` de socket.io en backend y clientes. */

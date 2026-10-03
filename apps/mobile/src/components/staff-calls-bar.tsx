@@ -1,5 +1,6 @@
 import {
   staffCallToastId,
+  useMarkStaffCallsSeen,
   useSession,
   useStaffCallActions,
   useStaffCallAlerts,
@@ -9,7 +10,6 @@ import { type StaffCallDto, StaffCallStatus, StaffCallTarget } from '@karbon/typ
 import { Button, notifyError, playChime, StaffCallCard, toast, useNow } from '@karbon/ui';
 import {
   incomingStaffCalls,
-  isStaffCallForMe,
   outgoingStaffCalls,
   STAFF_CALL_REASON_LABEL,
   staffCallPlace,
@@ -20,8 +20,9 @@ import { useNavigate } from 'react-router';
 import { vibrate } from '../lib/haptics';
 
 /**
- * Llamados en el celular del mesero, arriba de cada pantalla: los que le hacen cocina o caja
- * (con sonido y vibración si son para él o para todos) y los que él hizo a caja.
+ * Llamados en el celular del mesero, arriba de cada pantalla: los que le hacen cocina o caja (a
+ * él o a todos, con sonido y vibración) y los que él hizo a caja. El servidor solo le envía los
+ * suyos; al mostrarlos, quien llamó ve que ya los vio.
  */
 export function StaffCallsBar() {
   const session = useSession();
@@ -30,6 +31,7 @@ export function StaffCallsBar() {
   const now = useNow(30_000);
   const actions = useStaffCallActions({ onError: notifyError });
 
+  useMarkStaffCallsSeen(StaffCallTarget.WAITER);
   useStaffCallAlerts(StaffCallTarget.WAITER, {
     onIncoming: (call) => {
       playChime('call');
@@ -59,8 +61,6 @@ export function StaffCallsBar() {
 
   if (!session) return null;
   const incoming = incomingStaffCalls(calls, StaffCallTarget.WAITER, session.user);
-  const mine = incoming.filter((call) => isStaffCallForMe(call, session.user.id));
-  const others = incoming.filter((call) => !isStaffCallForMe(call, session.user.id));
   const outgoing = outgoingStaffCalls(calls, session.user.id);
   if (incoming.length === 0 && outgoing.length === 0) return null;
 
@@ -105,29 +105,9 @@ export function StaffCallsBar() {
 
   return (
     <section className="flex flex-col gap-2 border-b bg-background p-3" aria-label="Llamados">
-      {mine.map((call) => (
+      {incoming.map((call) => (
         <StaffCallCard key={call.id} call={call} now={now} highlight actions={answer(call)} />
       ))}
-      {others.length > 0 ? (
-        <details className="rounded-xl border bg-card px-3 py-2 text-sm">
-          <summary className="cursor-pointer font-medium">
-            {others.length === 1
-              ? '1 llamado para otro mesero'
-              : `${String(others.length)} llamados para otros meseros`}
-          </summary>
-          <div className="mt-2 flex flex-col gap-2">
-            {others.map((call) => (
-              <StaffCallCard
-                key={call.id}
-                call={call}
-                now={now}
-                showRecipient
-                actions={answer(call)}
-              />
-            ))}
-          </div>
-        </details>
-      ) : null}
       {outgoing.map((call) => (
         <StaffCallCard
           key={call.id}

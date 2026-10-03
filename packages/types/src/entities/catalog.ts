@@ -22,16 +22,27 @@ export interface CategoryDto extends Timestamps {
   isActive: boolean;
 }
 
+/** Categoría a la que aplica una nota, con el orden de la nota dentro de esa categoría. */
+export interface NoteOptionCategoryLink {
+  categoryId: Uuid;
+  sortOrder: number;
+}
+
 /**
- * Nota de un toque que el mesero ofrece al pedir ("Sin cebolla", "Sin hielo"). Con
- * `categoryId = null` es general y se ofrece en todos los productos.
+ * Nota de un toque que el mesero ofrece al pedir ("Sin cebolla", "Sin hielo"). Una general
+ * (`isGeneral`) se ofrece en todos los productos; las demás, en los productos de sus categorías
+ * (y subcategorías). Si un producto tiene notas propias (`productIds`), esas reemplazan las de su
+ * categoría. Una nota no general sin categorías ni productos no se ofrece en ninguna parte.
  */
 export interface NoteOptionDto extends Timestamps {
   id: Uuid;
-  categoryId: Uuid | null;
   label: string;
+  isGeneral: boolean;
+  /** Orden entre las generales. */
   sortOrder: number;
   isActive: boolean;
+  categories: NoteOptionCategoryLink[];
+  productIds: Uuid[];
 }
 
 export interface ProductDto extends Timestamps {

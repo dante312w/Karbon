@@ -1,4 +1,4 @@
-export { ApiError } from './http-client';
+export { ApiError, NetworkError } from './http-client';
 export { queryKeys } from './query-keys';
 export { newClientId, type OutboxEntry } from './offline/outbox';
 export { KarbonProvider } from './react/provider';
@@ -27,12 +27,15 @@ export {
   useUrgencyThresholds,
 } from './react/queries';
 export { useOutbox } from './react/use-outbox';
+export { useMergeTables } from './react/use-merge-tables';
 export { useOrderMutation } from './react/use-order-mutation';
 export { useTicketDelivery } from './react/use-ticket-delivery';
 export {
   type StaffCallAlertHandlers,
   staffCallToastId,
   useStaffCallActions,
+  useMarkStaffCallsSeen,
   useStaffCallAlerts,
+  useStaffCallRecipients,
   useStaffCalls,
 } from './react/use-staff-calls';

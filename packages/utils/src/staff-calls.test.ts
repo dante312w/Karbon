@@ -8,9 +8,11 @@ import {
 import { describe, expect, it } from 'vitest';
 import {
   canAnswerStaffCall,
+  canAnswerStaffCallAs,
   canCreateStaffCall,
   incomingStaffCalls,
   isStaffCallForMe,
+  isWaiterCallRecipient,
   mergeStaffCall,
   outgoingStaffCalls,
   STAFF_CALL_REASONS,
@@ -38,6 +40,9 @@ const call = (overrides: Partial<StaffCallDto> = {}): StaffCallDto => {
     lastCalledAt: `2026-09-29T12:0${String(sequence % 10)}:00.000Z`,
     acknowledgedAt: null,
     closedAt: null,
+    seenAt: null,
+    seenBy: null,
+    escalatedAt: null,
     createdAt: `2026-09-29T12:0${String(sequence % 10)}:00.000Z`,
     updatedAt: `2026-09-29T12:0${String(sequence % 10)}:00.000Z`,
     ...overrides,
@@ -101,10 +106,30 @@ describe('llamados internos', () => {
     expect(outgoingStaffCalls([mine], 'laura')).toEqual([mine]);
   });
 
-  it('suena para el mesero del pedido o para todos si no tiene dueño', () => {
+  it('suena para el mesero elegido, para todos si no hay uno o si se escaló', () => {
     expect(isStaffCallForMe(call(), 'laura')).toBe(true);
     expect(isStaffCallForMe(call(), 'andres')).toBe(false);
     expect(isStaffCallForMe(call({ targetUser: null }), 'andres')).toBe(true);
+    expect(isStaffCallForMe(call({ escalatedAt: '2026-09-29T12:05:00.000Z' }), 'andres')).toBe(
+      true,
+    );
+  });
+
+  it('solo el destinatario lo atiende, y siempre con el permiso del destino', () => {
+    const andres = { ...waiter, id: 'andres' };
+    expect(canAnswerStaffCallAs(call(), waiter)).toBe(true);
+    expect(canAnswerStaffCallAs(call(), andres)).toBe(false);
+    expect(canAnswerStaffCallAs(call({ targetUser: null }), andres)).toBe(true);
+    expect(
+      canAnswerStaffCallAs(call({ target: StaffCallTarget.CASHIER, targetUser: null }), waiter),
+    ).toBe(false);
+  });
+
+  it('en el selector aparecen los meseros, no caja ni administración', () => {
+    expect(isWaiterCallRecipient(DEFAULT_ROLE_PERMISSIONS.WAITER)).toBe(true);
+    expect(isWaiterCallRecipient(DEFAULT_ROLE_PERMISSIONS.CASHIER)).toBe(false);
+    expect(isWaiterCallRecipient(DEFAULT_ROLE_PERMISSIONS.ADMIN)).toBe(false);
+    expect(isWaiterCallRecipient(DEFAULT_ROLE_PERMISSIONS.KITCHEN)).toBe(false);
   });
 
   it('describe el llamado para quien lo recibe', () => {
@@ -123,7 +148,16 @@ describe('llamados internos', () => {
   });
 
   it('cuenta quién va y cuántas veces se insistió', () => {
-    expect(staffCallStatusText(call({ callCount: 3 }))).toBe('Sin respuesta · 3 avisos');
+    expect(staffCallStatusText(call())).toBe('Enviada');
+    expect(staffCallStatusText(call({ callCount: 3 }))).toBe('Enviada · 3 avisos');
+    expect(
+      staffCallStatusText(
+        call({ seenAt: '2026-09-29T12:01:00.000Z', seenBy: { id: 'laura', name: 'Laura' } }),
+      ),
+    ).toBe('Vista por Laura');
+    expect(staffCallStatusText(call({ escalatedAt: '2026-09-29T12:05:00.000Z' }))).toBe(
+      'Enviada · pasó a todos',
+    );
     expect(
       staffCallStatusText(
         call({ status: StaffCallStatus.ACKNOWLEDGED, acknowledgedBy: { id: 'l', name: 'Laura' } }),

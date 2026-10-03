@@ -53,7 +53,7 @@ export class CatalogService {
 
   /**
    * Borrado lógico: los pedidos pasados siguen apuntando a sus productos. Sus notas de un toque
-   * sí se eliminan (los pedidos guardan el texto, no la opción).
+   * dejan de aplicarle (siguen en sus otras categorías; los pedidos guardan el texto).
    */
   async deleteCategory(id: string, user: AuthenticatedUser): Promise<void> {
     const [products, children] = await Promise.all([
@@ -69,7 +69,7 @@ export class CatalogService {
         where: { id },
         data: { deletedAt: new Date(), isActive: false },
       }),
-      this.prisma.categoryNoteOption.deleteMany({ where: { categoryId: id } }),
+      this.prisma.noteOptionCategory.deleteMany({ where: { categoryId: id } }),
     ]);
     await this.audit.log({
       userId: user.id,

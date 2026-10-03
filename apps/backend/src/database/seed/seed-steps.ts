@@ -77,10 +77,37 @@ export async function seedBaseConfiguration(
       },
     });
   }
-  if ((await tx.categoryNoteOption.count()) === 0) {
-    await tx.categoryNoteOption.createMany({
-      data: DEFAULT_GENERAL_NOTES[mode].map((label, sortOrder) => ({ label, sortOrder })),
+  if ((await tx.noteOption.count()) === 0) {
+    await tx.noteOption.createMany({
+      data: DEFAULT_GENERAL_NOTES[mode].map((label, sortOrder) => ({
+        label,
+        sortOrder,
+        isGeneral: true,
+      })),
     });
+  }
+}
+
+/**
+ * Asigna a la categoría sus notas de ejemplo. Cada texto existe una sola vez: si otra categoría ya
+ * lo creó, se reutiliza; si es general, ya aplica y no se asigna.
+ */
+async function linkDemoNotes(tx: Tx, categoryId: string, labels: readonly string[]) {
+  for (const [sortOrder, label] of labels.entries()) {
+    const existing = await tx.noteOption.findFirst({
+      where: { label: { equals: label, mode: 'insensitive' } },
+      select: { id: true, isGeneral: true },
+    });
+    if (existing?.isGeneral) continue;
+    const noteOptionId =
+      existing?.id ??
+      (
+        await tx.noteOption.create({
+          data: { label, sortOrder: await tx.noteOption.count() },
+          select: { id: true },
+        })
+      ).id;
+    await tx.noteOptionCategory.create({ data: { noteOptionId, categoryId, sortOrder } });
   }
 }
 
@@ -188,11 +215,9 @@ export async function seedDemoData(
         name: category.name,
         color: category.color,
         sortOrder,
-        noteOptions: {
-          create: category.notes.map((label, noteOrder) => ({ label, sortOrder: noteOrder })),
-        },
       },
     });
+    await linkDemoNotes(tx, created.id, category.notes);
     categoryIds.set(category.key, created.id);
   }
 
