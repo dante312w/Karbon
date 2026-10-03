@@ -52,6 +52,7 @@ import type {
   SplitOrderDto,
   UpdateItemDto,
   UpdateOrderDto,
+  VersionDto,
 } from './orders.dto.js';
 import { ORDER_INCLUDE, toOrderDto } from './orders.mapper.js';
 
@@ -754,6 +755,40 @@ export class OrdersService {
           entityId: orderId,
           metadata: { reason: dto.reason },
         },
+        tx,
+      );
+      return {};
+    });
+  }
+
+  /**
+   * Cierra una cuenta abierta en la que no se pidió nada (la mesa se abrió por error o los
+   * clientes se fueron): la mesa queda libre sin necesitar el permiso de anular. Con un solo
+   * producto (aunque se haya anulado) o un pago, ya no: eso se anula con motivo.
+   */
+  closeEmpty(orderId: string, dto: VersionDto, user: AuthenticatedUser): Promise<OrderDto> {
+    return this.mutate(orderId, dto.version, user, async (tx, order) => {
+      assertOrderEditable(order.status);
+      // En serie: una transacción usa una sola conexión.
+      const items = await tx.orderItem.count({ where: { orderId } });
+      const payments = await tx.payment.count({ where: { orderId } });
+      if (items > 0 || payments > 0) {
+        throw conflict(
+          ErrorCode.ORDER_NOT_EMPTY,
+          'La cuenta ya tiene productos o pagos; para cerrarla hay que anularla',
+        );
+      }
+      await tx.order.update({
+        where: { id: orderId },
+        data: {
+          status: OrderStatus.CANCELLED,
+          cancelledAt: new Date(),
+          cancelReason: 'Mesa abierta sin consumo',
+          cancelledById: user.id,
+        },
+      });
+      await this.audit.log(
+        { userId: user.id, action: 'order.close_empty', entity: 'order', entityId: orderId },
         tx,
       );
       return {};

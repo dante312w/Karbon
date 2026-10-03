@@ -14,15 +14,17 @@ La integración recrea la base en cada corrida, aplica las mismas migraciones qu
 
 ## Suites
 
-| Suite                     | Archivo                                        | Qué valida                                                                                                                        |
-| ------------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Operación de un turno     | `apps/backend/test/operation-flow.int.test.ts` | Pedido → cocina → entrega → caja → inventario → facturación → cierre; propiedad del pedido; mover, unir y separar mesas; modo bar |
-| Tiempo real entre equipos | `apps/backend/test/realtime-sync.int.test.ts`  | Eventos entre celulares, caja y cocina; notas editadas en vivo; cronómetro congelado; reconexión del socket                       |
-| Notas de un toque         | `apps/backend/test/catalog-notes.int.test.ts`  | Notas por categoría: permisos, duplicados, orden, activación, borrado de categoría                                                |
-| Llamados internos         | `apps/backend/test/staff-calls.int.test.ts`    | Llamar al mesero y a caja, destinatario, insistencia, "Voy", cierre al cobrar y al cerrar caja                                    |
-| Descuentos en caja        | `apps/backend/test/order-discount.int.test.ts` | Porcentaje y valor fijo, validación, límite, división de cuenta, pagos parciales y auditoría                                      |
-| Reglas compartidas        | `packages/utils/src/*.test.ts`                 | Totales e impuestos, cronómetros (`ticketTiming`), propiedad, notas, llamados, operaciones de mesa                                |
-| Cliente                   | `packages/client/src/**/*.test.ts`             | Sesión, caché sin red, reanudación del socket al volver a la app (iOS)                                                            |
+| Suite                     | Archivo                                               | Qué valida                                                                                                                                                                                                      |
+| ------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Operación de un turno     | `apps/backend/test/operation-flow.int.test.ts`        | Pedido → cocina → entrega → caja → inventario → facturación → cierre; propiedad del pedido; mover, unir y separar mesas; modo bar                                                                               |
+| Tiempo real entre equipos | `apps/backend/test/realtime-sync.int.test.ts`         | Eventos entre celulares, caja y cocina; notas editadas en vivo; cronómetro congelado; reconexión del socket                                                                                                     |
+| Notas de un toque         | `apps/backend/test/catalog-notes.int.test.ts`         | Una nota en varias categorías, asignación masiva por categoría y sugerida, notas propias de producto, nota sin asignar, permisos, duplicados, orden, activación, borrado de categoría                           |
+| Unir mesas                | `apps/backend/test/table-merge.int.test.ts`           | Abrir sin productos, unir libre + abierta, dos abiertas, con pedido + sin pedido, dos con consumo (confirmación), permisos, separar parcial, liberar sin consumo                                                |
+| Migraciones reversibles   | `apps/backend/test/migrations-reversible.int.test.ts` | Conversión de notas de una instalación existente, columnas de llamados y `down.sql` de punta a punta                                                                                                            |
+| Llamados internos         | `apps/backend/test/staff-calls.int.test.ts`           | Selector de meseros con conexión, llamado a uno solo (los demás no lo reciben), "Todos", vista, insistencia, "Voy" solo del destinatario, mesero desconectado y escalamiento, cierre al cobrar y al cerrar caja |
+| Descuentos en caja        | `apps/backend/test/order-discount.int.test.ts`        | Porcentaje y valor fijo, validación, límite, división de cuenta, pagos parciales y auditoría                                                                                                                    |
+| Reglas compartidas        | `packages/utils/src/*.test.ts`                        | Totales e impuestos, cronómetros (`ticketTiming`), propiedad, notas, llamados, operaciones de mesa                                                                                                              |
+| Cliente                   | `packages/client/src/**/*.test.ts`                    | Sesión, caché sin red, reanudación del socket al volver a la app (iOS)                                                                                                                                          |
 
 ## Criterios de aceptación → evidencia
 
