@@ -6,7 +6,7 @@
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
 | Desarrollo               | Node 24 + `npm run dev`; PostgreSQL en Docker                                                                                  |
 | Servidor embebido (dev)  | `npm run dev:embedded -w @karbon/desktop`: Electron levanta PostgreSQL y el backend compilados, igual que el instalador        |
-| Demo / integración       | `docker compose up` (PostgreSQL + backend)                                                                                     |
+| Demo / integración       | `docker compose --profile demo up --build` (PostgreSQL + API, sin app de meseros)                                              |
 | CI                       | GitHub Actions: calidad, migraciones sobre PostgreSQL 18, pruebas de integración, build, imagen Docker, instalador Windows     |
 | Producción (restaurante) | Instalador único de Windows: Electron + backend + PostgreSQL 18 embebido ([ADR 0002](adr/0002-despliegue-instalador-unico.md)) |
 
@@ -49,9 +49,11 @@ Arma `apps/desktop/staging/` (ver abajo) y abre Electron con `--embedded`: crea 
 ## Docker Compose (demo / integración)
 
 ```bash
-docker compose up --build        # PostgreSQL + backend
+docker compose --profile demo up --build   # PostgreSQL + API de demostración
 ```
 
+- La API va en el perfil `demo` porque usa el puerto 3000, el mismo de `npm run dev`: `docker compose up -d` (o `npm run db:up`) levanta solo PostgreSQL. Si el backend de desarrollo arranca con el puerto ocupado, se detiene con un aviso.
+- No publica la app de meseros ni el tablero web: los celulares se conectan con `npm run dev` (Vite en 5174/5173) o con el instalador.
 - Imagen multi-etapa (Node 24 Alpine, usuario sin privilegios, solo dependencias de producción, healthcheck en `/api/v1/health`).
 - Al arrancar ejecuta `prisma migrate deploy` y el seed idempotente; con `SEED_DEMO_DATA=true` (por defecto) carga el restaurante demo.
 - Variables (en un `.env` de la raíz): `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT`, `BACKEND_PORT`, `JWT_SECRET`, `SEED_ADMIN_USERNAME`, `SEED_ADMIN_PASSWORD`, `SEED_DEMO_DATA`, `CORS_ORIGINS`, `SWAGGER_ENABLED`, `LOG_LEVEL`.

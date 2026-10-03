@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Permission, type TableDto } from '@karbon/types';
 import type { AuthenticatedUser } from '../../common/auth/authenticated-user.js';
 import { CurrentUser, RequirePermissions } from '../../common/auth/decorators.js';
-import { MergeTablesDto } from '../floor/floor.dto.js';
+import { MergeTablesDto, UnmergeTablesDto } from '../floor/floor.dto.js';
 import { TableOperationsService } from './table-operations.service.js';
 
 /** Operaciones de salón que mueven cuentas entre mesas (ver TableOperationsService). */
@@ -16,7 +16,8 @@ export class TableOperationsController {
   @Post(':id/merge')
   @RequirePermissions(Permission.TABLES_OPERATE)
   @ApiOperation({
-    summary: 'Une mesas a esta; sus cuentas pasan a la principal como cuentas separadas',
+    summary:
+      'Une mesas a esta, con o sin pedido: queda una cuenta compartida (varias con consumo se confirman y quedan separadas)',
   })
   merge(
     @Param('id', ParseUUIDPipe) id: string,
@@ -28,11 +29,14 @@ export class TableOperationsController {
 
   @Post(':id/unmerge')
   @RequirePermissions(Permission.TABLES_OPERATE)
-  @ApiOperation({ summary: 'Separa las mesas unidas; las cuentas quedan en la principal' })
+  @ApiOperation({
+    summary: 'Separa las mesas unidas (todas o las indicadas); las cuentas quedan en la principal',
+  })
   unmerge(
     @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UnmergeTablesDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<TableDto> {
-    return this.operations.unmerge(id, user);
+    return this.operations.unmerge(id, dto, user);
   }
 }

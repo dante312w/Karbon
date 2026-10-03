@@ -143,7 +143,10 @@ erDiagram
 erDiagram
   categories |o--o{ categories : "subcategoría"
   categories ||--o{ products : "agrupa"
-  categories |o--o{ category_note_options : "notas de un toque"
+  note_options ||--o{ note_option_categories : "aplica a"
+  categories ||--o{ note_option_categories : "notas de un toque"
+  note_options ||--o{ note_option_products : "propias de"
+  products ||--o{ note_option_products : "notas propias"
   products ||--o{ recipes : "receta"
   ingredients ||--o{ recipes : "insumo de"
   ingredients ||--o{ inventory_movements : "kardex"
@@ -239,41 +242,43 @@ erDiagram
 
 ## Tablas
 
-| Dominio       | Tabla                   | Propósito                                                                                 |
-| ------------- | ----------------------- | ----------------------------------------------------------------------------------------- |
-| Acceso        | `roles`                 | Roles RBAC con lista de permisos; los de sistema se sincronizan desde el código           |
-|               | `users`                 | Usuarios con contraseña y PIN opcional (hash bcrypt)                                      |
-|               | `refresh_tokens`        | Sesiones por dispositivo con rotación y detección de reutilización                        |
-|               | `audit_logs`            | Bitácora de acciones sensibles (Configuración → Auditoría, `GET /audit-logs`)             |
-| Configuración | `restaurant_settings`   | Fila única: negocio, modo restaurante/bar, moneda, propina, horarios, KDS, licencia       |
-|               | `taxes`                 | Tarifas (Impoconsumo 8 %, IVA 19 %, exento)                                               |
-|               | `printers`              | Impresoras térmicas/estándar por USB, red o sistema y su propósito                        |
-| Salón         | `areas`                 | Zonas del mapa (Salón, Terraza, Barra)                                                    |
-|               | `tables`                | Mesas con posición en el mapa, estado, unión de mesas y token QR                          |
-|               | `floor_elements`        | Barra, cocina, baños, entrada, caja y paredes del plano, en la misma grilla que las mesas |
-|               | `reservations`          | Reservas por mesa y hora                                                                  |
-| Catálogo      | `categories`            | Categorías jerárquicas con color para el POS                                              |
-|               | `category_note_options` | Notas de un toque por categoría (o generales, sin categoría), con orden y activación      |
-|               | `products`              | Productos con precio, costo teórico, estación y disponibilidad                            |
-| Inventario    | `ingredients`           | Insumos con stock, mínimo y costo promedio                                                |
-|               | `recipes`               | Líneas de receta producto ↔ insumo                                                        |
-|               | `inventory_movements`   | Kardex inmutable: compras, entradas, salidas, mermas, ventas, reversos y ajustes          |
-|               | `suppliers`             | Proveedores                                                                               |
-|               | `purchases`             | Compras (borrador → recibida)                                                             |
-|               | `purchase_items`        | Líneas de compra                                                                          |
-| Clientes      | `customers`             | Clientes con historial agregado (visitas, consumo, última visita)                         |
-| Pedidos       | `orders`                | Pedidos con totales, versión y trazabilidad de cancelación/división                       |
-|               | `order_items`           | Líneas con snapshot, notas, orden y anulación                                             |
-|               | `kitchen_tickets`       | Comandas por ronda y estación para el KDS                                                 |
-|               | `staff_calls`           | Llamados internos (al mesero o a caja): quién llamó, quién fue y cuándo se cerró          |
-| Caja          | `cash_sessions`         | Turnos de caja con arqueo                                                                 |
-|               | `payments`              | Pagos por método (varios por pedido = mixto o cuenta dividida)                            |
-|               | `cash_movements`        | Ingresos y retiros de efectivo no asociados a ventas                                      |
-|               | `expenses`              | Gastos del negocio (desde caja o no)                                                      |
-| Facturación   | `numbering_ranges`      | Rangos de numeración / resoluciones                                                       |
-|               | `invoices`              | Documentos emitidos, agnósticos del proveedor fiscal                                      |
-| Sistema       | `idempotency_keys`      | Respuestas guardadas por `Idempotency-Key` (cola offline); se limpian a los 2 días        |
-|               | `_prisma_migrations`    | Migraciones aplicadas (Prisma o el migrador del instalador, mismo formato)                |
+| Dominio       | Tabla                    | Propósito                                                                                                                              |
+| ------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Acceso        | `roles`                  | Roles RBAC con lista de permisos; los de sistema se sincronizan desde el código                                                        |
+|               | `users`                  | Usuarios con contraseña y PIN opcional (hash bcrypt)                                                                                   |
+|               | `refresh_tokens`         | Sesiones por dispositivo con rotación y detección de reutilización                                                                     |
+|               | `audit_logs`             | Bitácora de acciones sensibles (Configuración → Auditoría, `GET /audit-logs`)                                                          |
+| Configuración | `restaurant_settings`    | Fila única: negocio, modo restaurante/bar, moneda, propina, horarios, KDS, licencia                                                    |
+|               | `taxes`                  | Tarifas (Impoconsumo 8 %, IVA 19 %, exento)                                                                                            |
+|               | `printers`               | Impresoras térmicas/estándar por USB, red o sistema y su propósito                                                                     |
+| Salón         | `areas`                  | Zonas del mapa (Salón, Terraza, Barra)                                                                                                 |
+|               | `tables`                 | Mesas con posición en el mapa, estado, unión de mesas y token QR                                                                       |
+|               | `floor_elements`         | Barra, cocina, baños, entrada, caja y paredes del plano, en la misma grilla que las mesas                                              |
+|               | `reservations`           | Reservas por mesa y hora                                                                                                               |
+| Catálogo      | `categories`             | Categorías jerárquicas con color para el POS                                                                                           |
+|               | `note_options`           | Notas de un toque: texto único, general o no, orden entre generales y activación                                                       |
+|               | `note_option_categories` | Categorías a las que aplica cada nota (muchos a muchos), con el orden dentro de cada una                                               |
+|               | `note_option_products`   | Notas propias de un producto: reemplazan las de su categoría                                                                           |
+|               | `products`               | Productos con precio, costo teórico, estación y disponibilidad                                                                         |
+| Inventario    | `ingredients`            | Insumos con stock, mínimo y costo promedio                                                                                             |
+|               | `recipes`                | Líneas de receta producto ↔ insumo                                                                                                     |
+|               | `inventory_movements`    | Kardex inmutable: compras, entradas, salidas, mermas, ventas, reversos y ajustes                                                       |
+|               | `suppliers`              | Proveedores                                                                                                                            |
+|               | `purchases`              | Compras (borrador → recibida)                                                                                                          |
+|               | `purchase_items`         | Líneas de compra                                                                                                                       |
+| Clientes      | `customers`              | Clientes con historial agregado (visitas, consumo, última visita)                                                                      |
+| Pedidos       | `orders`                 | Pedidos con totales, versión y trazabilidad de cancelación/división                                                                    |
+|               | `order_items`            | Líneas con snapshot, notas, orden y anulación                                                                                          |
+|               | `kitchen_tickets`        | Comandas por ronda y estación para el KDS                                                                                              |
+|               | `staff_calls`            | Llamados internos (al mesero elegido, a todos o a caja): quién llamó, a quién, quién lo vio, quién fue, si se escaló y cuándo se cerró |
+| Caja          | `cash_sessions`          | Turnos de caja con arqueo                                                                                                              |
+|               | `payments`               | Pagos por método (varios por pedido = mixto o cuenta dividida)                                                                         |
+|               | `cash_movements`         | Ingresos y retiros de efectivo no asociados a ventas                                                                                   |
+|               | `expenses`               | Gastos del negocio (desde caja o no)                                                                                                   |
+| Facturación   | `numbering_ranges`       | Rangos de numeración / resoluciones                                                                                                    |
+|               | `invoices`               | Documentos emitidos, agnósticos del proveedor fiscal                                                                                   |
+| Sistema       | `idempotency_keys`       | Respuestas guardadas por `Idempotency-Key` (cola offline); se limpian a los 2 días                                                     |
+|               | `_prisma_migrations`     | Migraciones aplicadas (Prisma o el migrador del instalador, mismo formato)                                                             |
 
 ## Índices relevantes
 
@@ -303,11 +308,27 @@ Además de claves foráneas y únicas, la migración inicial agrega `CHECK` cons
 - `kitchen_tickets`: solo una comanda `DELIVERED` registra `delivered_by_id`.
 - `orders`: el descuento sobre el total se guarda completo o no se guarda (tipo, valor > 0, motivo y fecha); un porcentaje ≤ 100 y `order_discount_amount ≥ 0`. `restaurant_settings.max_discount_percent` entre 0 y 100.
 - `staff_calls`: cada destino con sus motivos; solo el llamado al mesero apunta a una persona; abierto ⇔ sin `closed_at`; `ACKNOWLEDGED` con `acknowledged_at`; `call_count ≥ 1`.
-- `category_note_options`: texto no vacío y único por categoría sin distinguir mayúsculas (índice único sobre `COALESCE(category_id, …)` y `lower(label)`, así las generales también quedan cubiertas).
+- `note_options`: texto no vacío y único sin distinguir mayúsculas (índice único sobre `lower(label)`). Que una general no tenga categorías ni productos lo garantiza el servicio.
+- `staff_calls`: quien la vio implica cuándo (`seen_by_id` ⇒ `seen_at`); solo se escala un llamado al mesero.
+- `restaurant_settings.staff_call_escalate_seconds` entre 0 (nunca) y 600.
 
 ### Migraciones de datos
 
-Los roles de sistema se crean con el seed, que solo corre en instalaciones nuevas. Cuando una versión agrega permisos, su migración los suma a los roles existentes sin quitar los que ya tenían (p. ej. `20260928202352_waiter_delivery`: `orders:deliver` para todo rol que toma pedidos, `orders:manage_any` para administración y caja, y ambos para la barra si el negocio está en modo bar; `20260928230000_waiter_table_operations`: `tables:operate` para el rol Mesero y `orders:manage_any` para todo rol que cobra, que hasta entonces operaba pedidos de cualquiera). `20260928235000_category_note_options` convierte las notas rápidas que antes estaban fijas en el código en notas generales, según el modo del negocio, para que los meseros no noten el cambio hasta que el administrador las organice por categoría. `20260929155149_order_discount` agrega el descuento sobre el total y el límite `max_discount_percent` (100 por defecto: sin cambio para instalaciones existentes). `20260929144446_staff_calls` da `calls:waiter` a todo rol que prepara o cobra y `calls:cashier` a todo rol que toma pedidos sin cobrar (y ambos al administrador).
+Los roles de sistema se crean con el seed, que solo corre en instalaciones nuevas. Cuando una versión agrega permisos, su migración los suma a los roles existentes sin quitar los que ya tenían (p. ej. `20260928202352_waiter_delivery`: `orders:deliver` para todo rol que toma pedidos, `orders:manage_any` para administración y caja, y ambos para la barra si el negocio está en modo bar; `20260928230000_waiter_table_operations`: `tables:operate` para el rol Mesero y `orders:manage_any` para todo rol que cobra, que hasta entonces operaba pedidos de cualquiera). `20260928235000_category_note_options` convierte las notas rápidas que antes estaban fijas en el código en notas generales, según el modo del negocio, para que los meseros no noten el cambio hasta que el administrador las organice por categoría. `20260929155149_order_discount` agrega el descuento sobre el total y el límite `max_discount_percent` (100 por defecto: sin cambio para instalaciones existentes). `20260929144446_staff_calls` da `calls:waiter` a todo rol que prepara o cobra y `calls:cashier` a todo rol que toma pedidos sin cobrar (y ambos al administrador). `20261003120000_note_options_many_to_many` convierte `category_note_options` en `note_options` + `note_option_categories`: la misma nota repetida en varias categorías queda como una sola con todas ellas (activa si lo estaba en alguna), y las que no tenían categoría quedan **generales**, así nada cambia para el mesero hasta que el administrador las organice (Catálogo → Todas las notas → Sugerir asignación). `20261003121000_staff_call_recipient_seen_escalation` agrega "vista", escalamiento y su configuración (apagada: 0).
+
+### Revertir una migración
+
+Prisma no revierte migraciones. Las que cambian datos traen un `down.sql` en su carpeta (desde `20261003120000_note_options_many_to_many`), que el migrador ignora. Para revertir, con un respaldo hecho y la app detenida, se aplican de la más nueva a la más vieja; cada `down.sql` también borra su fila de `_prisma_migrations`, así la siguiente actualización la vuelve a aplicar:
+
+```bash
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -1 -f apps/backend/prisma/migrations/20261003121000_staff_call_recipient_seen_escalation/down.sql
+```
+
+```bash
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -1 -f apps/backend/prisma/migrations/20261003120000_note_options_many_to_many/down.sql
+```
+
+Lo que el modelo anterior no puede representar se indica al inicio de cada `down.sql` (p. ej. las notas propias de productos). `test/migrations-reversible.int.test.ts` prueba la conversión de datos y la reversión de punta a punta.
 
 ## Flujo de trabajo con migraciones
 

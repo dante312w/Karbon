@@ -3,6 +3,7 @@ import {
   useApi,
   useApiMutation,
   useHasPermission,
+  useMergeTables,
   useMoney,
   useSession,
   useTerminology,
@@ -32,6 +33,13 @@ import {
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { CallWaiterDialog } from '../../components/call-waiter-dialog';
+import { ConfirmDialog } from '../../components/confirm-dialog';
+
+/** El mesero que atiende la mesa, si es uno solo (con varias cuentas de distintos, ninguno). */
+function tableWaiterId(table: TableDto): string | null {
+  const waiters = new Set(table.activeOrders.map((order) => order.waiterId));
+  return waiters.size === 1 ? ([...waiters][0] ?? null) : null;
+}
 
 /** Detalle de una mesa: sus cuentas abiertas y las operaciones de salón. */
 export function TablePanel({
@@ -64,17 +72,13 @@ export function TablePanel({
     invalidate,
     { onError: notifyError, onSuccess: onClose },
   );
-  const merge = useApiMutation(
-    (tableIds: string[]) => api.floor.merge(table?.id ?? '', { tableIds }),
-    invalidate,
-    {
-      onError: notifyError,
-      onSuccess: () => {
-        toast.success('Mesas unidas');
-        setMerging(null);
-      },
+  const merge = useMergeTables(table?.id ?? '', {
+    onError: notifyError,
+    onSuccess: () => {
+      toast.success('Mesas unidas');
+      setMerging(null);
     },
-  );
+  });
   const unmerge = useApiMutation(() => api.floor.unmerge(table?.id ?? ''), invalidate, {
     onError: notifyError,
     onSuccess: () => toast.success('Mesas separadas'),
@@ -112,8 +116,8 @@ export function TablePanel({
         {merging ? (
           <section className="flex flex-col gap-3">
             <p className="text-sm text-muted-foreground">
-              Elige las mesas que se unen a {table.name}. Si tienen cuentas abiertas, pasan a{' '}
-              {table.name} como cuentas separadas.
+              Elige las mesas que se unen a {table.name}, libres o abiertas: el grupo queda con una
+              sola cuenta. Si varias ya tienen consumo, se confirma y sus cuentas quedan separadas.
             </p>
             <div className="grid grid-cols-3 gap-2">
               {candidates.map((candidate) => {
@@ -133,7 +137,11 @@ export function TablePanel({
                     }}
                   >
                     {candidate.name}
-                    {candidate.activeOrders.length > 0 ? ' · ocupada' : ''}
+                    {candidate.activeOrders.length === 0
+                      ? ''
+                      : candidate.activeOrders.some((summary) => summary.total > 0)
+                        ? ' · con consumo'
+                        : ' · abierta'}
                   </Button>
                 );
               })}
@@ -155,7 +163,7 @@ export function TablePanel({
               <Button
                 disabled={merging.length === 0 || merge.isPending}
                 onClick={() => {
-                  merge.mutate(merging);
+                  merge.merge(merging);
                 }}
               >
                 Unir {merging.length > 0 ? `(${merging.length})` : ''}
@@ -286,6 +294,7 @@ export function TablePanel({
                 description={`${table.name} · ${[
                   ...new Set(table.activeOrders.map((order) => order.waiterName)),
                 ].join(', ')}`}
+                defaultWaiterId={tableWaiterId(table)}
                 onClose={() => {
                   setCallingWaiter(false);
                 }}
@@ -293,6 +302,19 @@ export function TablePanel({
             ) : null}
           </>
         )}
+        <ConfirmDialog
+          open={merge.pendingConfirmation !== null}
+          onOpenChange={(open) => {
+            if (!open) merge.dismiss();
+          }}
+          title="¿Unir con cuentas separadas?"
+          description={`${merge.pendingConfirmation ?? ''}. Cada cuenta conserva sus productos y pagos y se cobra por separado.`}
+          confirmLabel="Unir igual"
+          onConfirm={() => {
+            merge.confirm();
+            return Promise.resolve();
+          }}
+        />
       </DialogContent>
     </Dialog>
   );

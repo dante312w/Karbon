@@ -587,9 +587,17 @@ describe('Operación de un turno (integración)', () => {
           .expect(201)
       ).body as PaymentResultDto;
 
+      // Las dos tienen consumo: quedarían cuentas separadas y hay que confirmarlo.
+      const unconfirmed = await waiter
+        .post(`/tables/${table('Mesa 7').id}/merge`, { tableIds: [table('Mesa 8').id] })
+        .expect(409);
+      expect(unconfirmed.body.code).toBe('TABLE_MERGE_NEEDS_CONFIRMATION');
       const merged = (
         await waiter
-          .post(`/tables/${table('Mesa 7').id}/merge`, { tableIds: [table('Mesa 8').id] })
+          .post(`/tables/${table('Mesa 7').id}/merge`, {
+            tableIds: [table('Mesa 8').id],
+            separateAccounts: true,
+          })
           .expect(201)
       ).body as TableDto;
       expect(merged.activeOrders.map((summary) => summary.id).sort()).toEqual(
