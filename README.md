@@ -67,7 +67,7 @@ npm run dev
 - Escritorio: se abre la ventana de Electron (renderer en <http://localhost:5173>)
 - PWA meseros: <http://localhost:5174> (y `http://<IP-del-PC>:5174` desde el celular)
 
-Alternativa sin Node: `docker compose up --build` levanta PostgreSQL + backend con datos demo.
+Alternativa sin Node (solo la API, sin app de meseros): `docker compose --profile demo up --build` levanta PostgreSQL + backend con datos demo. Usa el puerto 3000: detenlo antes de `npm run dev`.
 
 ### Usuarios de demostración (solo desarrollo)
 
