@@ -9,6 +9,7 @@ import {
   ReservationStatus,
   type SetTableStatusRequest,
   TableShape,
+  type UnmergeTablesRequest,
 } from '@karbon/types';
 import {
   ArrayMaxSize,
@@ -71,6 +72,18 @@ export class MergeTablesDto implements MergeTablesRequest {
   @ArrayUnique()
   @IsUUID('all', { each: true })
   tableIds!: string[];
+
+  @IsOptional() @IsBoolean() separateAccounts?: boolean;
+}
+
+export class UnmergeTablesDto implements UnmergeTablesRequest {
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(10)
+  @ArrayUnique()
+  @IsUUID('all', { each: true })
+  tableIds?: string[];
 }
 
 export class SetTableStatusDto implements SetTableStatusRequest {

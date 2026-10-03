@@ -191,7 +191,13 @@ describe('Tiempo real entre equipos (integración)', () => {
 
     const call = (
       await kitchen
-        .post('/staff-calls', { target: 'WAITER', reason: 'COME_OVER', orderId: order.id })
+        .post('/staff-calls', {
+          target: 'WAITER',
+          reason: 'COME_OVER',
+          orderId: order.id,
+          // Dirigido: llega por la sala propia de Laura, a la que el socket vuelve al reconectar.
+          waiterId: laura.session.user.id,
+        })
         .expect(201)
     ).body as StaffCallDto;
     const received = await lauraProbe.waitFor(

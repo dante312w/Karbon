@@ -40,7 +40,14 @@ Todo está en **Configuración** (solo administradores):
 
 Después carga el **Catálogo** (categorías, productos, precios, imágenes y estación: cocina o barra) y, si vas a controlar inventario, los **insumos** y la **receta** de cada producto.
 
-**Notas de un toque:** en el Catálogo, elige una categoría y toca **Editar notas** para definir las que el mesero marca con un toque al pedir ("Sin cebolla", "Término medio"…). Con **Todas** seleccionado editas las **notas generales**, que se ofrecen en todos los productos. Puedes renombrarlas, ordenarlas con las flechas, apagarlas por un tiempo o eliminarlas; los pedidos ya tomados no cambian. Una categoría se puede eliminar desde su edición cuando ya no tiene productos.
+**Notas de un toque:** son las que el mesero marca con un toque al pedir ("Sin cebolla", "Término medio", "Sin hielo"). Al pedir un producto solo aparecen las de su categoría (y las de sus categorías madre) más las **generales**; la nota escrita a mano siempre está disponible. En el Catálogo:
+
+- **Asignar notas** (con una categoría elegida): marca qué notas le aplican y ordénalas. Toca una de **Otras notas** para agregarla o la ✕ para quitarla; también puedes crear una nueva para esa categoría. Con **Todas** elegido editas las generales (úsalas solo para lo que aplica a todo, como "Para llevar").
+- **Todas las notas:** cada nota con su texto, si está activa y a qué aplica. **Categorías** abre su editor: una nota puede aplicar a varias categorías o ser general. Las que dicen "Sin asignar" no se ofrecen en ningún producto.
+- **Sugerir asignación** propone, según el nombre de cada categoría, a dónde llevar las notas que quedaron como generales ("Sin hielo" → Bebidas, "Término medio" → Carnes). Desmarca lo que no aplique y toca **Aplicar**; nada cambia antes de confirmar.
+- **Notas propias de un producto** (pestaña **Notas** del producto): para excepciones. Si eliges notas ahí, el mesero ve solo esas (y las generales) en lugar de las de la categoría; la vista previa muestra lo que verá.
+
+Puedes renombrarlas, apagarlas por un tiempo o eliminarlas; los pedidos ya tomados no cambian. Una categoría se puede eliminar desde su edición cuando ya no tiene productos.
 
 ## 4. Conectar los celulares de los meseros
 
@@ -98,7 +105,8 @@ Al bloquear el celular o cambiar de app, iOS pausa Karbon. Al volver, la app se 
 
 - **Llamados entre áreas:**
   - **Cocina o barra → mesero:** en la comanda, **Llamar mesero** le suena al mesero de ese pedido. Tocar **Insistir** vuelve a sonar.
-  - **Caja → mesero:** desde el pedido o la mesa, **Llamar mesero** ("La mesa necesita atención" o "Que venga un momento"). En **Llamados** (arriba a la derecha) también se puede llamar a todos los meseros.
+  - **Caja → mesero:** desde el pedido o la mesa, **Llamar mesero**: elige **a quién** (viene marcado el mesero de la mesa; el punto verde indica que tiene la app abierta) o **Todos los meseros**, y el motivo ("La mesa necesita atención" o "Que venga un momento"). En **Llamados** (arriba a la derecha) también se llama a un mesero o a todos, y se ve el estado de cada llamado: **Enviada**, **Vista por Laura**, **Va Laura** o atendido. Al mesero elegido le suena solo a él; los demás no lo ven.
+  - **Si nadie responde:** en Configuración → Negocio, **Llamado sin respuesta (s)** hace que, pasado ese tiempo, el llamado pase a todos los meseros (0 = nunca, viene apagado).
   - **Mesero → caja:** en el celular, el botón de la campanilla (arriba) o **⋮ → Llamar a caja** dentro del pedido ("Necesito cobrar", "Ayuda con una cuenta", "Un cliente necesita a caja").
   - Quien recibe el llamado lo ve arriba de la pantalla con sonido y vibración: **Voy** avisa a los demás que ya va alguien y **Atendido** lo cierra. Quien llamó ve "Va Laura" y puede retirarlo con **Ya no hace falta**.
   - Los "necesito cobrar" se cierran solos al cobrar la cuenta, y al cerrar la caja se cancelan los que quedaron abiertos.

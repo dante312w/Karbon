@@ -3,6 +3,7 @@ import {
   useApi,
   useApiMutation,
   useHasPermission,
+  useMergeTables,
   useMoney,
   useOrderMutation,
   useProductNoteSuggestions,
@@ -35,6 +36,7 @@ import {
   ArrowRightLeftIcon,
   BanIcon,
   ConciergeBellIcon,
+  DoorOpenIcon,
   Link2Icon,
   Link2OffIcon,
   type LucideIcon,
@@ -45,7 +47,8 @@ import { type ReactNode, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { CallCashierDialog } from './call-cashier-dialog';
 
-type View = 'menu' | 'details' | 'move' | 'merge' | 'unmerge' | 'split' | 'cancel' | 'call';
+type View =
+  'menu' | 'details' | 'move' | 'merge' | 'unmerge' | 'split' | 'cancel' | 'call' | 'release';
 
 function Sheet({
   title,
@@ -124,6 +127,8 @@ export function OrderActions({ order, onClose }: { order: OrderDto; onClose: () 
   const units = order.items
     .filter((item) => item.status !== OrderItemStatus.CANCELLED)
     .reduce((sum, item) => sum + item.quantity, 0);
+  // Mesa abierta en la que aún no se pidió nada: se libera sin anular.
+  const empty = order.items.length === 0 && order.paidAmount === 0;
   const back = (): void => {
     setView('menu');
   };
@@ -137,13 +142,10 @@ export function OrderActions({ order, onClose }: { order: OrderDto; onClose: () 
       return table ? <MergeSheet main={table} tables={tables} onClose={onClose} /> : null;
     case 'unmerge':
       return table ? (
-        <UnmergeSheet
-          main={table}
-          names={children.map((c) => c.name)}
-          onClose={onClose}
-          onBack={back}
-        />
+        <UnmergeSheet main={table} joined={children} onClose={onClose} onBack={back} />
       ) : null;
+    case 'release':
+      return <ReleaseSheet order={order} onClose={onClose} onBack={back} />;
     case 'split':
       return <SplitSheet order={order} onClose={onClose} />;
     case 'cancel':
@@ -197,7 +199,7 @@ export function OrderActions({ order, onClose }: { order: OrderDto; onClose: () 
             <MenuButton
               icon={Link2Icon}
               label="Unir mesas"
-              hint={`Otras mesas se suman a ${table.name}; sus cuentas quedan separadas`}
+              hint={`Otras mesas, libres o abiertas, se suman a ${table.name} con una sola cuenta`}
               onClick={() => {
                 setView('merge');
               }}
@@ -207,9 +209,19 @@ export function OrderActions({ order, onClose }: { order: OrderDto; onClose: () 
             <MenuButton
               icon={Link2OffIcon}
               label="Separar mesas"
-              hint={`Libera ${children.map((child) => child.name).join(', ')}`}
+              hint={`Unida con ${children.map((child) => child.name).join(', ')}`}
               onClick={() => {
                 setView('unmerge');
+              }}
+            />
+          ) : null}
+          {can.update && empty ? (
+            <MenuButton
+              icon={DoorOpenIcon}
+              label="Liberar mesa"
+              hint="No se pidió nada: cierra la cuenta y la mesa queda libre"
+              onClick={() => {
+                setView('release');
               }}
             />
           ) : null}
@@ -342,7 +354,11 @@ function TableGrid({
           >
             <span className="whitespace-normal">{table.name}</span>
             {table.activeOrders.length > 0 ? (
-              <span className="text-xs font-normal opacity-80">ocupada</span>
+              <span className="text-xs font-normal opacity-80">
+                {table.activeOrders.some((summary) => summary.total > 0)
+                  ? 'con consumo'
+                  : 'abierta'}
+              </span>
             ) : null}
           </Button>
         );
@@ -399,25 +415,44 @@ function MergeSheet({
   tables: readonly TableDto[];
   onClose: () => void;
 }) {
-  const api = useApi();
   const session = useSession();
   const [selected, setSelected] = useState<string[]>([]);
   const candidates = session ? mergeCandidates(main, tables, session.user) : [];
-  const merge = useApiMutation(
-    () => api.floor.merge(main.id, { tableIds: selected }),
-    [queryKeys.tables, queryKeys.activeOrders],
-    {
-      onSuccess: () => {
-        toast.success(`Mesas unidas a ${main.name}`);
-        onClose();
-      },
-      onError: notifyError,
+  const merge = useMergeTables(main.id, {
+    onSuccess: () => {
+      toast.success(`Mesas unidas a ${main.name}`);
+      onClose();
     },
-  );
+    onError: notifyError,
+  });
+  if (merge.pendingConfirmation) {
+    return (
+      <Sheet
+        title="¿Unir con cuentas separadas?"
+        description={merge.pendingConfirmation}
+        onClose={onClose}
+        footer={
+          <div className="grid w-full grid-cols-2 gap-2">
+            <Button variant="outline" size="touch" onClick={merge.dismiss}>
+              Volver
+            </Button>
+            <Button size="touch" disabled={merge.isPending} onClick={merge.confirm}>
+              <Link2Icon /> Unir igual
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-sm text-muted-foreground">
+          Cada cuenta conserva sus productos y pagos y se cobra por separado. Si prefieres una sola
+          cuenta, une las mesas antes de pedir.
+        </p>
+      </Sheet>
+    );
+  }
   return (
     <Sheet
       title={`Unir a ${main.name}`}
-      description="Las cuentas de las mesas que elijas pasan a esta mesa, cada una por separado."
+      description="Elige mesas libres o abiertas: quedan con una sola cuenta en esta mesa y ocupadas en todos los equipos."
       onClose={onClose}
       footer={
         <Button
@@ -425,7 +460,7 @@ function MergeSheet({
           className="w-full"
           disabled={selected.length === 0 || merge.isPending}
           onClick={() => {
-            merge.mutate(undefined);
+            merge.merge(selected);
           }}
         >
           <Link2Icon /> Unir {selected.length > 0 ? `(${String(selected.length)})` : ''}
@@ -453,24 +488,27 @@ function MergeSheet({
   );
 }
 
+/** Separar todas o algunas de las mesas unidas; las cuentas se quedan en la principal. */
 function UnmergeSheet({
   main,
-  names,
+  joined,
   onClose,
   onBack,
 }: {
   main: TableDto;
-  names: readonly string[];
+  joined: readonly TableDto[];
   onClose: () => void;
   onBack: () => void;
 }) {
   const api = useApi();
+  const [selected, setSelected] = useState<string[]>(joined.map((table) => table.id));
   const unmerge = useApiMutation(
-    () => api.floor.unmerge(main.id),
+    () =>
+      api.floor.unmerge(main.id, selected.length === joined.length ? {} : { tableIds: selected }),
     [queryKeys.tables, queryKeys.activeOrders],
     {
       onSuccess: () => {
-        toast.success('Mesas separadas');
+        toast.success(selected.length === 1 ? 'Mesa separada' : 'Mesas separadas');
         onClose();
       },
       onError: notifyError,
@@ -479,7 +517,7 @@ function UnmergeSheet({
   return (
     <Sheet
       title="Separar mesas"
-      description={`${names.join(', ')} quedan libres. Las cuentas siguen en ${main.name}; si alguna era de otra mesa, muévela después.`}
+      description={`Las que elijas quedan libres. Las cuentas y sus productos siguen en ${main.name}; si alguna era de otra mesa, muévela después.`}
       onClose={onClose}
       footer={
         <div className="grid w-full grid-cols-2 gap-2">
@@ -488,12 +526,74 @@ function UnmergeSheet({
           </Button>
           <Button
             size="touch"
-            disabled={unmerge.isPending}
+            disabled={selected.length === 0 || unmerge.isPending}
             onClick={() => {
               unmerge.mutate(undefined);
             }}
           >
-            <Link2OffIcon /> Separar
+            <Link2OffIcon /> Separar {selected.length > 0 ? `(${String(selected.length)})` : ''}
+          </Button>
+        </div>
+      }
+    >
+      <TableGrid
+        tables={joined}
+        selected={selected}
+        disabled={unmerge.isPending}
+        onToggle={(table) => {
+          setSelected(
+            selected.includes(table.id)
+              ? selected.filter((id) => id !== table.id)
+              : [...selected, table.id],
+          );
+        }}
+      />
+    </Sheet>
+  );
+}
+
+/** Cerrar la cuenta de una mesa abierta en la que no se pidió nada. */
+function ReleaseSheet({
+  order,
+  onClose,
+  onBack,
+}: {
+  order: OrderDto;
+  onClose: () => void;
+  onBack: () => void;
+}) {
+  const api = useApi();
+  const navigate = useNavigate();
+  const release = useOrderMutation(
+    order.id,
+    (current) => api.orders.closeEmpty(order.id, { version: current.version }),
+    {
+      onSuccess: () => {
+        toast.success(`${order.tableName ?? 'La cuenta'} quedó libre`);
+        onClose();
+        void navigate('/', { replace: true });
+      },
+      onError: notifyError,
+    },
+  );
+  return (
+    <Sheet
+      title="Liberar mesa"
+      description={`${order.tableName ?? `Pedido #${String(order.number)}`} no tiene productos: la cuenta se cierra y la mesa queda libre en todos los equipos.`}
+      onClose={onClose}
+      footer={
+        <div className="grid w-full grid-cols-2 gap-2">
+          <Button variant="outline" size="touch" onClick={onBack}>
+            Volver
+          </Button>
+          <Button
+            size="touch"
+            disabled={release.isPending}
+            onClick={() => {
+              release.mutate();
+            }}
+          >
+            <DoorOpenIcon /> Liberar
           </Button>
         </div>
       }
