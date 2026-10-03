@@ -1,8 +1,8 @@
 import type { CategoryDto, NoteOptionDto, ProductDto, RecipeItemDto } from '@karbon/types';
 import type {
   Category,
-  CategoryNoteOption,
   Ingredient,
+  Prisma,
   Product,
   RecipeItem,
 } from '../../generated/prisma/client.js';
@@ -23,13 +23,31 @@ export function toCategoryDto(category: Category): CategoryDto {
   };
 }
 
-export function toNoteOptionDto(option: CategoryNoteOption): NoteOptionDto {
+/** Asignaciones vigentes: las categorías y productos borrados (lógicamente) no cuentan. */
+export const NOTE_OPTION_INCLUDE = {
+  categories: {
+    where: { category: { deletedAt: null } },
+    select: { categoryId: true, sortOrder: true },
+    orderBy: { categoryId: 'asc' },
+  },
+  products: {
+    where: { product: { deletedAt: null } },
+    select: { productId: true },
+    orderBy: { productId: 'asc' },
+  },
+} satisfies Prisma.NoteOptionInclude;
+
+export type NoteOptionRow = Prisma.NoteOptionGetPayload<{ include: typeof NOTE_OPTION_INCLUDE }>;
+
+export function toNoteOptionDto(option: NoteOptionRow): NoteOptionDto {
   return {
     id: option.id,
-    categoryId: option.categoryId,
     label: option.label,
+    isGeneral: option.isGeneral,
     sortOrder: option.sortOrder,
     isActive: option.isActive,
+    categories: option.categories,
+    productIds: option.products.map((link) => link.productId),
     ...timestamps(option),
   };
 }

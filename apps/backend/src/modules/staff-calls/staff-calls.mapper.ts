@@ -11,6 +11,7 @@ export const STAFF_CALL_INCLUDE = {
   createdBy: { select: { id: true, name: true, role: { select: { name: true } } } },
   acknowledgedBy: STAFF,
   closedBy: STAFF,
+  seenBy: STAFF,
 } satisfies Prisma.StaffCallInclude;
 
 export type StaffCallRow = Prisma.StaffCallGetPayload<{ include: typeof STAFF_CALL_INCLUDE }>;
@@ -37,6 +38,9 @@ export function toStaffCallDto(call: StaffCallRow): StaffCallDto {
     lastCalledAt: iso(call.lastCalledAt),
     acknowledgedAt: isoOrNull(call.acknowledgedAt),
     closedAt: isoOrNull(call.closedAt),
+    seenAt: isoOrNull(call.seenAt),
+    seenBy: call.seenBy,
+    escalatedAt: isoOrNull(call.escalatedAt),
     ...timestamps(call),
   };
 }

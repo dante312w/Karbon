@@ -39,6 +39,7 @@ export function toSettingsDto(settings: RestaurantSettings): RestaurantSettingsD
     receiptFooter: settings.receiptFooter,
     kdsWarningMinutes: settings.kdsWarningMinutes,
     kdsCriticalMinutes: settings.kdsCriticalMinutes,
+    staffCallEscalateSeconds: settings.staffCallEscalateSeconds,
     businessMode: settings.businessMode,
     updatedAt: iso(settings.updatedAt),
   };

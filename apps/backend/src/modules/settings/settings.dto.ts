@@ -77,6 +77,8 @@ export class UpdateSettingsDto implements UpdateSettingsRequest {
   @IsOptional() @IsString() @MaxLength(500) receiptFooter?: string | null;
   @IsOptional() @IsInt() @Min(1) @Max(240) kdsWarningMinutes?: number;
   @IsOptional() @IsInt() @Min(2) @Max(480) kdsCriticalMinutes?: number;
+  /** 0 = nunca; hasta 10 minutos. */
+  @IsOptional() @IsInt() @Min(0) @Max(600) staffCallEscalateSeconds?: number;
   @IsOptional() @IsIn(Object.values(BusinessMode)) businessMode?: BusinessMode;
 }
 

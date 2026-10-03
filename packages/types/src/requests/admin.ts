@@ -68,6 +68,7 @@ export interface UpdateSettingsRequest {
   receiptFooter?: string | null;
   kdsWarningMinutes?: number;
   kdsCriticalMinutes?: number;
+  staffCallEscalateSeconds?: number;
   businessMode?: BusinessMode;
 }
 
@@ -142,8 +143,18 @@ export interface CreateFloorElementRequest {
 export type UpdateFloorElementRequest = Partial<CreateFloorElementRequest>;
 
 export interface MergeTablesRequest {
-  /** Mesas libres que se unen a la mesa principal. */
+  /** Mesas que se unen a la mesa principal (libres, abiertas sin consumo o con su cuenta). */
   tableIds: Uuid[];
+  /**
+   * Confirma que, si varias mesas tienen consumo, sus cuentas quedan separadas dentro de la
+   * principal. Sin confirmar, el servidor responde TABLE_MERGE_NEEDS_CONFIRMATION.
+   */
+  separateAccounts?: boolean;
+}
+
+/** Separar mesas unidas; sin `tableIds`, todas. */
+export interface UnmergeTablesRequest {
+  tableIds?: Uuid[];
 }
 
 /** Marcado manual de reserva o liberación de una mesa sin pedidos activos. */
@@ -180,20 +191,43 @@ export interface CreateCategoryRequest {
 export type UpdateCategoryRequest = Partial<CreateCategoryRequest> & { isActive?: boolean };
 
 export interface CreateNoteOptionRequest {
-  /** `null` u omitido = nota general (todos los productos). */
-  categoryId?: Uuid | null;
   label: string;
+  /** General: se ofrece en todos los productos; entonces no lleva categorías ni productos. */
+  isGeneral?: boolean;
+  categoryIds?: Uuid[];
+  productIds?: Uuid[];
 }
 
+/** Las listas reemplazan las asignaciones actuales; omitidas, no cambian. */
 export interface UpdateNoteOptionRequest {
   label?: string;
   isActive?: boolean;
+  isGeneral?: boolean;
+  categoryIds?: Uuid[];
+  productIds?: Uuid[];
 }
 
-/** Nuevo orden de las notas de una categoría (o de las generales). */
+/** Nuevo orden de las notas de una categoría (o de las generales, con `categoryId = null`). */
 export interface ReorderNoteOptionsRequest {
   categoryId: Uuid | null;
   ids: Uuid[];
+}
+
+/**
+ * Asignación masiva desde una categoría o un producto: exactamente estas notas le aplican, en
+ * este orden (en un producto el orden lo da la nota). Las generales no se asignan.
+ */
+export interface SetNoteOptionsRequest {
+  noteOptionIds: Uuid[];
+}
+
+/** Varias notas a la vez (p. ej. la asignación sugerida por nombre de categoría). */
+export interface AssignNoteOptionsRequest {
+  assignments: {
+    noteOptionId: Uuid;
+    isGeneral: boolean;
+    categoryIds: Uuid[];
+  }[];
 }
 
 export interface CreateProductRequest {

@@ -50,6 +50,8 @@ export interface RestaurantSettingsDto {
   /** Umbrales del KDS en minutos: a partir de ellos la comanda pasa a amarillo / rojo. */
   kdsWarningMinutes: number;
   kdsCriticalMinutes: number;
+  /** Segundos sin respuesta tras los que un llamado a un mesero pasa a todos; 0 = nunca. */
+  staffCallEscalateSeconds: number;
   businessMode: BusinessMode;
   updatedAt: IsoDateTime;
 }

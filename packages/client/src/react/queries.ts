@@ -9,6 +9,7 @@ import {
   BusinessMode,
   type DateRangeQuery,
   type KitchenStation,
+  type ProductDto,
   type RestaurantSettingsDto,
 } from '@karbon/types';
 import {
@@ -107,20 +108,24 @@ export function useNoteOptions() {
   });
 }
 
-/** Notas de un toque para un producto de la categoría: propias, heredadas y generales. */
-export function useNoteSuggestions(categoryId: string | null | undefined): string[] {
+/**
+ * Notas de un toque para un producto: las propias del producto o, si no tiene, las de su categoría
+ * (y heredadas); siempre las generales.
+ */
+export function useNoteSuggestions(
+  product: Pick<ProductDto, 'id' | 'categoryId'> | null | undefined,
+): string[] {
   const options = useNoteOptions().data;
   const categories = useCategories().data;
   return useMemo(
-    () => noteSuggestions(options ?? [], categories ?? [], categoryId ?? null),
-    [options, categories, categoryId],
+    () => noteSuggestions(options ?? [], categories ?? [], product ?? null),
+    [options, categories, product],
   );
 }
 
 /** Igual que `useNoteSuggestions`, para una línea ya pedida (solo conoce el producto). */
 export function useProductNoteSuggestions(productId: string): string[] {
-  const product = useProducts().data?.find((candidate) => candidate.id === productId);
-  return useNoteSuggestions(product?.categoryId);
+  return useNoteSuggestions(useProducts().data?.find((candidate) => candidate.id === productId));
 }
 
 export function useOrder(id: string | null | undefined) {
