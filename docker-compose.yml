@@ -1,7 +1,9 @@
-# Entorno de desarrollo / demostración: PostgreSQL + backend.
-#   docker compose up            → base de datos y API (http://localhost:3000/api/docs)
-#   docker compose up -d postgres → solo la base de datos (para `npm run dev`)
-# En producción el servidor se distribuye como instalador único (ver docs/DEPLOYMENT.md).
+# Entorno de desarrollo / demostración.
+#   docker compose up -d                        → solo PostgreSQL (para `npm run dev`)
+#   docker compose --profile demo up --build    → PostgreSQL + API de demostración
+# La API de Docker usa el puerto 3000 igual que `npm run dev`: por eso solo corre con el perfil
+# `demo`. No publica la app de meseros; los celulares se conectan con `npm run dev` o el
+# instalador. En producción el servidor se distribuye como instalador único (docs/DEPLOYMENT.md).
 
 name: karbon
 
@@ -26,6 +28,7 @@ services:
       retries: 10
 
   backend:
+    profiles: [demo]
     build:
       context: .
       dockerfile: apps/backend/Dockerfile

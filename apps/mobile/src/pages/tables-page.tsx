@@ -1,4 +1,6 @@
 import {
+  NetworkError,
+  newClientId,
   queryKeys,
   useActiveOrders,
   useApi,
@@ -10,7 +12,7 @@ import {
   useTables,
   useTerminology,
 } from '@karbon/client';
-import { type OrderDto, Permission, type TableDto, TableStatus } from '@karbon/types';
+import { type OrderDto, OrderType, Permission, type TableDto, TableStatus } from '@karbon/types';
 import {
   Button,
   Chip,
@@ -46,6 +48,7 @@ import {
   ReceiptTextIcon,
   UsersIcon,
 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { PrepStatus } from '../components/prep-status';
@@ -118,7 +121,30 @@ export function TablesPage() {
   const [focus, setFocus] = useState<Focus | null>(null);
   const [choosing, setChoosing] = useState<TableDto | null>(null);
   const api = useApi();
+  const queryClient = useQueryClient();
   const canOperate = useHasPermission(Permission.TABLES_OPERATE);
+  // Abrir la mesa crea su cuenta (aún sin productos): queda ocupada en todos los equipos y ya se
+  // puede unir con otras. Sin conexión se sigue como antes: el carrito local la abre al enviar.
+  const openTable = useApiMutation(
+    ({ table, guests }: { table: TableDto; guests: number }) =>
+      api.orders.create({ id: newClientId(), type: OrderType.DINE_IN, tableId: table.id, guests }),
+    [queryKeys.tables, queryKeys.activeOrders],
+    {
+      onSuccess: (order) => {
+        queryClient.setQueryData(queryKeys.order(order.id), order);
+        setChoosing(null);
+        void navigate(`/pedido/${order.id}/agregar`);
+      },
+      onError: (error, { table, guests }) => {
+        if (error instanceof NetworkError) {
+          setChoosing(null);
+          void navigate(`/nuevo?mesa=${table.id}&personas=${String(guests)}`);
+          return;
+        }
+        notifyError(error);
+      },
+    },
+  );
   const release = useApiMutation(
     (tableId: string) => api.floor.setStatus(tableId, { status: 'FREE' }),
     [queryKeys.tables],
@@ -327,8 +353,9 @@ export function TablesPage() {
                       key={guests}
                       variant="outline"
                       size="touch"
+                      disabled={openTable.isPending}
                       onClick={() => {
-                        void navigate(`/nuevo?mesa=${choosing.id}&personas=${String(guests)}`);
+                        openTable.mutate({ table: choosing, guests });
                       }}
                     >
                       {guests}

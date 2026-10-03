@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
-import { ErrorCode, type TableDto, TableStatus } from '@karbon/types';
+import { ErrorCode, OrderStatus, type TableDto, TableStatus } from '@karbon/types';
 import { ACTIVE_ORDER_STATUSES, canManageAll } from '@karbon/utils';
 import type { AuthenticatedUser } from '../../common/auth/authenticated-user.js';
 import { conflict, notFound } from '../../common/errors/domain-error.js';
@@ -7,17 +7,44 @@ import type { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import type { Tx } from '../../prisma/prisma.types.js';
 import { AuditService } from '../audit/audit.service.js';
-import type { MergeTablesDto } from '../floor/floor.dto.js';
+import type { MergeTablesDto, UnmergeTablesDto } from '../floor/floor.dto.js';
 import { FloorService } from '../floor/floor.service.js';
 import { OrderStore } from './order-store.service.js';
 
 const TABLE_WITH_ORDERS = {
   orders: {
     where: { status: { in: [...ACTIVE_ORDER_STATUSES] } },
-    select: { id: true, waiterId: true },
+    select: {
+      id: true,
+      number: true,
+      waiterId: true,
+      guests: true,
+      createdAt: true,
+      _count: { select: { items: true, payments: true } },
+    },
+    orderBy: { createdAt: 'asc' },
   },
   mergedTables: { select: { id: true } },
 } satisfies Prisma.DiningTableInclude;
+
+type TableWithOrders = Prisma.DiningTableGetPayload<{ include: typeof TABLE_WITH_ORDERS }>;
+type GroupOrder = TableWithOrders['orders'][number];
+
+/** Cuenta abierta sin nada pedido ni pagado (la mesa se abrió y aún no se pidió). */
+function isEmptyAccount(order: GroupOrder): boolean {
+  return order._count.items === 0 && order._count.payments === 0;
+}
+
+/** Personas de la mesa unida: se suman (sin dato en ninguna, sigue sin dato). */
+function sumGuests(orders: readonly GroupOrder[]): number | null {
+  const known = orders.flatMap((order) => (order.guests === null ? [] : [order.guests]));
+  return known.length === 0
+    ? null
+    : Math.min(
+        200,
+        known.reduce((sum, guests) => sum + guests, 0),
+      );
+}
 
 /**
  * Unir y separar mesas con sus cuentas (ADR 0012). Vive en el módulo de pedidos porque mueve
@@ -33,14 +60,16 @@ export class TableOperationsService {
   ) {}
 
   /**
-   * Une mesas a una principal. Las cuentas abiertas de las mesas unidas pasan a la principal
-   * como cuentas separadas, con todo lo suyo: productos, notas, mesero, comandas enviadas o ya
-   * preparadas, pagos parciales y divisiones. Si una mesa unida tenía a su vez otras unidas,
-   * todas quedan con la principal. Se exige poder operar cada cuenta que se mueve.
+   * Une mesas a una principal, tengan o no pedido: libres, abiertas sin consumo o con su cuenta.
+   * El grupo queda con una sola cuenta compartida en la principal (lo que se pida después cae
+   * ahí): las cuentas vacías se absorben y sus personas se suman. Si más de una mesa tiene
+   * consumo, sus cuentas pasan a la principal como cuentas separadas, con todo lo suyo (productos,
+   * comandas, pagos parciales), y eso hay que confirmarlo (`separateAccounts`). Se exige poder
+   * operar cada cuenta del grupo.
    */
   async merge(mainId: string, dto: MergeTablesDto, user: AuthenticatedUser): Promise<TableDto> {
     const childIds = dto.tableIds.filter((id) => id !== mainId);
-    const { affected, movedOrderIds } = await this.prisma.$transaction(
+    const { affected, changedOrderIds } = await this.prisma.$transaction(
       async (tx) => {
         const tables = await this.lockTables(tx, [mainId, ...childIds]);
         const main = tables.find((table) => table.id === mainId);
@@ -59,20 +88,67 @@ export class TableOperationsService {
         }
         this.assertCanOperate(user, tables);
 
+        const incoming = children.flatMap((child) => child.orders);
+        const group = [...main.orders, ...incoming];
+        const withConsumption = group.filter((order) => !isEmptyAccount(order));
+        if (
+          incoming.some((order) => !isEmptyAccount(order)) &&
+          withConsumption.length > 1 &&
+          dto.separateAccounts !== true
+        ) {
+          throw conflict(
+            ErrorCode.TABLE_MERGE_NEEDS_CONFIRMATION,
+            `Varias mesas ya tienen consumo: sus cuentas quedarán separadas dentro de ${main.name}`,
+            { orders: withConsumption.map(({ id, number }) => ({ id, number })) },
+          );
+        }
+
+        // La cuenta compartida: la primera con consumo (de la principal antes que de las demás);
+        // si nadie ha pedido, la de la principal o la primera abierta.
+        const shared = withConsumption[0] ?? group[0];
+        const absorbed = group.filter((order) => order !== shared && isEmptyAccount(order));
+        const moved = incoming
+          .filter((order) => !absorbed.includes(order))
+          .map((order) => order.id);
+
         const grandchildIds = children.flatMap((child) =>
           child.mergedTables.map((grandchild) => grandchild.id),
         );
-        const moved = children.flatMap((child) => child.orders.map((order) => order.id));
         await tx.diningTable.updateMany({
           where: { id: { in: [...childIds, ...grandchildIds] } },
           data: { mergedIntoId: mainId },
         });
+        const locked = group.map((order) => order.id);
+        if (locked.length > 0) {
+          await tx.$executeRaw`SELECT 1 FROM orders WHERE id = ANY(${locked}::uuid[]) FOR UPDATE`;
+        }
+        if (absorbed.length > 0) {
+          await tx.order.updateMany({
+            where: { id: { in: absorbed.map((order) => order.id) } },
+            data: {
+              status: OrderStatus.CANCELLED,
+              cancelledAt: new Date(),
+              cancelledById: user.id,
+              cancelReason: `Sin consumo: se unió a la cuenta de ${main.name}`,
+              version: { increment: 1 },
+            },
+          });
+        }
         if (moved.length > 0) {
-          await tx.$executeRaw`SELECT 1 FROM orders WHERE id = ANY(${moved}::uuid[]) FOR UPDATE`;
           // La versión sube: una terminal con el pedido abierto recarga antes de modificarlo.
           await tx.order.updateMany({
             where: { id: { in: moved } },
             data: { tableId: mainId, version: { increment: 1 } },
+          });
+        }
+        if (shared && absorbed.length > 0) {
+          await tx.order.update({
+            where: { id: shared.id },
+            data: {
+              tableId: mainId,
+              guests: sumGuests([shared, ...absorbed]),
+              version: { increment: 1 },
+            },
           });
         }
         await this.floor.refreshStatuses(tx, [mainId]);
@@ -82,33 +158,58 @@ export class TableOperationsService {
             action: 'table.merge',
             entity: 'table',
             entityId: mainId,
-            metadata: { childIds, movedOrderIds: moved, orders: moved.length },
+            metadata: {
+              childIds,
+              sharedOrderId: shared?.id ?? null,
+              movedOrderIds: moved,
+              absorbedOrderIds: absorbed.map((order) => order.id),
+              separateAccounts: withConsumption.length > 1,
+            },
           },
           tx,
         );
-        return { affected: [mainId, ...childIds, ...grandchildIds], movedOrderIds: moved };
+        return {
+          affected: [mainId, ...childIds, ...grandchildIds],
+          changedOrderIds: [
+            ...new Set([
+              ...moved,
+              ...absorbed.map((order) => order.id),
+              ...(shared ? [shared.id] : []),
+            ]),
+          ],
+        };
       },
       { timeout: 15_000 },
     );
 
-    for (const orderId of movedOrderIds) this.store.publishUpdated(await this.store.load(orderId));
+    for (const orderId of changedOrderIds) {
+      this.store.publishUpdated(await this.store.load(orderId));
+    }
     await this.floor.publishTables(affected);
     return this.floor.getTable(mainId);
   }
 
   /**
-   * Separa las mesas unidas. Las cuentas se quedan en la principal (no se sabe qué consumo era
-   * de qué mesa); el mesero puede moverlas después a una mesa libre.
+   * Separa las mesas unidas (todas o las indicadas). Las cuentas se quedan en la principal: no se
+   * sabe qué consumo era de qué mesa, y así nunca se pierde un producto. El mesero puede moverlas
+   * después a una de las mesas liberadas.
    */
-  async unmerge(mainId: string, user: AuthenticatedUser): Promise<TableDto> {
+  async unmerge(mainId: string, dto: UnmergeTablesDto, user: AuthenticatedUser): Promise<TableDto> {
     const childIds = await this.prisma.$transaction(async (tx) => {
       const [main] = await this.lockTables(tx, [mainId]);
       if (!main) throw notFound('La mesa');
       this.assertCanOperate(user, [main]);
-      const children = main.mergedTables.map((child) => child.id);
-      if (children.length === 0) return [];
+      const joined = main.mergedTables.map((child) => child.id);
+      const requested = dto.tableIds ?? joined;
+      const foreign = requested.filter((id) => !joined.includes(id));
+      if (foreign.length > 0) {
+        throw conflict(ErrorCode.CONFLICT, `Alguna mesa no está unida a ${main.name}`, {
+          tableIds: foreign,
+        });
+      }
+      if (requested.length === 0) return [];
       await tx.diningTable.updateMany({
-        where: { id: { in: children } },
+        where: { id: { in: requested } },
         data: { mergedIntoId: null, status: TableStatus.FREE },
       });
       await this.floor.refreshStatuses(tx, [mainId]);
@@ -118,17 +219,21 @@ export class TableOperationsService {
           action: 'table.unmerge',
           entity: 'table',
           entityId: mainId,
-          metadata: { childIds: children },
+          metadata: {
+            childIds: requested,
+            remainingIds: joined.filter((id) => !requested.includes(id)),
+            orderIds: main.orders.map((order) => order.id),
+          },
         },
         tx,
       );
-      return children;
+      return requested;
     });
     await this.floor.publishTables([mainId, ...childIds]);
     return this.floor.getTable(mainId);
   }
 
-  private async lockTables(tx: Tx, ids: readonly string[]) {
+  private async lockTables(tx: Tx, ids: readonly string[]): Promise<TableWithOrders[]> {
     await tx.$executeRaw`SELECT 1 FROM tables WHERE id = ANY(${[...ids]}::uuid[]) FOR UPDATE`;
     return tx.diningTable.findMany({
       where: { id: { in: [...ids] }, deletedAt: null, isActive: true },
