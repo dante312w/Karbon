@@ -38,9 +38,23 @@ async function bootstrap(): Promise<void> {
 
   const host = config.get('HOST', { infer: true });
   const port = config.get('PORT', { infer: true });
-  await app.listen(port, host);
-
   const logger = new Logger('Bootstrap');
+  try {
+    await app.listen(port, host);
+  } catch (error) {
+    // Otro servidor con el puerto (la API de Docker o Karbon instalado) recibiría las llamadas
+    // de las apps y de los celulares en lugar de este: se aborta con un mensaje claro.
+    if ((error as NodeJS.ErrnoException).code === 'EADDRINUSE') {
+      logger.error(
+        `El puerto ${String(port)} ya está en uso por otro programa (¿la API de Docker o Karbon POS instalado?). Deténlo o cambia PORT.`,
+      );
+      app.flushLogs();
+      process.exitCode = 1;
+      await app.close();
+      return;
+    }
+    throw error;
+  }
   logger.log(`Servidor escuchando en http://${host}:${port}`);
 
   watchParent(app, logger);

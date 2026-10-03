@@ -230,6 +230,17 @@ export class OrdersController {
     return this.orders.duplicate(id, dto, user);
   }
 
+  @Post(':id/close-empty')
+  @RequirePermissions(Permission.ORDERS_UPDATE)
+  @ApiOperation({ summary: 'Cierra una cuenta sin productos ni pagos y libera la mesa' })
+  closeEmpty(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: VersionDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<OrderDto> {
+    return this.orders.closeEmpty(id, dto, user);
+  }
+
   @Post(':id/cancel')
   @RequirePermissions(Permission.ORDERS_CANCEL)
   cancel(
