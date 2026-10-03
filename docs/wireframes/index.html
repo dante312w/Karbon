@@ -1,0 +1,1809 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Karbon POS · Wireframes</title>
+    <style>
+      :root {
+        --bg: #f4f4f5;
+        --paper: #ffffff;
+        --ink: #0a0a0a;
+        --muted: #71717a;
+        --line: #e4e4e7;
+        --fill: #f4f4f5;
+        --fill-2: #e4e4e7;
+        --green: #22c55e;
+        --free: #22c55e;
+        --occupied: #3b82f6;
+        --food: #f59e0b;
+        --bill: #f43f5e;
+        --paid: #a1a1aa;
+        --reserved: #8b5cf6;
+        --warn: #facc15;
+        --crit: #ef4444;
+        --radius: 12px;
+        --shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 12px rgb(0 0 0 / 0.06);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #09090b;
+          --paper: #18181b;
+          --ink: #fafafa;
+          --muted: #a1a1aa;
+          --line: #27272a;
+          --fill: #27272a;
+          --fill-2: #3f3f46;
+          --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 12px rgb(0 0 0 / 0.4);
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          14px/1.45 ui-sans-serif,
+          system-ui,
+          'Segoe UI',
+          Roboto,
+          Arial,
+          sans-serif;
+      }
+      header.page {
+        padding: 32px 24px 8px;
+        max-width: 1240px;
+        margin: 0 auto;
+      }
+      header.page h1 {
+        margin: 0 0 4px;
+        font-size: 26px;
+      }
+      header.page p {
+        margin: 0;
+        color: var(--muted);
+        max-width: 820px;
+      }
+      nav.toc {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 16px 0 0;
+      }
+      nav.toc a {
+        color: var(--ink);
+        text-decoration: none;
+        border: 1px solid var(--line);
+        background: var(--paper);
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+      }
+      main {
+        max-width: 1240px;
+        margin: 0 auto;
+        padding: 8px 24px 64px;
+      }
+      section.screen {
+        margin-top: 40px;
+      }
+      section.screen > h2 {
+        font-size: 18px;
+        margin: 0 0 4px;
+      }
+      section.screen > p.note {
+        margin: 0 0 14px;
+        color: var(--muted);
+        max-width: 900px;
+      }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        margin-top: 12px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        flex: none;
+      }
+
+      /* Marcos de dispositivo */
+      .frame {
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+      .desktop {
+        width: 100%;
+        min-height: 560px;
+        display: grid;
+        grid-template-columns: 64px 1fr;
+      }
+      .phones {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 24px;
+      }
+      .phone {
+        width: 300px;
+        height: 620px;
+        border-radius: 32px;
+        border: 8px solid var(--ink);
+        display: flex;
+        flex-direction: column;
+      }
+      .scroll-x {
+        overflow-x: auto;
+        padding-bottom: 6px;
+      }
+      .scroll-x > .frame {
+        min-width: 980px;
+      }
+
+      /* Primitivas */
+      .rail {
+        background: var(--ink);
+        color: var(--paper);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+        padding: 14px 0;
+      }
+      .rail .logo {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        background: var(--paper);
+        color: var(--green);
+        display: grid;
+        place-items: center;
+        font-weight: 900;
+      }
+      .rail .ico {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        background: rgb(255 255 255 / 0.1);
+        font-size: 16px;
+        display: grid;
+        place-items: center;
+      }
+      .rail .ico.on {
+        background: var(--green);
+        color: var(--ink);
+      }
+      .content {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 18px;
+        border-bottom: 1px solid var(--line);
+      }
+      .topbar h3 {
+        margin: 0;
+        font-size: 16px;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .col {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .grow {
+        flex: 1;
+        min-width: 0;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .small {
+        font-size: 12px;
+      }
+      .bold {
+        font-weight: 700;
+      }
+      .right {
+        margin-left: auto;
+      }
+      .box {
+        background: var(--fill);
+        border-radius: 10px;
+      }
+      .card {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 12px;
+        background: var(--paper);
+      }
+      .btn {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 8px 12px;
+        font-weight: 600;
+        background: var(--paper);
+        font-size: 13px;
+        text-align: center;
+        white-space: nowrap;
+      }
+      .btn.primary {
+        background: var(--green);
+        border-color: var(--green);
+        color: #0a0a0a;
+      }
+      .btn.dark {
+        background: var(--ink);
+        border-color: var(--ink);
+        color: var(--paper);
+      }
+      .btn.big {
+        padding: 14px;
+        font-size: 15px;
+      }
+      .chip {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 4px 12px;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      .chip.on {
+        background: var(--ink);
+        color: var(--paper);
+        border-color: var(--ink);
+      }
+      .input {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 9px 12px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 2px 10px;
+        font-size: 11px;
+      }
+      .kpi {
+        font-size: 22px;
+        font-weight: 800;
+      }
+      .divider {
+        height: 1px;
+        background: var(--line);
+        margin: 6px 0;
+      }
+      .placeholder-img {
+        background: repeating-linear-gradient(
+          45deg,
+          var(--fill),
+          var(--fill) 6px,
+          var(--fill-2) 6px,
+          var(--fill-2) 12px
+        );
+        border-radius: 8px;
+      }
+
+      /* Mapa de mesas */
+      .floor {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 14px;
+        padding: 18px;
+      }
+      .table {
+        border: 2px solid;
+        border-radius: 14px;
+        padding: 10px;
+        min-height: 86px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      .table.round {
+        border-radius: 999px;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+      }
+      .t-free {
+        border-color: var(--free);
+        background: color-mix(in srgb, var(--free) 10%, transparent);
+      }
+      .t-occupied {
+        border-color: var(--occupied);
+        background: color-mix(in srgb, var(--occupied) 10%, transparent);
+      }
+      .t-food {
+        border-color: var(--food);
+        background: color-mix(in srgb, var(--food) 12%, transparent);
+      }
+      .t-bill {
+        border-color: var(--bill);
+        background: color-mix(in srgb, var(--bill) 10%, transparent);
+      }
+      .t-paid {
+        border-color: var(--paid);
+        background: color-mix(in srgb, var(--paid) 14%, transparent);
+      }
+      .t-reserved {
+        border-color: var(--reserved);
+        background: color-mix(in srgb, var(--reserved) 10%, transparent);
+        border-style: dashed;
+      }
+
+      /* POS */
+      .pos {
+        display: grid;
+        grid-template-columns: 1fr 340px;
+        min-height: 500px;
+      }
+      .products {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        padding: 14px 18px;
+      }
+      .product {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .product .placeholder-img {
+        height: 58px;
+      }
+      .ticket {
+        border-left: 1px solid var(--line);
+        display: flex;
+        flex-direction: column;
+      }
+      .ticket .items {
+        flex: 1;
+        padding: 12px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .item {
+        display: grid;
+        grid-template-columns: 28px 1fr auto;
+        gap: 8px;
+        align-items: start;
+      }
+      .qty {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        background: var(--fill);
+        display: grid;
+        place-items: center;
+        font-weight: 700;
+        font-size: 12px;
+      }
+      .note {
+        font-size: 11px;
+        color: var(--muted);
+        font-style: italic;
+      }
+      .totals {
+        padding: 12px 16px;
+        border-top: 1px solid var(--line);
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .totals .row span:last-child {
+        margin-left: auto;
+      }
+
+      /* Modal */
+      .modal-wrap {
+        background: rgb(10 10 10 / 0.45);
+        padding: 34px;
+        display: grid;
+        place-items: center;
+        min-height: 520px;
+      }
+      .modal {
+        width: min(720px, 100%);
+        background: var(--paper);
+        border-radius: 18px;
+        box-shadow: var(--shadow);
+        padding: 20px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+      }
+      .pay-methods {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+      .keypad {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+      .keypad div {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 12px 0;
+        text-align: center;
+        font-weight: 700;
+      }
+
+      /* Teléfono */
+      .ph-top {
+        padding: 14px 16px 10px;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .ph-body {
+        flex: 1;
+        overflow: hidden;
+        padding: 12px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .ph-bottom {
+        border-top: 1px solid var(--line);
+        padding: 10px 14px;
+      }
+      .mini-floor {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+      .mini-floor .table {
+        min-height: 64px;
+        padding: 8px;
+        font-size: 12px;
+      }
+      .list-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 8px;
+      }
+      .list-row .placeholder-img {
+        width: 44px;
+        height: 44px;
+        flex: none;
+      }
+      .stepper {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .stepper b {
+        width: 26px;
+        height: 26px;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+        display: grid;
+        place-items: center;
+      }
+      .sheet {
+        border-top-left-radius: 18px;
+        border-top-right-radius: 18px;
+        box-shadow: 0 -8px 24px rgb(0 0 0 / 0.12);
+        background: var(--paper);
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .toast {
+        background: var(--ink);
+        color: var(--paper);
+        border-radius: 12px;
+        padding: 10px 12px;
+        font-size: 12px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      /* KDS */
+      .kds {
+        background: #0a0a0a;
+        color: #fafafa;
+      }
+      .kds .topbar {
+        border-color: #27272a;
+      }
+      .kds-cols {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+        padding: 14px;
+      }
+      .kds-col h4 {
+        margin: 0 0 10px;
+        display: flex;
+        justify-content: space-between;
+        font-size: 14px;
+      }
+      .kds-card {
+        border-radius: 14px;
+        background: #18181b;
+        border-top: 6px solid;
+        padding: 12px;
+        margin-bottom: 12px;
+      }
+      .u-ok {
+        border-color: var(--free);
+      }
+      .u-warn {
+        border-color: var(--warn);
+      }
+      .u-crit {
+        border-color: var(--crit);
+      }
+      .kds-card .timer {
+        font-variant-numeric: tabular-nums;
+        font-weight: 800;
+        font-size: 18px;
+      }
+      .kds-card ul {
+        margin: 8px 0;
+        padding-left: 18px;
+      }
+      .kds-card li {
+        margin: 2px 0;
+      }
+      .kds-card .note {
+        color: #fbbf24;
+        font-style: normal;
+      }
+      .kds .btn {
+        background: #27272a;
+        border-color: #3f3f46;
+        color: #fafafa;
+      }
+      .kds .btn.primary {
+        background: var(--green);
+        color: #0a0a0a;
+        border-color: var(--green);
+      }
+
+      /* Inventario / tablas */
+      table.grid {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      table.grid th {
+        text-align: left;
+        color: var(--muted);
+        font-weight: 600;
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--line);
+      }
+      table.grid td {
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--line);
+      }
+      table.grid td.num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .alert-row td {
+        background: color-mix(in srgb, var(--crit) 8%, transparent);
+      }
+
+      /* Reportes */
+      .kpis {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        padding: 14px 18px 0;
+      }
+      .charts {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 12px;
+        padding: 14px 18px;
+      }
+      .charts svg {
+        width: 100%;
+        height: 160px;
+        display: block;
+      }
+
+      .two-col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        padding: 18px;
+      }
+      .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      footer.page {
+        max-width: 1240px;
+        margin: 0 auto;
+        padding: 0 24px 40px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      @media (max-width: 720px) {
+        .phone {
+          width: 100%;
+          max-width: 320px;
+        }
+        .modal {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="page">
+      <h1>Karbon POS · Wireframes (Fase 1)</h1>
+      <p>
+        Wireframes de baja fidelidad para validar flujo y jerarquía antes de las fases de UI. Paleta
+        blanco / negro / gris con verde <b>#22C55E</b> como acento; cada estado de mesa tiene color
+        propio y siempre va acompañado de texto. Se adaptan a modo claro/oscuro según el sistema.
+      </p>
+      <div class="legend">
+        <span><i class="dot" style="background: var(--free)"></i>Libre</span>
+        <span><i class="dot" style="background: var(--occupied)"></i>Ocupada</span>
+        <span><i class="dot" style="background: var(--food)"></i>Esperando comida</span>
+        <span><i class="dot" style="background: var(--bill)"></i>Esperando cuenta</span>
+        <span><i class="dot" style="background: var(--paid)"></i>Pagada</span>
+        <span><i class="dot" style="background: var(--reserved)"></i>Reservada</span>
+      </div>
+      <nav class="toc">
+        <a href="#login">1 · Ingreso</a>
+        <a href="#mesas">2 · Mapa de mesas</a>
+        <a href="#pos">3 · Pedido (POS)</a>
+        <a href="#cobro">4 · Cobro</a>
+        <a href="#movil">5 · PWA meseros</a>
+        <a href="#kds">6 · Cocina (KDS)</a>
+        <a href="#caja">7 · Caja</a>
+        <a href="#inventario">8 · Inventario</a>
+        <a href="#reportes">9 · Reportes</a>
+        <a href="#config">10 · Configuración</a>
+      </nav>
+    </header>
+
+    <main>
+      <!-- 1. Ingreso -->
+      <section class="screen" id="login">
+        <h2>1 · Ingreso (escritorio y terminales compartidas)</h2>
+        <p class="note">
+          Dos modos: usuario + contraseña (administración) o selección de usuario + PIN (turnos
+          rápidos en caja/cocina). Indicador de conexión con el servidor siempre visible.
+        </p>
+        <div class="scroll-x">
+          <div
+            class="frame"
+            style="display: grid; grid-template-columns: 1fr 1fr; min-height: 420px"
+          >
+            <div
+              style="
+                background: var(--ink);
+                color: var(--paper);
+                padding: 32px;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+              "
+            >
+              <div class="row">
+                <div class="rail" style="background: none; padding: 0">
+                  <div class="logo">K</div>
+                </div>
+                <b style="font-size: 18px">Karbon POS</b>
+              </div>
+              <div>
+                <div style="font-size: 26px; font-weight: 800; line-height: 1.2">Karbon Demo</div>
+                <div class="small" style="opacity: 0.7">Calle 85 # 12-34 · Bogotá</div>
+              </div>
+              <span class="badge" style="border-color: #3f3f46"
+                ><i class="dot" style="background: var(--free)"></i>Conectado al servidor ·
+                192.168.1.2</span
+              >
+            </div>
+            <div
+              style="
+                padding: 32px;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 24px;
+                align-items: start;
+              "
+            >
+              <div class="col">
+                <b>¿Quién eres?</b>
+                <div class="list-row">
+                  <div
+                    class="dot"
+                    style="width: 32px; height: 32px; background: var(--fill-2)"
+                  ></div>
+                  Camila · Caja
+                </div>
+                <div class="list-row" style="border-color: var(--green)">
+                  <div
+                    class="dot"
+                    style="width: 32px; height: 32px; background: var(--fill-2)"
+                  ></div>
+                  Laura · Mesera
+                </div>
+                <div class="list-row">
+                  <div
+                    class="dot"
+                    style="width: 32px; height: 32px; background: var(--fill-2)"
+                  ></div>
+                  Cocina
+                </div>
+                <div class="btn">Usar usuario y contraseña</div>
+              </div>
+              <div class="col">
+                <b>PIN de Laura</b>
+                <div class="row" style="justify-content: center; gap: 12px; margin: 6px 0">
+                  <i class="dot" style="background: var(--ink)"></i
+                  ><i class="dot" style="background: var(--ink)"></i
+                  ><i class="dot" style="background: var(--fill-2)"></i
+                  ><i class="dot" style="background: var(--fill-2)"></i>
+                </div>
+                <div class="keypad">
+                  <div>1</div>
+                  <div>2</div>
+                  <div>3</div>
+                  <div>4</div>
+                  <div>5</div>
+                  <div>6</div>
+                  <div>7</div>
+                  <div>8</div>
+                  <div>9</div>
+                  <div>⌫</div>
+                  <div>0</div>
+                  <div style="background: var(--green); color: #0a0a0a">✓</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Mapa de mesas -->
+      <section class="screen" id="mesas">
+        <h2>2 · Mapa de mesas (escritorio)</h2>
+        <p class="note">
+          Áreas como pestañas, mesas en una grilla editable (arrastrar en modo edición). Al
+          seleccionar una mesa, el panel derecho muestra su pedido y acciones: mover pedido, unir
+          mesas, dividir cuenta, cobrar. Los cambios llegan en tiempo real
+          (<code>table.changed</code>).
+        </p>
+        <div class="scroll-x">
+          <div class="frame desktop">
+            <div class="rail">
+              <div class="logo">K</div>
+              <div class="ico on">▦</div>
+              <div class="ico">🧾</div>
+              <div class="ico">💵</div>
+              <div class="ico">📦</div>
+              <div class="ico">📊</div>
+              <div class="ico">⚙</div>
+            </div>
+            <div class="content">
+              <div class="topbar">
+                <div class="row">
+                  <h3>Mesas</h3>
+                  <span class="chip on">Salón</span><span class="chip">Terraza</span
+                  ><span class="chip">Barra</span>
+                </div>
+                <div class="row">
+                  <span class="badge"
+                    ><i class="dot" style="background: var(--free)"></i>En línea</span
+                  ><span class="btn">✎ Editar plano</span
+                  ><span class="btn primary">+ Pedido para llevar</span>
+                </div>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 300px; flex: 1">
+                <div class="floor">
+                  <div class="table t-occupied">
+                    <b>Mesa 1</b><span class="small muted">2 pers · 00:42</span
+                    ><span class="small bold">$ 58.000</span>
+                  </div>
+                  <div class="table t-free">
+                    <b>Mesa 2</b><span class="small muted">4 puestos</span>
+                  </div>
+                  <div class="table t-food">
+                    <b>Mesa 3</b><span class="small muted">4 pers · 00:18</span
+                    ><span class="small bold">🍳 2 en cocina</span>
+                  </div>
+                  <div
+                    class="table t-bill"
+                    style="outline: 3px solid var(--ink); outline-offset: 2px"
+                  >
+                    <b>Mesa 4</b><span class="small muted">3 pers · 01:05</span
+                    ><span class="small bold">$ 95.000 · cuenta</span>
+                  </div>
+                  <div class="table round t-free">
+                    <b>Mesa 5</b><span class="small muted">2</span>
+                  </div>
+                  <div class="table t-reserved">
+                    <b>Mesa 6</b><span class="small muted">Reserva 8:00 p. m.</span
+                    ><span class="small">Gómez · 6</span>
+                  </div>
+                  <div class="table t-paid">
+                    <b>Mesa 7</b><span class="small muted">Por limpiar</span>
+                  </div>
+                  <div class="table t-free" style="grid-column: span 2">
+                    <b>Mesa 8 + 9</b><span class="small muted">Unidas · 8 puestos</span>
+                  </div>
+                  <div class="table round t-occupied">
+                    <b>Mesa 10</b><span class="small muted">00:07</span>
+                  </div>
+                </div>
+                <aside
+                  style="
+                    border-left: 1px solid var(--line);
+                    padding: 14px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 10px;
+                  "
+                >
+                  <div class="row">
+                    <b style="font-size: 16px">Mesa 4</b
+                    ><span class="badge right"
+                      ><i class="dot" style="background: var(--bill)"></i>Esperando cuenta</span
+                    >
+                  </div>
+                  <div class="small muted">Pedido #1043 · Laura · 3 personas · 7:12 p. m.</div>
+                  <div class="divider"></div>
+                  <div class="row small">
+                    <span>2× Hamburguesa clásica</span><span class="right">$ 50.000</span>
+                  </div>
+                  <div class="row small">
+                    <span>1× Arroz con pollo</span><span class="right">$ 24.000</span>
+                  </div>
+                  <div class="row small">
+                    <span>3× Limonada natural</span><span class="right">$ 21.000</span>
+                  </div>
+                  <div class="divider"></div>
+                  <div class="row bold"><span>Total</span><span class="right">$ 95.000</span></div>
+                  <div class="grow"></div>
+                  <div class="row">
+                    <span class="btn grow">⇄ Mover</span><span class="btn grow">⊕ Unir</span
+                    ><span class="btn grow">✂ Dividir</span>
+                  </div>
+                  <span class="btn primary big">Cobrar $ 95.000</span>
+                </aside>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. POS -->
+      <section class="screen" id="pos">
+        <h2>3 · Pedido (POS de escritorio)</h2>
+        <p class="note">
+          Categorías con color, búsqueda y productos grandes para pantalla táctil. Los agotados se
+          muestran deshabilitados. El ticket permite notas por ítem, reordenar (arrastrar), duplicar
+          y anular; los ítems ya enviados quedan marcados con su ronda de comanda.
+        </p>
+        <div class="scroll-x">
+          <div class="frame desktop">
+            <div class="rail">
+              <div class="logo">K</div>
+              <div class="ico">▦</div>
+              <div class="ico on">🧾</div>
+              <div class="ico">💵</div>
+              <div class="ico">📦</div>
+              <div class="ico">📊</div>
+              <div class="ico">⚙</div>
+            </div>
+            <div class="content">
+              <div class="topbar">
+                <div class="row">
+                  <span class="btn">← Mesas</span>
+                  <h3>Mesa 3 · Pedido #1041</h3>
+                </div>
+                <div class="input" style="width: 280px">🔍 Buscar producto o código…</div>
+              </div>
+              <div class="pos">
+                <div class="col" style="gap: 0">
+                  <div class="row" style="padding: 12px 18px 0; flex-wrap: wrap">
+                    <span class="chip on">Todos</span><span class="chip">Entradas</span
+                    ><span class="chip">Hamburguesas</span><span class="chip">Platos fuertes</span
+                    ><span class="chip">Bebidas</span><span class="chip">Postres</span>
+                  </div>
+                  <div class="products">
+                    <div class="product">
+                      <div class="placeholder-img"></div>
+                      <b class="small">Hamburguesa clásica</b
+                      ><span class="small muted">$ 25.000</span>
+                    </div>
+                    <div class="product">
+                      <div class="placeholder-img"></div>
+                      <b class="small">Doble tocineta</b><span class="small muted">$ 32.000</span>
+                    </div>
+                    <div class="product">
+                      <div class="placeholder-img"></div>
+                      <b class="small">Papas a la francesa</b
+                      ><span class="small muted">$ 9.000</span>
+                    </div>
+                    <div class="product">
+                      <div class="placeholder-img"></div>
+                      <b class="small">Ensalada de la casa</b
+                      ><span class="small muted">$ 12.000</span>
+                    </div>
+                    <div class="product">
+                      <div class="placeholder-img"></div>
+                      <b class="small">Pechuga a la plancha</b
+                      ><span class="small muted">$ 28.000</span>
+                    </div>
+                    <div class="product">
+                      <div class="placeholder-img"></div>
+                      <b class="small">Arroz con pollo</b><span class="small muted">$ 24.000</span>
+                    </div>
+                    <div class="product" style="opacity: 0.45">
+                      <div class="placeholder-img"></div>
+                      <b class="small">Cerveza nacional</b><span class="small muted">Agotado</span>
+                    </div>
+                    <div class="product">
+                      <div class="placeholder-img"></div>
+                      <b class="small">Brownie con helado</b
+                      ><span class="small muted">$ 14.000</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="ticket">
+                  <div class="topbar">
+                    <b>Ticket</b><span class="small muted">Laura · 4 personas</span>
+                  </div>
+                  <div class="items">
+                    <div class="small muted bold">Ronda 1 · enviada 7:31 p. m. · Preparando</div>
+                    <div class="item">
+                      <div class="qty">2</div>
+                      <div>
+                        <div class="small bold">Hamburguesa clásica</div>
+                        <div class="note">sin cebolla, extra queso</div>
+                      </div>
+                      <span class="small">$ 50.000</span>
+                    </div>
+                    <div class="item">
+                      <div class="qty">4</div>
+                      <div class="small bold">Limonada natural</div>
+                      <span class="small">$ 28.000</span>
+                    </div>
+                    <div class="divider"></div>
+                    <div class="small muted bold">Por enviar</div>
+                    <div class="item">
+                      <div class="qty">1</div>
+                      <div>
+                        <div class="small bold">Brownie con helado</div>
+                        <div class="note">+ agregar nota</div>
+                      </div>
+                      <span class="small">$ 14.000</span>
+                    </div>
+                  </div>
+                  <div class="totals">
+                    <div class="row small muted"><span>Subtotal</span><span>$ 85.185</span></div>
+                    <div class="row small muted">
+                      <span>Impoconsumo 8 %</span><span>$ 6.815</span>
+                    </div>
+                    <div class="row small muted">
+                      <span>Propina sugerida 10 %</span><span>$ 8.519</span>
+                    </div>
+                    <div class="row bold" style="font-size: 16px">
+                      <span>Total</span><span>$ 100.519</span>
+                    </div>
+                    <div class="row" style="margin-top: 6px">
+                      <span class="btn grow">⋯ Más</span
+                      ><span class="btn dark grow">Enviar a cocina</span>
+                    </div>
+                    <span class="btn primary big">Cobrar</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. Cobro -->
+      <section class="screen" id="cobro">
+        <h2>4 · Cobro (efectivo, tarjeta, transferencia, QR o mixto · dividir cuenta)</h2>
+        <p class="note">
+          Mixto = varios pagos sobre el mismo pedido. Dividir: en partes iguales (sin perder
+          centavos) o por ítems (se mueven a un pedido nuevo). Tras cobrar: imprimir tiquete o
+          factura y liberar la mesa.
+        </p>
+        <div class="scroll-x">
+          <div class="frame">
+            <div class="modal-wrap">
+              <div class="modal">
+                <div class="col">
+                  <div class="row">
+                    <b style="font-size: 16px">Cobrar Mesa 4</b
+                    ><span class="small muted right">#1043</span>
+                  </div>
+                  <div class="row">
+                    <span class="chip on">Cuenta completa</span
+                    ><span class="chip">Partes iguales</span><span class="chip">Por ítems</span>
+                  </div>
+                  <div class="card col" style="gap: 4px">
+                    <div class="row small muted">
+                      <span>Total</span><span class="right">$ 95.000</span>
+                    </div>
+                    <div class="row small muted">
+                      <span>Pagado (tarjeta ****4411)</span><span class="right">− $ 50.000</span>
+                    </div>
+                    <div class="row bold">
+                      <span>Pendiente</span
+                      ><span class="right" style="font-size: 20px">$ 45.000</span>
+                    </div>
+                  </div>
+                  <b class="small">Método</b>
+                  <div class="pay-methods">
+                    <span class="btn primary">💵 Efectivo</span><span class="btn">💳 Tarjeta</span
+                    ><span class="btn">🏦 Transferencia</span><span class="btn">▣ QR</span
+                    ><span class="btn">👤 Cliente…</span><span class="btn">% Descuento</span>
+                  </div>
+                </div>
+                <div class="col">
+                  <b class="small">Efectivo recibido</b>
+                  <div
+                    class="input"
+                    style="font-size: 22px; color: var(--ink); font-weight: 800; text-align: right"
+                  >
+                    $ 50.000
+                  </div>
+                  <div class="row">
+                    <span class="chip">$ 45.000</span><span class="chip">$ 50.000</span
+                    ><span class="chip">$ 100.000</span>
+                  </div>
+                  <div class="row bold" style="color: var(--green)">
+                    <span>Cambio</span><span class="right" style="font-size: 18px">$ 5.000</span>
+                  </div>
+                  <div class="keypad">
+                    <div>1</div>
+                    <div>2</div>
+                    <div>3</div>
+                    <div>4</div>
+                    <div>5</div>
+                    <div>6</div>
+                    <div>7</div>
+                    <div>8</div>
+                    <div>9</div>
+                    <div>000</div>
+                    <div>0</div>
+                    <div>⌫</div>
+                  </div>
+                  <span class="btn primary big">Confirmar pago</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. Móvil -->
+      <section class="screen" id="movil">
+        <h2>5 · PWA para meseros (celular)</h2>
+        <p class="note">
+          Flujo con una mano: mesas → productos → carrito → enviar. Notas rápidas predefinidas y
+          libres. Aviso "Pedido listo" por <code>kitchen.ready</code>. En modo HTTP de respaldo se
+          muestra un aviso discreto para instalar el certificado.
+        </p>
+        <div class="phones">
+          <div class="frame phone">
+            <div class="ph-top">
+              <b>Mis mesas</b
+              ><span class="badge"
+                ><i class="dot" style="background: var(--free)"></i>En línea</span
+              >
+            </div>
+            <div class="ph-body">
+              <div class="row">
+                <span class="chip on">Salón</span><span class="chip">Terraza</span
+                ><span class="chip">Barra</span>
+              </div>
+              <div class="mini-floor">
+                <div class="table t-occupied"><b>M1</b><span class="muted">00:42</span></div>
+                <div class="table t-free"><b>M2</b></div>
+                <div class="table t-food"><b>M3</b><span class="muted">🍳</span></div>
+                <div class="table t-bill"><b>M4</b><span class="muted">cuenta</span></div>
+                <div class="table t-free"><b>M5</b></div>
+                <div class="table t-reserved"><b>M6</b><span class="muted">8 p. m.</span></div>
+                <div class="table t-paid"><b>M7</b></div>
+                <div class="table t-free"><b>M8</b></div>
+                <div class="table t-occupied"><b>M10</b></div>
+              </div>
+              <div class="grow"></div>
+              <div class="toast">
+                ✅ <span><b>Mesa 3 lista</b> · 2 Hamburguesas</span><span class="right">Ver</span>
+              </div>
+            </div>
+            <div class="ph-bottom row" style="justify-content: space-around">
+              <b>▦ Mesas</b><span class="muted">🧾 Pedidos</span><span class="muted">👤 Yo</span>
+            </div>
+          </div>
+
+          <div class="frame phone">
+            <div class="ph-top">
+              <span>←</span><b>Mesa 2 · Nuevo pedido</b><span class="muted">⋯</span>
+            </div>
+            <div class="ph-body">
+              <div class="input">🔍 Buscar…</div>
+              <div class="row" style="overflow: hidden">
+                <span class="chip on">Hamburguesas</span><span class="chip">Bebidas</span
+                ><span class="chip">Entradas</span>
+              </div>
+              <div class="list-row">
+                <div class="placeholder-img"></div>
+                <div class="grow">
+                  <b class="small">Hamburguesa clásica</b>
+                  <div class="small muted">$ 25.000</div>
+                </div>
+                <div class="stepper"><b>−</b>2<b>+</b></div>
+              </div>
+              <div class="list-row">
+                <div class="placeholder-img"></div>
+                <div class="grow">
+                  <b class="small">Doble tocineta</b>
+                  <div class="small muted">$ 32.000</div>
+                </div>
+                <div class="stepper"><b>+</b></div>
+              </div>
+              <div class="list-row" style="opacity: 0.45">
+                <div class="placeholder-img"></div>
+                <div class="grow">
+                  <b class="small">Cerveza nacional</b>
+                  <div class="small muted">Agotado</div>
+                </div>
+              </div>
+            </div>
+            <div class="ph-bottom">
+              <span class="btn primary big" style="display: block"
+                >Ver pedido · 2 ítems · $ 50.000</span
+              >
+            </div>
+          </div>
+
+          <div class="frame phone" style="background: var(--fill)">
+            <div class="ph-top" style="background: var(--paper)">
+              <span>←</span><b>Pedido Mesa 2</b><span></span>
+            </div>
+            <div class="ph-body">
+              <div class="card col" style="gap: 6px">
+                <div class="row">
+                  <b class="small">2× Hamburguesa clásica</b
+                  ><span class="small right">$ 50.000</span>
+                </div>
+                <div class="row" style="flex-wrap: wrap; gap: 6px">
+                  <span class="chip on">sin cebolla</span><span class="chip">extra queso</span
+                  ><span class="chip">término medio</span><span class="chip">+ nota</span>
+                </div>
+              </div>
+              <div class="grow"></div>
+            </div>
+            <div class="sheet">
+              <div class="row small muted">
+                <span>Personas</span><span class="right stepper"><b>−</b>2<b>+</b></span>
+              </div>
+              <div class="row bold"><span>Total</span><span class="right">$ 50.000</span></div>
+              <span class="btn primary big">Enviar a cocina</span>
+              <span class="small muted" style="text-align: center"
+                >Sin conexión: se guarda y se envía al reconectar</span
+              >
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 6. KDS -->
+      <section class="screen" id="kds">
+        <h2>6 · Cocina (KDS)</h2>
+        <p class="note">
+          Tablero oscuro de alto contraste para cocina. Una tarjeta por comanda (ronda + estación),
+          cronómetro vivo y borde verde/amarillo/rojo según los umbrales configurables (10/20 min
+          por defecto). Sonido al llegar una comanda. Un toque avanza el estado; los entregados se
+          archivan.
+        </p>
+        <div class="scroll-x">
+          <div class="frame kds">
+            <div class="topbar">
+              <div class="row">
+                <b style="font-size: 16px">Cocina</b
+                ><span class="chip on" style="background: #fafafa; color: #0a0a0a">Cocina</span
+                ><span class="chip" style="border-color: #3f3f46">Bar</span>
+              </div>
+              <div class="row small" style="color: #a1a1aa">🔔 Sonido activo · 7:48 p. m.</div>
+            </div>
+            <div class="kds-cols">
+              <div class="kds-col">
+                <h4>Nuevo <span>2</span></h4>
+                <div class="kds-card u-ok">
+                  <div class="row"><b>#1044 · Mesa 2</b><span class="timer right">01:12</span></div>
+                  <div class="small" style="color: #a1a1aa">Laura · ronda 1</div>
+                  <ul>
+                    <li>
+                      <b>2×</b> Hamburguesa clásica
+                      <div class="note">sin cebolla</div>
+                    </li>
+                  </ul>
+                  <span class="btn primary" style="display: block">Empezar</span>
+                </div>
+                <div class="kds-card u-ok">
+                  <div class="row"><b>#1045 · Llevar</b><span class="timer right">00:20</span></div>
+                  <ul>
+                    <li><b>1×</b> Arroz con pollo</li>
+                    <li><b>1×</b> Papas a la francesa</li>
+                  </ul>
+                  <span class="btn primary" style="display: block">Empezar</span>
+                </div>
+              </div>
+              <div class="kds-col">
+                <h4>Preparando <span>2</span></h4>
+                <div class="kds-card u-warn">
+                  <div class="row"><b>#1041 · Mesa 3</b><span class="timer right">12:40</span></div>
+                  <div class="small" style="color: #a1a1aa">Laura · ronda 1</div>
+                  <ul>
+                    <li>
+                      <b>2×</b> Hamburguesa clásica
+                      <div class="note">extra queso</div>
+                    </li>
+                    <li><b>1×</b> Ensalada de la casa</li>
+                  </ul>
+                  <span class="btn primary" style="display: block">Listo</span>
+                </div>
+                <div class="kds-card u-crit">
+                  <div class="row"><b>#1039 · Mesa 1</b><span class="timer right">23:05</span></div>
+                  <ul>
+                    <li><b>1×</b> Pechuga a la plancha</li>
+                  </ul>
+                  <span class="btn primary" style="display: block">Listo</span>
+                </div>
+              </div>
+              <div class="kds-col">
+                <h4>Listo <span>1</span></h4>
+                <div class="kds-card u-ok" style="opacity: 0.85">
+                  <div class="row">
+                    <b>#1040 · Mesa 10</b><span class="timer right">08:10</span>
+                  </div>
+                  <ul>
+                    <li><b>1×</b> Brownie con helado</li>
+                  </ul>
+                  <span class="btn" style="display: block">Entregado</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 7. Caja -->
+      <section class="screen" id="caja">
+        <h2>7 · Caja: apertura, movimientos y cierre con arqueo</h2>
+        <p class="note">
+          Apertura con base inicial; durante el turno, ingresos, retiros y gastos. Al cerrar, el
+          sistema calcula el efectivo esperado y la diferencia contra el conteo (con
+          denominaciones).
+        </p>
+        <div class="scroll-x">
+          <div class="frame desktop">
+            <div class="rail">
+              <div class="logo">K</div>
+              <div class="ico">▦</div>
+              <div class="ico">🧾</div>
+              <div class="ico on">💵</div>
+              <div class="ico">📦</div>
+              <div class="ico">📊</div>
+              <div class="ico">⚙</div>
+            </div>
+            <div class="content">
+              <div class="topbar">
+                <div class="row">
+                  <h3>Caja</h3>
+                  <span class="badge"
+                    ><i class="dot" style="background: var(--free)"></i>Abierta · Camila · desde
+                    11:02 a. m.</span
+                  >
+                </div>
+                <div class="row">
+                  <span class="btn">+ Ingreso</span><span class="btn">− Retiro</span
+                  ><span class="btn">+ Gasto</span><span class="btn dark">Cerrar caja</span>
+                </div>
+              </div>
+              <div class="two-col">
+                <div class="col">
+                  <div class="kpis" style="grid-template-columns: repeat(2, 1fr); padding: 0">
+                    <div class="card">
+                      <div class="small muted">Ventas del turno</div>
+                      <div class="kpi">$ 2.845.000</div>
+                    </div>
+                    <div class="card">
+                      <div class="small muted">Pedidos cobrados</div>
+                      <div class="kpi">47</div>
+                    </div>
+                  </div>
+                  <div class="card">
+                    <b class="small">Por método de pago</b>
+                    <table class="grid">
+                      <tr>
+                        <td>Efectivo</td>
+                        <td class="num">$ 1.120.000</td>
+                      </tr>
+                      <tr>
+                        <td>Tarjeta</td>
+                        <td class="num">$ 1.310.000</td>
+                      </tr>
+                      <tr>
+                        <td>Transferencia</td>
+                        <td class="num">$ 280.000</td>
+                      </tr>
+                      <tr>
+                        <td>QR</td>
+                        <td class="num">$ 135.000</td>
+                      </tr>
+                    </table>
+                  </div>
+                </div>
+                <div class="card col">
+                  <b>Cierre y arqueo</b>
+                  <table class="grid">
+                    <tr>
+                      <td>Base inicial</td>
+                      <td class="num">$ 200.000</td>
+                    </tr>
+                    <tr>
+                      <td>+ Efectivo cobrado</td>
+                      <td class="num">$ 1.120.000</td>
+                    </tr>
+                    <tr>
+                      <td>+ Ingresos</td>
+                      <td class="num">$ 50.000</td>
+                    </tr>
+                    <tr>
+                      <td>− Retiros</td>
+                      <td class="num">$ 400.000</td>
+                    </tr>
+                    <tr>
+                      <td>− Gastos en efectivo</td>
+                      <td class="num">$ 35.000</td>
+                    </tr>
+                    <tr>
+                      <td class="bold">Esperado en caja</td>
+                      <td class="num bold">$ 935.000</td>
+                    </tr>
+                    <tr>
+                      <td>Contado</td>
+                      <td class="num">
+                        <span class="input" style="display: inline-block; color: var(--ink)"
+                          >$ 930.000</span
+                        >
+                      </td>
+                    </tr>
+                    <tr>
+                      <td class="bold">Diferencia</td>
+                      <td class="num bold" style="color: var(--crit)">− $ 5.000 (faltante)</td>
+                    </tr>
+                  </table>
+                  <span class="btn primary big">Confirmar cierre e imprimir reporte</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 8. Inventario -->
+      <section class="screen" id="inventario">
+        <h2>8 · Inventario (vista tipo ERP)</h2>
+        <p class="note">
+          Insumos con stock, mínimo, costo promedio y alertas. Pestañas para entradas/salidas,
+          ajustes, compras, proveedores y kardex por insumo. La receta de cada producto se edita
+          desde el catálogo y define el descuento automático al vender.
+        </p>
+        <div class="scroll-x">
+          <div class="frame desktop">
+            <div class="rail">
+              <div class="logo">K</div>
+              <div class="ico">▦</div>
+              <div class="ico">🧾</div>
+              <div class="ico">💵</div>
+              <div class="ico on">📦</div>
+              <div class="ico">📊</div>
+              <div class="ico">⚙</div>
+            </div>
+            <div class="content">
+              <div class="topbar">
+                <div class="row">
+                  <h3>Inventario</h3>
+                  <span class="chip on">Insumos</span><span class="chip">Movimientos</span
+                  ><span class="chip">Compras</span><span class="chip">Proveedores</span
+                  ><span class="chip">Kardex</span>
+                </div>
+                <div class="row">
+                  <span class="btn">+ Entrada</span><span class="btn">− Salida / merma</span
+                  ><span class="btn">Ajuste por conteo</span
+                  ><span class="btn primary">+ Compra</span>
+                </div>
+              </div>
+              <div style="padding: 14px 18px" class="col">
+                <div class="row">
+                  <div class="input grow">🔍 Buscar insumo…</div>
+                  <span class="badge" style="border-color: var(--crit)"
+                    ><i class="dot" style="background: var(--crit)"></i>1 bajo el mínimo</span
+                  >
+                </div>
+                <table class="grid">
+                  <tr>
+                    <th>Insumo</th>
+                    <th>Unidad</th>
+                    <th style="text-align: right">Stock</th>
+                    <th style="text-align: right">Mínimo</th>
+                    <th style="text-align: right">Costo prom.</th>
+                    <th style="text-align: right">Valor</th>
+                    <th>Estado</th>
+                  </tr>
+                  <tr>
+                    <td>Carne de res molida</td>
+                    <td>g</td>
+                    <td class="num">10.000</td>
+                    <td class="num">3.000</td>
+                    <td class="num">$ 28</td>
+                    <td class="num">$ 280.000</td>
+                    <td>
+                      <span class="badge"
+                        ><i class="dot" style="background: var(--free)"></i>OK</span
+                      >
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>Pan de hamburguesa</td>
+                    <td>und</td>
+                    <td class="num">60</td>
+                    <td class="num">20</td>
+                    <td class="num">$ 800</td>
+                    <td class="num">$ 48.000</td>
+                    <td>
+                      <span class="badge"
+                        ><i class="dot" style="background: var(--free)"></i>OK</span
+                      >
+                    </td>
+                  </tr>
+                  <tr class="alert-row">
+                    <td class="bold">Cerveza nacional</td>
+                    <td>und</td>
+                    <td class="num bold">12</td>
+                    <td class="num">24</td>
+                    <td class="num">$ 2.500</td>
+                    <td class="num">$ 30.000</td>
+                    <td>
+                      <span class="badge" style="border-color: var(--crit)"
+                        ><i class="dot" style="background: var(--crit)"></i>Reponer</span
+                      >
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>Queso cheddar</td>
+                    <td>g</td>
+                    <td class="num">3.000</td>
+                    <td class="num">1.000</td>
+                    <td class="num">$ 40</td>
+                    <td class="num">$ 120.000</td>
+                    <td>
+                      <span class="badge"
+                        ><i class="dot" style="background: var(--free)"></i>OK</span
+                      >
+                    </td>
+                  </tr>
+                </table>
+                <div class="card col" style="gap: 4px">
+                  <b class="small">Kardex · Carne de res molida</b>
+                  <table class="grid">
+                    <tr>
+                      <th>Fecha</th>
+                      <th>Tipo</th>
+                      <th>Referencia</th>
+                      <th style="text-align: right">Cantidad</th>
+                      <th style="text-align: right">Saldo</th>
+                    </tr>
+                    <tr>
+                      <td>25/09 7:31 p. m.</td>
+                      <td>Venta</td>
+                      <td>Pedido #1041</td>
+                      <td class="num">− 300</td>
+                      <td class="num">9.700</td>
+                    </tr>
+                    <tr>
+                      <td>25/09 9:00 a. m.</td>
+                      <td>Compra</td>
+                      <td>Distribuidora La Sabana · FV-2231</td>
+                      <td class="num">+ 5.000</td>
+                      <td class="num">10.000</td>
+                    </tr>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 9. Reportes -->
+      <section class="screen" id="reportes">
+        <h2>9 · Reportes (dashboard)</h2>
+        <p class="note">
+          Ventas del día, ventas por hora (barras), tendencia (líneas), mezcla por categoría
+          (pastel), producto más vendido, mesero con más ventas, utilidad (ventas − costo teórico
+          por receta − gastos) e inventario crítico. Filtro por rango de fechas.
+        </p>
+        <div class="scroll-x">
+          <div class="frame desktop">
+            <div class="rail">
+              <div class="logo">K</div>
+              <div class="ico">▦</div>
+              <div class="ico">🧾</div>
+              <div class="ico">💵</div>
+              <div class="ico">📦</div>
+              <div class="ico on">📊</div>
+              <div class="ico">⚙</div>
+            </div>
+            <div class="content">
+              <div class="topbar">
+                <h3>Reportes</h3>
+                <div class="row">
+                  <span class="chip on">Hoy</span><span class="chip">7 días</span
+                  ><span class="chip">Mes</span><span class="chip">📅 Rango…</span
+                  ><span class="btn">Exportar PDF</span>
+                </div>
+              </div>
+              <div class="kpis">
+                <div class="card">
+                  <div class="small muted">Ventas del día</div>
+                  <div class="kpi">$ 2.845.000</div>
+                  <div class="small" style="color: var(--green)">▲ 12 % vs. ayer</div>
+                </div>
+                <div class="card">
+                  <div class="small muted">Utilidad estimada</div>
+                  <div class="kpi">$ 1.590.000</div>
+                  <div class="small muted">Margen 56 %</div>
+                </div>
+                <div class="card">
+                  <div class="small muted">Más vendido</div>
+                  <div class="kpi" style="font-size: 16px">Hamburguesa clásica</div>
+                  <div class="small muted">38 unidades</div>
+                </div>
+                <div class="card">
+                  <div class="small muted">Mesero top</div>
+                  <div class="kpi" style="font-size: 16px">Laura Gómez</div>
+                  <div class="small muted">$ 1.210.000 · 21 pedidos</div>
+                </div>
+              </div>
+              <div class="charts">
+                <div class="card">
+                  <b class="small">Ventas por hora</b>
+                  <svg viewBox="0 0 400 160" role="img" aria-label="Barras de ventas por hora">
+                    <g fill="var(--fill-2)">
+                      <rect x="10" y="120" width="26" height="30" rx="4" />
+                      <rect x="46" y="90" width="26" height="60" rx="4" />
+                      <rect x="82" y="40" width="26" height="110" rx="4" />
+                      <rect x="118" y="55" width="26" height="95" rx="4" />
+                      <rect x="154" y="110" width="26" height="40" rx="4" />
+                      <rect x="190" y="125" width="26" height="25" rx="4" />
+                      <rect x="226" y="95" width="26" height="55" rx="4" />
+                    </g>
+                    <g fill="var(--green)">
+                      <rect x="262" y="30" width="26" height="120" rx="4" />
+                      <rect x="298" y="20" width="26" height="130" rx="4" />
+                    </g>
+                    <g fill="var(--fill-2)">
+                      <rect x="334" y="60" width="26" height="90" rx="4" />
+                      <rect x="370" y="105" width="26" height="45" rx="4" />
+                    </g>
+                  </svg>
+                </div>
+                <div class="card">
+                  <b class="small">Ventas por categoría</b>
+                  <svg viewBox="0 0 160 160" role="img" aria-label="Pastel de ventas por categoría">
+                    <circle
+                      cx="80"
+                      cy="80"
+                      r="56"
+                      fill="none"
+                      stroke="var(--green)"
+                      stroke-width="28"
+                      stroke-dasharray="140 352"
+                      transform="rotate(-90 80 80)"
+                    />
+                    <circle
+                      cx="80"
+                      cy="80"
+                      r="56"
+                      fill="none"
+                      stroke="var(--occupied)"
+                      stroke-width="28"
+                      stroke-dasharray="90 352"
+                      stroke-dashoffset="-140"
+                      transform="rotate(-90 80 80)"
+                    />
+                    <circle
+                      cx="80"
+                      cy="80"
+                      r="56"
+                      fill="none"
+                      stroke="var(--food)"
+                      stroke-width="28"
+                      stroke-dasharray="70 352"
+                      stroke-dashoffset="-230"
+                      transform="rotate(-90 80 80)"
+                    />
+                    <circle
+                      cx="80"
+                      cy="80"
+                      r="56"
+                      fill="none"
+                      stroke="var(--fill-2)"
+                      stroke-width="28"
+                      stroke-dasharray="52 352"
+                      stroke-dashoffset="-300"
+                      transform="rotate(-90 80 80)"
+                    />
+                  </svg>
+                </div>
+                <div class="card" style="grid-column: 1 / -1">
+                  <b class="small">Tendencia de ventas (30 días)</b>
+                  <svg
+                    viewBox="0 0 800 120"
+                    preserveAspectRatio="none"
+                    role="img"
+                    aria-label="Línea de tendencia de ventas"
+                    style="height: 120px"
+                  >
+                    <polyline
+                      fill="none"
+                      stroke="var(--green)"
+                      stroke-width="3"
+                      points="0,90 60,80 120,85 180,60 240,70 300,50 360,55 420,40 480,52 540,35 600,45 660,30 720,38 800,20"
+                    />
+                    <polyline
+                      fill="none"
+                      stroke="var(--fill-2)"
+                      stroke-width="2"
+                      stroke-dasharray="6 6"
+                      points="0,95 60,92 120,90 180,80 240,82 300,70 360,72 420,65 480,66 540,60 600,62 660,55 720,58 800,50"
+                    />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 10. Configuración -->
+      <section class="screen" id="config">
+        <h2>10 · Configuración del restaurante</h2>
+        <p class="note">
+          Todo editable desde el panel, sin tocar código: datos del negocio y logo, moneda,
+          impuestos, propina, horarios, impresoras, umbrales del KDS, usuarios y permisos, y la
+          conexión de celulares (QR y certificado).
+        </p>
+        <div class="scroll-x">
+          <div class="frame desktop">
+            <div class="rail">
+              <div class="logo">K</div>
+              <div class="ico">▦</div>
+              <div class="ico">🧾</div>
+              <div class="ico">💵</div>
+              <div class="ico">📦</div>
+              <div class="ico">📊</div>
+              <div class="ico on">⚙</div>
+            </div>
+            <div class="content">
+              <div class="topbar">
+                <h3>Configuración</h3>
+                <span class="btn primary">Guardar cambios</span>
+              </div>
+              <div style="display: grid; grid-template-columns: 220px 1fr; flex: 1">
+                <div
+                  class="col"
+                  style="padding: 14px; border-right: 1px solid var(--line); gap: 4px"
+                >
+                  <span class="chip on" style="border-radius: 10px">Negocio</span
+                  ><span class="chip" style="border: 0">Impuestos y propina</span
+                  ><span class="chip" style="border: 0">Horarios</span
+                  ><span class="chip" style="border: 0">Impresoras</span
+                  ><span class="chip" style="border: 0">Cocina (KDS)</span
+                  ><span class="chip" style="border: 0">Usuarios y roles</span
+                  ><span class="chip" style="border: 0">Conectar celulares</span
+                  ><span class="chip" style="border: 0">Respaldos</span
+                  ><span class="chip" style="border: 0">Licencia</span>
+                </div>
+                <div class="two-col" style="align-content: start">
+                  <div class="card col">
+                    <b>Datos del negocio</b>
+                    <div class="row">
+                      <div class="placeholder-img" style="width: 64px; height: 64px"></div>
+                      <span class="btn">Cambiar logo</span>
+                    </div>
+                    <div class="form-grid">
+                      <div class="input">Karbon Demo</div>
+                      <div class="input">NIT 901234567-8</div>
+                      <div class="input" style="grid-column: 1 / -1">Calle 85 # 12-34, Bogotá</div>
+                      <div class="input">COP · Peso colombiano</div>
+                      <div class="input">America/Bogota</div>
+                    </div>
+                    <div class="row small">
+                      <span class="chip on">✓</span>Precios de carta incluyen impuesto
+                    </div>
+                    <div class="row small">
+                      <span class="chip on">✓</span>Propina sugerida
+                      <span class="input" style="padding: 2px 8px">10 %</span>
+                    </div>
+                  </div>
+                  <div class="card col" style="align-items: center; text-align: center">
+                    <b>Conectar celulares de meseros</b>
+                    <div class="placeholder-img" style="width: 140px; height: 140px"></div>
+                    <div class="bold">https://192.168.1.2</div>
+                    <div class="small muted">
+                      1. Escanea para instalar el certificado del restaurante · 2. Abre la app en
+                      Chrome · 3. "Instalar app"
+                    </div>
+                    <span class="badge"
+                      ><i class="dot" style="background: var(--free)"></i>4 terminales
+                      conectadas</span
+                    >
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="page">
+      Karbon POS · Wireframes de la Fase 1. Datos de ejemplo tomados del seed de demostración. Los
+      valores monetarios son ilustrativos.
+    </footer>
+  </body>
+</html>

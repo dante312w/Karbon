@@ -1,0 +1,71 @@
+{
+  "name": "karbon-pos",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Karbon POS: sistema POS para restaurantes con servidor local, terminales PWA para meseros y pantalla de cocina (KDS).",
+  "license": "UNLICENSED",
+  "type": "module",
+  "packageManager": "npm@11.11.0",
+  "engines": {
+    "node": ">=22.18.0",
+    "npm": ">=10.0.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev --filter=@karbon/backend... --filter=@karbon/desktop... --filter=@karbon/mobile...",
+    "dev:backend": "turbo run dev --filter=@karbon/backend...",
+    "electron": "turbo run dev --filter=@karbon/desktop...",
+    "mobile": "turbo run dev --filter=@karbon/mobile...",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "check": "npm run format:check && turbo run lint typecheck test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:migrate": "npm run db:migrate --workspace=@karbon/backend",
+    "db:deploy": "npm run db:deploy --workspace=@karbon/backend",
+    "db:seed": "npm run db:seed --workspace=@karbon/backend",
+    "db:reset": "npm run db:reset --workspace=@karbon/backend",
+    "db:studio": "npm run db:studio --workspace=@karbon/backend",
+    "desktop:package": "turbo run build && npm run package --workspace=@karbon/desktop",
+    "desktop:release": "turbo run build && npm run release --workspace=@karbon/desktop",
+    "clean": "turbo run clean && node -e \"require('node:fs').rmSync('.turbo',{recursive:true,force:true})\"",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.3",
+    "@commitlint/config-conventional": "^21.2.3",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.10.0",
+    "@vitest/coverage-v8": "^5.0.2",
+    "eslint": "^10.11.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.7",
+    "globals": "^17.12.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.5.1",
+    "prettier": "^3.9.9",
+    "turbo": "^2.11.4",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "^8.70.1",
+    "vitest": "^5.0.2"
+  },
+  "overrides": {
+    "mysql2": "^3.24.4",
+    "deepmerge-ts": "^8.0.2"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,mjs,cjs}": [
+      "eslint --fix --no-warn-ignored",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml,css,html}": "prettier --write"
+  }
+}

@@ -1,0 +1,25 @@
+**/node_modules
+**/dist
+**/dist-electron
+**/dev-dist
+**/release
+**/coverage
+**/.turbo
+**/*.tsbuildinfo
+**/.env
+**/.env.*
+apps/backend/src/generated
+.git
+.github
+.husky
+.vscode
+docs
+
+# Las apps de escritorio y móvil no forman parte de la imagen; solo se necesitan
+# sus package.json para que `npm ci` valide el lockfile del monorepo.
+apps/desktop/*
+!apps/desktop/package.json
+apps/mobile/*
+!apps/mobile/package.json
+packages/ui/*
+!packages/ui/package.json

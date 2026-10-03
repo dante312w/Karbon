@@ -120,6 +120,7 @@ Incluye el backend, la PWA, el KDS web y PostgreSQL 18; no requiere nada instala
 - [Base de datos](docs/DATABASE.md) — diagramas ER, convenciones, índices, invariantes, migraciones
 - [API](docs/API.md) — convenciones REST, endpoints, eventos Socket.io
 - [Despliegue](docs/DEPLOYMENT.md) — desarrollo, Docker, CI/CD, instalador, operación, licencias
+- [Calidad](docs/QA.md) — suites de pruebas, criterios de aceptación y prueba manual en iPhone/iPad
 - [Decisiones de arquitectura (ADR)](docs/adr/README.md)
 - [Wireframes](docs/wireframes/index.html) — abrir en el navegador
 - [Seguridad](SECURITY.md) · [Cambios](CHANGELOG.md)
