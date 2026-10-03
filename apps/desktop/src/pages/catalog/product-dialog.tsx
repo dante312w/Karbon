@@ -33,6 +33,7 @@ import { MoneyInput } from '../../components/money-input';
 import { formatUnitCost, unitLabel } from '../../lib/format';
 import { imageFileToDataUrl } from '../../lib/images';
 import { useAssetUrl } from '../../lib/runtime-context';
+import { ProductNotesTab } from './note-options-dialog';
 
 /** Alta y edición de productos: datos, receta (descuento de inventario) e imagen. */
 export function ProductDialog({
@@ -123,6 +124,9 @@ export function ProductDialog({
             </TabsTrigger>
             <TabsTrigger value="imagen" disabled={!current}>
               Imagen
+            </TabsTrigger>
+            <TabsTrigger value="notas" disabled={!current}>
+              Notas
             </TabsTrigger>
           </TabsList>
           <TabsContent value="datos" className="flex flex-col gap-3">
@@ -292,6 +296,9 @@ export function ProductDialog({
           </TabsContent>
           <TabsContent value="imagen">
             {current ? <ImageUploader product={current} onUploaded={setCurrent} /> : null}
+          </TabsContent>
+          <TabsContent value="notas">
+            {current ? <ProductNotesTab product={current} /> : null}
           </TabsContent>
         </Tabs>
       </DialogContent>

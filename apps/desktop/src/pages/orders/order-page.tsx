@@ -102,7 +102,7 @@ function OrderWorkspace({ order }: { order: OrderDto }) {
   const navigate = useNavigate();
   const printer = useReceiptPrinter();
   const [modal, setModal] = useState<Modal | null>(null);
-  const addingNotes = useNoteSuggestions(modal?.kind === 'add' ? modal.product.categoryId : null);
+  const addingNotes = useNoteSuggestions(modal?.kind === 'add' ? modal.product : null);
   const can = {
     update: useHasPermission(Permission.ORDERS_UPDATE),
     send: useHasPermission(Permission.ORDERS_SEND),
@@ -412,7 +412,8 @@ function OrderWorkspace({ order }: { order: OrderDto }) {
       {modal?.kind === 'call' ? (
         <CallWaiterDialog
           place={{ orderId: order.id }}
-          description={`${place} · ${order.waiter.name}`}
+          description={`${place} · atiende ${order.waiter.name}`}
+          defaultWaiterId={order.waiter.id}
           onClose={close}
         />
       ) : null}

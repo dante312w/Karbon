@@ -1,9 +1,11 @@
 import { PartialType } from '@nestjs/swagger';
 import {
+  type AssignNoteOptionsRequest,
   type CreateCategoryRequest,
   type CreateNoteOptionRequest,
   type CreateProductRequest,
   type ReorderNoteOptionsRequest,
+  type SetNoteOptionsRequest,
   type UpdateNoteOptionRequest,
   KitchenStation,
   type RecipeLineInput,
@@ -12,6 +14,8 @@ import {
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
+  ArrayMinSize,
+  ArrayUnique,
   IsArray,
   IsBoolean,
   IsIn,
@@ -44,19 +48,63 @@ export class UpdateCategoryDto extends PartialType(CreateCategoryDto) {
   @IsOptional() @IsBoolean() isActive?: boolean;
 }
 
+/** Una nota puede aplicar a muchas categorías o productos, sin repetirlos. */
+const NOTE_LINKS_MAX = 200;
+
 export class CreateNoteOptionDto implements CreateNoteOptionRequest {
-  @IsOptional() @IsUUID() categoryId?: string | null;
   @IsString() @Length(1, 60) label!: string;
+  @IsOptional() @IsBoolean() isGeneral?: boolean;
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(NOTE_LINKS_MAX)
+  @ArrayUnique()
+  @IsUUID('all', { each: true })
+  categoryIds?: string[];
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(NOTE_LINKS_MAX)
+  @ArrayUnique()
+  @IsUUID('all', { each: true })
+  productIds?: string[];
 }
 
-export class UpdateNoteOptionDto implements UpdateNoteOptionRequest {
-  @IsOptional() @IsString() @Length(1, 60) label?: string;
+export class UpdateNoteOptionDto
+  extends PartialType(CreateNoteOptionDto)
+  implements UpdateNoteOptionRequest
+{
   @IsOptional() @IsBoolean() isActive?: boolean;
 }
 
 export class ReorderNoteOptionsDto implements ReorderNoteOptionsRequest {
   @IsOptional() @IsUUID() categoryId!: string | null;
-  @IsArray() @ArrayMaxSize(100) @IsUUID('all', { each: true }) ids!: string[];
+  @IsArray() @ArrayMaxSize(500) @IsUUID('all', { each: true }) ids!: string[];
+}
+
+export class SetNoteOptionsDto implements SetNoteOptionsRequest {
+  @IsArray()
+  @ArrayMaxSize(500)
+  @ArrayUnique()
+  @IsUUID('all', { each: true })
+  noteOptionIds!: string[];
+}
+
+class NoteAssignmentDto {
+  @IsUUID() noteOptionId!: string;
+  @IsBoolean() isGeneral!: boolean;
+  @IsArray()
+  @ArrayMaxSize(NOTE_LINKS_MAX)
+  @ArrayUnique()
+  @IsUUID('all', { each: true })
+  categoryIds!: string[];
+}
+
+export class AssignNoteOptionsDto implements AssignNoteOptionsRequest {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(500)
+  @ValidateNested({ each: true })
+  @Type(() => NoteAssignmentDto)
+  assignments!: NoteAssignmentDto[];
 }
 
 export class CreateProductDto implements CreateProductRequest {

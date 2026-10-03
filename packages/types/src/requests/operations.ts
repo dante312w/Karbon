@@ -141,6 +141,8 @@ export interface CreateStaffCallRequest {
   reason: StaffCallReason;
   tableId?: Uuid | null;
   orderId?: Uuid | null;
+  /** Solo al llamar al mesero: a quién. Omitido o `null` = a todos los meseros. */
+  waiterId?: Uuid | null;
   message?: string | null;
 }
 

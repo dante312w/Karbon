@@ -8,6 +8,7 @@ import {
   useProducts,
   useSession,
   useStaffCallActions,
+  useStaffCallRecipients,
   useStaffCalls,
   useTerminology,
   useUrgencyThresholds,
@@ -149,20 +150,23 @@ export default function KdsPage() {
       ),
     [staffCalls, me],
   );
+  // Un toque llama al mesero del pedido; si quien lo tomó no es mesero (p. ej. caja), a todos.
+  const recipients = useStaffCallRecipients(canCallWaiter).data;
   const callWaiter = (ticket: KitchenTicketDto): void => {
+    const waiterId = recipients?.some((recipient) => recipient.id === ticket.waiterId)
+      ? ticket.waiterId
+      : null;
     callActions.create.mutate(
       {
         target: StaffCallTarget.WAITER,
         reason: StaffCallReason.COME_OVER,
         orderId: ticket.orderId,
+        waiterId,
       },
       {
         onSuccess: (call) => {
-          toast.success(
-            call.callCount > 1
-              ? `Se insistió a ${ticket.waiterName}`
-              : `Llamaste a ${ticket.waiterName}`,
-          );
+          const who = call.targetUser?.name ?? 'todos los meseros';
+          toast.success(call.callCount > 1 ? `Se insistió a ${who}` : `Llamaste a ${who}`);
         },
       },
     );

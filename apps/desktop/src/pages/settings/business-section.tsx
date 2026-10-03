@@ -158,6 +158,7 @@ function IdentitySection({ settings }: { settings: RestaurantSettingsDto }) {
   const [maxDiscount, setMaxDiscount] = useState(String(settings.maxDiscountPercent));
   const [warning, setWarning] = useState(String(settings.kdsWarningMinutes));
   const [critical, setCritical] = useState(String(settings.kdsCriticalMinutes));
+  const [escalate, setEscalate] = useState(String(settings.staffCallEscalateSeconds));
   const set = (key: keyof typeof form, value: string): void => {
     setForm({ ...form, [key]: value });
   };
@@ -213,6 +214,10 @@ function IdentitySection({ settings }: { settings: RestaurantSettingsDto }) {
                 maxDiscountPercent: Math.min(100, Math.max(0, Number(maxDiscount) || 0)),
                 kdsWarningMinutes: Number(warning) || 10,
                 kdsCriticalMinutes: Number(critical) || 20,
+                staffCallEscalateSeconds: Math.min(
+                  600,
+                  Math.max(0, Math.round(Number(escalate) || 0)),
+                ),
               });
             }}
           >
@@ -403,6 +408,25 @@ function IdentitySection({ settings }: { settings: RestaurantSettingsDto }) {
             )}
           </Field>
         </div>
+        <Field
+          label="Llamado sin respuesta (s)"
+          hint="Si el mesero elegido no responde, pasa a todos. 0 = nunca."
+        >
+          {(id) => (
+            <Input
+              id={id}
+              type="number"
+              min={0}
+              max={600}
+              step={15}
+              className="w-24"
+              value={escalate}
+              onChange={(event) => {
+                setEscalate(event.target.value);
+              }}
+            />
+          )}
+        </Field>
       </fieldset>
     </Section>
   );

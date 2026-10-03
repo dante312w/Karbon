@@ -6,6 +6,7 @@ import {
   type SocketEvent,
   type SocketEventMap,
   SocketRoom,
+  userRoom,
 } from '@karbon/types';
 import { randomUUID } from 'node:crypto';
 import type { Server } from 'socket.io';
@@ -26,6 +27,8 @@ export const EVENT_ROOMS = {
   /** Llamados internos: más la sala propia de quien llamó, que agrega quien publica. */
   staffCallWaiter: [SocketRoom.WAITERS],
   staffCallCashier: [SocketRoom.CASHIER],
+  /** Quienes toman pedidos (caja y meseros) y el catálogo. */
+  noteOptionsChanged: [SocketRoom.WAITERS, SocketRoom.CASHIER, SocketRoom.ADMIN],
 } as const;
 
 /**
@@ -53,6 +56,12 @@ export class EventsService {
   broadcast<E extends SocketEvent>(event: E, data: SocketEventMap[E]): void {
     if (!this.server) return;
     this.emit(this.server, event, data);
+  }
+
+  /** Usuarios con al menos un equipo conectado ahora (servidor único: salas en memoria). */
+  connectedUsers(userIds: readonly string[]): Set<string> {
+    const rooms = this.server?.sockets.adapter.rooms;
+    return new Set(userIds.filter((id) => (rooms?.get(userRoom(id))?.size ?? 0) > 0));
   }
 
   private emit<E extends SocketEvent>(target: object, event: E, data: SocketEventMap[E]): void {

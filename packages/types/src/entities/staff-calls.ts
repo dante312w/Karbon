@@ -21,7 +21,10 @@ export interface StaffCallDto extends Timestamps {
   table: StaffRef | null;
   orderId: Uuid | null;
   orderNumber: number | null;
-  /** Mesero al que va dirigido (el del pedido); `null` = a todos los meseros o a caja. */
+  /**
+   * Mesero elegido por quien llama; `null` = a todos los meseros o a caja. Si se escaló
+   * (`escalatedAt`), lo ven y atienden todos los meseros, pero se conserva a quién iba.
+   */
   targetUser: StaffRef | null;
   /** Quién llamó y su rol ("Cocina", "Cajero"), para que quien recibe sepa adónde ir. */
   createdBy: StaffRef & { roleName: string };
@@ -32,4 +35,18 @@ export interface StaffCallDto extends Timestamps {
   lastCalledAt: IsoDateTime;
   acknowledgedAt: IsoDateTime | null;
   closedAt: IsoDateTime | null;
+  /** Primera vez que el aviso apareció en el equipo de quien lo atiende ("vista"). */
+  seenAt: IsoDateTime | null;
+  seenBy: StaffRef | null;
+  /** Nadie respondió a tiempo y el llamado pasó a todos los meseros. */
+  escalatedAt: IsoDateTime | null;
+}
+
+/** Mesero al que se puede llamar: activo y, si tiene la app abierta, conectado. */
+export interface StaffCallRecipientDto {
+  id: Uuid;
+  name: string;
+  roleName: string;
+  /** Tiene un equipo conectado ahora (el aviso le llega al instante). */
+  online: boolean;
 }
