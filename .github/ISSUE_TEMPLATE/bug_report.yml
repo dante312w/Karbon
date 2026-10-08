@@ -1,0 +1,33 @@
+name: Reporte de error
+description: Algo no funciona como debería
+labels: ['bug']
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área
+      options: [Backend, Escritorio, PWA meseros, KDS, Inventario, Caja, Reportes, Impresión, Otro]
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Pasos para reproducir
+      placeholder: "1. Abrir la mesa 5\n2. Agregar producto…"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Resultado esperado vs. obtenido
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Versión de Karbon POS
+  - type: textarea
+    id: logs
+    attributes:
+      label: Registros o capturas
+      render: shell

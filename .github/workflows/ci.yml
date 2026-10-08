@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  HUSKY: 0
+  ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+  TURBO_TELEMETRY_DISABLED: 1
+
+jobs:
+  quality:
+    name: Formato, lint, tipos y pruebas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Formato (Prettier)
+        run: npm run format:check
+      - name: Lint, tipos y pruebas unitarias
+        run: npx turbo run lint typecheck test
+      - name: Pruebas e2e del backend
+        run: npm run test:e2e --workspace=@karbon/backend
+        env:
+          JWT_SECRET: secreto-de-ci-con-mas-de-treinta-y-dos-caracteres
+
+  database:
+    name: Migraciones y seed (PostgreSQL 18)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: karbon
+          POSTGRES_PASSWORD: karbon
+          POSTGRES_DB: karbon
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U karbon -d karbon"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://karbon:karbon@localhost:5432/karbon?schema=public
+      TEST_DATABASE_URL: postgresql://karbon:karbon@localhost:5432/karbon_test
+      JWT_SECRET: secreto-de-ci-con-mas-de-treinta-y-dos-caracteres
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx turbo run build --filter=@karbon/types --filter=@karbon/utils
+      - name: Aplicar migraciones
+        run: npm run db:deploy
+      - name: Detectar cambios del esquema sin migración
+        working-directory: apps/backend
+        run: npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
+      - name: Seed (dos veces, debe ser idempotente)
+        run: npm run db:seed && npm run db:seed
+      - name: Pruebas de integración (flujo completo de un turno)
+        run: npm run test:int --workspace=@karbon/backend
+
+  build:
+    name: Build de todas las apps
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+  docker:
+    name: Imagen Docker del backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/backend/Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

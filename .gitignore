@@ -1,0 +1,45 @@
+# Dependencias
+node_modules/
+
+# Builds
+dist/
+dist-electron/
+dev-dist/
+release/
+coverage/
+.turbo/
+*.tsbuildinfo
+
+# Código generado
+apps/backend/src/generated/
+
+# Entorno y secretos
+.env
+.env.*
+!.env.example
+
+# Certificados locales (CA del restaurante)
+*.pem
+*.key
+*.crt
+
+# Herramientas locales
+.claude/
+
+# SO / editores
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Logs
+*.log
+npm-debug.log*
+data/
+data-test/
+
+# Clave privada del emisor de licencias: nunca se versiona ni se distribuye
+.secrets/
+apps/desktop/staging/

@@ -1,0 +1,10 @@
+node_modules
+dist
+dist-electron
+dev-dist
+release
+coverage
+.turbo
+package-lock.json
+**/generated/**
+**/prisma/migrations/**/*.sql
